@@ -1,0 +1,1 @@
+runuser -l root -c 'cd ~/Documents; git pull: pip install git+https://github.com/neelnanda-io/TransformerLens
