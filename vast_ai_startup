@@ -1,1 +1,1 @@
-runuser -l root -c 'cd ~/Documents; git pull: pip install git+https://github.com/neelnanda-io/TransformerLens
+runuser -l root -c 'cd ~/Documents; git pull; pip install tqdm einops; pip install git+https://github.com/neelnanda-io/TransformerLens'
