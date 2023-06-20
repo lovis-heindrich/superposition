@@ -1,4 +1,4 @@
-from transformer_lens import HookedTransformer
+from transformer_lens import HookedTransformer, ActivationCache
 from jaxtyping import Float
 from torch import Tensor
 import einops
@@ -90,5 +90,33 @@ def line(x, xlabel="", ylabel="", title="", xticks=None, width=800):
 
 
 def clean_cache():
+    """Cleans the cache and empties the GPU cache.
+    """
     gc.collect()
     torch.cuda.empty_cache()
+
+def get_caches_single_prompt(prompt: str, model: HookedTransformer, mean_neuron_activations: Float[Tensor, "d_mlp"], neurons =(609), layer_to_ablate=3) -> tuple[float, float, ActivationCache, ActivationCache]:
+    """ Runs the model with and without ablation on a single prompt and returns the caches.
+
+    Args:
+        prompt (str): Prompt to run.
+        model (HookedTransformer): Model to run.
+        mean_neuron_activations (Float[Tensor, "d_mlp"]): Mean neuron activations for the layer to ablate.
+        neurons (tuple, optional): Neurons to ablate. Defaults to [609].
+        layer_to_ablate (int, optional): Layer to ablate. Defaults to 3.
+
+    Returns:
+        tuple[float, float, ActivationCache, ActivationCache]: Original loss, ablated loss, original cache, ablated cache.
+    """
+    neurons = torch.LongTensor(neurons)
+    def ablate_neuron_hook(value, hook):
+        value[:, :, neurons] = mean_neuron_activations[neurons]
+        return value
+    
+    tokens = model.to_tokens(prompt)
+    original_loss, original_cache = model.run_with_cache(tokens, return_type="loss")
+
+    with model.hooks(fwd_hooks=[(f'blocks.{layer_to_ablate}.mlp.hook_post', ablate_neuron_hook)]):
+        ablated_loss, ablated_cache = model.run_with_cache(tokens, return_type="loss")
+
+    return original_loss.item(), ablated_loss.item(), original_cache, ablated_cache
