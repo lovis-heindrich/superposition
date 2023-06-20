@@ -6,6 +6,7 @@ from tqdm.auto import tqdm
 import torch
 from typing import List
 import plotly_express as px
+import gc
 
 def load_txt_data(path: str) -> List[str]:
     """Loads line separated dataset examples from a text file.
@@ -68,3 +69,8 @@ def imshow(tensor, xaxis="", yaxis="", title="", **kwargs):
     plot_kwargs = {"color_continuous_scale":"RdBu", "color_continuous_midpoint":0.0, "labels":{"x":xaxis, "y":yaxis}}
     plot_kwargs.update(kwargs)
     px.imshow(tensor, **plot_kwargs, title=title).show()
+
+
+def clean_cache():
+    gc.collect()
+    torch.cuda.empty_cache()
