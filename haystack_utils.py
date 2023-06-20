@@ -95,7 +95,7 @@ def clean_cache():
     gc.collect()
     torch.cuda.empty_cache()
 
-def get_caches_single_prompt(prompt: str, model: HookedTransformer, mean_neuron_activations: Float[Tensor, "d_mlp"], neurons =(609), layer_to_ablate=3) -> tuple[float, float, ActivationCache, ActivationCache]:
+def get_caches_single_prompt(prompt: str, model: HookedTransformer, mean_neuron_activations: Float[Tensor, "d_mlp"], neurons =(609), layer_to_ablate=3, crop_context: None | tuple[int, int]=None) -> tuple[float, float, ActivationCache, ActivationCache]:
     """ Runs the model with and without ablation on a single prompt and returns the caches.
 
     Args:
@@ -113,7 +113,10 @@ def get_caches_single_prompt(prompt: str, model: HookedTransformer, mean_neuron_
         value[:, :, neurons] = mean_neuron_activations[neurons]
         return value
     
-    tokens = model.to_tokens(prompt)
+    if crop_context is not None:
+        tokens = model.to_tokens(prompt)[:, crop_context[0]:crop_context[1]]
+    else:
+        tokens = model.to_tokens(prompt)
     original_loss, original_cache = model.run_with_cache(tokens, return_type="loss")
 
     with model.hooks(fwd_hooks=[(f'blocks.{layer_to_ablate}.mlp.hook_post', ablate_neuron_hook)]):
