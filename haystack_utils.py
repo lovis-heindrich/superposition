@@ -5,7 +5,7 @@ import einops
 from tqdm.auto import tqdm
 import torch
 from typing import List
-import plotly_express as px
+import plotly.express as px
 import gc
 
 def load_txt_data(path: str) -> List[str]:
@@ -73,6 +73,20 @@ def imshow(tensor, xaxis="", yaxis="", title="", **kwargs):
     }
     plot_kwargs.update(kwargs)
     px.imshow(tensor, **plot_kwargs, title=title).show()
+
+
+def line(x, xlabel="", ylabel="", title="", xticks=None, width=800):
+    fig = px.line(x, title=title)
+    fig.update_layout(xaxis_title=xlabel, yaxis_title=ylabel, width=width)
+    if xticks != None:
+        fig.update_layout(
+            xaxis = dict(
+            tickmode = 'array',
+            tickvals = [i for i in range(len(xticks))],
+            ticktext = xticks
+            )
+        )
+    fig.show()
 
 
 def clean_cache():
