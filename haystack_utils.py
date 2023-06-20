@@ -4,9 +4,10 @@ from torch import Tensor
 import einops
 from tqdm.auto import tqdm
 import torch
+from typing import List
+import plotly_express as px
 
-
-def load_txt_data(path: str) -> list[str]:
+def load_txt_data(path: str) -> List[str]:
     """Loads line separated dataset examples from a text file.
 
     Args:
@@ -26,7 +27,7 @@ def load_txt_data(path: str) -> list[str]:
 
 
 def get_mlp_activations(
-    prompts: list[str],
+    prompts: List[str],
     layer: int,
     model: HookedTransformer,
     num_prompts: int = -1,
@@ -61,3 +62,9 @@ def get_mlp_activations(
     if mean:
         return torch.mean(acts, dim=0)
     return acts
+
+
+def imshow(tensor, xaxis="", yaxis="", title="", **kwargs):
+    plot_kwargs = {"color_continuous_scale":"RdBu", "color_continuous_midpoint":0.0, "labels":{"x":xaxis, "y":yaxis}}
+    plot_kwargs.update(kwargs)
+    px.imshow(tensor, **plot_kwargs, title=title).show()
