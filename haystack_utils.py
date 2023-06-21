@@ -175,3 +175,38 @@ def get_caches_single_prompt(prompt: str, model: HookedTransformer, mean_neuron_
         ablated_loss, ablated_cache = model.run_with_cache(tokens, return_type="loss")
 
     return original_loss.item(), ablated_loss.item(), original_cache, ablated_cache
+
+
+# Show average activations of French neuron L3N609 at each position over the French data
+# Tests look reasonable 
+def get_average_loss(data: list[str], model:HookedTransformer, batch_size=1, crop_context=-1, fwd_hooks=[], positionwise=False):
+    if crop_context == -1:
+        crop_context = model.cfg.n_ctx
+
+    position_counts = torch.zeros(model.cfg.n_ctx).cuda()
+    position_loss = torch.zeros(model.cfg.n_ctx).cuda()
+
+    dataloader = torch.utils.data.DataLoader(data, batch_size=batch_size)
+    for batch in dataloader:
+        tokens = model.to_tokens(batch)[:, :crop_context]
+        loss = model.run_with_hooks(tokens, return_type="loss", loss_per_token=True, fwd_hooks=fwd_hooks)
+        
+        mask = tokens[:, :] != model.tokenizer.pad_token_id
+        mask[:, 0] = True  # BOS token ID is sometimes equivalent to pad token ID, we can set it to true because we know it exists for every prompt
+
+        # set loss to 0 where we have the pad token
+        pad_tokens = tokens[:, :-1] == model.tokenizer.pad_token_id
+        pad_tokens[:, 0] = False
+        loss[pad_tokens] = 0
+
+        position_loss[0:loss.shape[1]] += loss.sum(dim=0)
+        
+        position_counts[0:mask.shape[1]] += mask[:, :].sum(dim=0).float()
+
+    if positionwise:
+        avg_position_loss = []
+        for i in range(len(position_loss)):
+            avg_position_loss.append((position_loss[i] / position_counts[i]).item() if position_counts[i] != 0 else 0)
+        return avg_position_loss
+
+    return position_loss.sum() / position_counts.sum()
