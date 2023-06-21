@@ -211,4 +211,6 @@ def get_average_loss(data: list[str], model:HookedTransformer, batch_size=1, cro
             avg_position_loss.append((position_loss[i] / position_counts[i]).item() if position_counts[i] != 0 else 0)
         return avg_position_loss
 
+    print(position_loss[12:40])
+    print(position_counts)
     return position_loss.sum() / position_counts.sum()
