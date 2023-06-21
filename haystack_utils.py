@@ -74,7 +74,17 @@ def get_head_activations(
     context_crop_end=400,
     mean=True
 ):
-    """Runs the model through a list of prompts and stores the head patterns for a given layer."""
+    """
+    Runs the model through a list of prompts and stores the head patterns for a given layer. 
+    The mean calculation is somewhat complex because each head has a different attention matrix size.
+    We pad the patterns with zeros to the maximum context length so they can be stacked. 
+    We saves a running count of attention head size to allow for mean pooling. To use the counts,
+    we convert it to a matrix where [0, 0] is the first position count, [0, 1], [1, 0], and [1, 1] all 
+    have the second position count, and so on. Then we can do elementwise division over the summed
+    attention pattern to get the mean.
+
+    A different implementation is done for MLPs in Haystack_cleaned using a mask.
+    """
     max_ctx = context_crop_end - context_crop_start
     position_counts = torch.zeros(max_ctx).cuda()
     patterns = []
