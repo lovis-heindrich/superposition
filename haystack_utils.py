@@ -177,8 +177,6 @@ def get_caches_single_prompt(prompt: str, model: HookedTransformer, mean_neuron_
     return original_loss.item(), ablated_loss.item(), original_cache, ablated_cache
 
 
-# Show average activations of French neuron L3N609 at each position over the French data
-# Tests look reasonable 
 def get_average_loss(data: list[str], model:HookedTransformer, batch_size=1, crop_context=-1, fwd_hooks=[], positionwise=False):
     if crop_context == -1:
         crop_context = model.cfg.n_ctx
@@ -188,20 +186,24 @@ def get_average_loss(data: list[str], model:HookedTransformer, batch_size=1, cro
 
     dataloader = torch.utils.data.DataLoader(data, batch_size=batch_size)
     for batch in dataloader:
-        tokens = model.to_tokens(batch)[:, :crop_context]
+        tokens = model.to_tokens(batch)[:, :crop_context].cuda()
         loss = model.run_with_hooks(tokens, return_type="loss", loss_per_token=True, fwd_hooks=fwd_hooks)
+    
+        # Produce a mask of every token which we expect to produce a valid loss value. Excludes padding tokens and the final token.
+        active_tokens = tokens[:, :] != model.tokenizer.pad_token_id
+        active_tokens[:, 0] = True  # BOS token ID is sometimes equivalent to pad token ID so we manually set it to true
+        # Set each final token prediction to False
+        last_true_token_mask = (active_tokens.flip(dims=[1]).cumsum(dim=1) == 1).flip(dims=[1])
+        last_true_indices = last_true_token_mask.nonzero() # Tensor of tuples of each final True index in the batch
+        active_tokens[last_true_indices[:, 0], last_true_indices[:, 1]] = False
+        active_tokens = active_tokens[:, :-1] # Remove the final column which will never have an associated loss.
+        inactive_tokens = torch.logical_not(active_tokens)
         
-        mask = tokens[:, :] != model.tokenizer.pad_token_id
-        mask[:, 0] = True  # BOS token ID is sometimes equivalent to pad token ID, we can set it to true because we know it exists for every prompt
-
-        # set loss to 0 where we have the pad token
-        pad_tokens = tokens[:, :-1] == model.tokenizer.pad_token_id
-        pad_tokens[:, 0] = False
-        loss[pad_tokens] = 0
-
+        loss[inactive_tokens] = 0
+        # Update positionwise loss and counts.
         position_loss[0:loss.shape[1]] += loss.sum(dim=0)
-        
-        position_counts[0:mask.shape[1]] += mask[:, :].sum(dim=0).float()
+        # Increment by the number of non-pad tokens at each position.
+        position_counts[0:active_tokens.shape[1]] += active_tokens[:, :].sum(dim=0).float()
 
     if positionwise:
         avg_position_loss = []
