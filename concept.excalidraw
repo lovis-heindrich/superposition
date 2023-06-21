@@ -1,0 +1,2617 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "https://marketplace.visualstudio.com/items?itemName=pomdtr.excalidraw-editor",
+  "elements": [
+    {
+      "id": "UgJZDOQc87qGZCdvoqXWw",
+      "type": "rectangle",
+      "x": 636.6666870117188,
+      "y": 355.7942352294922,
+      "width": 264.1666259765625,
+      "height": 128.65884399414062,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1319669510,
+      "version": 255,
+      "versionNonce": 1501719174,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "type": "text",
+          "id": "xGZUyhA0I1zp2jOUAtWZD"
+        }
+      ],
+      "updated": 1687335768275,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "xGZUyhA0I1zp2jOUAtWZD",
+      "type": "text",
+      "x": 642.3001098632812,
+      "y": 382.6236572265625,
+      "width": 252.8997802734375,
+      "height": 75,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": null,
+      "seed": 77886022,
+      "version": 341,
+      "versionNonce": 1855874330,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687335783603,
+      "link": null,
+      "locked": false,
+      "text": "Goal: figure out which \nMLP5 neurons contribute \nmost that loss increase",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "baseline": 68,
+      "containerId": "UgJZDOQc87qGZCdvoqXWw",
+      "originalText": "Goal: figure out which MLP5 neurons contribute most that loss increase",
+      "lineHeight": 1.25
+    },
+    {
+      "id": "yd7qU1ltvOd9jmJfv4oLS",
+      "type": "rectangle",
+      "x": 632.5,
+      "y": 86.99220275878906,
+      "width": 260,
+      "height": 126,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 3
+      },
+      "seed": 996301786,
+      "version": 157,
+      "versionNonce": 872403162,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "type": "text",
+          "id": "x-yD5I--bUzDcrMR9KTPs"
+        }
+      ],
+      "updated": 1687335750288,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "x-yD5I--bUzDcrMR9KTPs",
+      "type": "text",
+      "x": 649.6400756835938,
+      "y": 112.49220275878906,
+      "width": 225.7198486328125,
+      "height": 75,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": null,
+      "seed": 1862564698,
+      "version": 251,
+      "versionNonce": 1766179270,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687335750288,
+      "link": null,
+      "locked": false,
+      "text": "Ablating the french \nneuron leads to ~8% \nincrease in loss",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "baseline": 68,
+      "containerId": "yd7qU1ltvOd9jmJfv4oLS",
+      "originalText": "Ablating the french neuron leads to ~8% increase in loss",
+      "lineHeight": 1.25
+    },
+    {
+      "id": "nFX6DGC5gavyi1smlVUMV",
+      "type": "rectangle",
+      "x": 635.8333129882812,
+      "y": 233.84115600585938,
+      "width": 253.33331298828125,
+      "height": 100.32550048828125,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 3
+      },
+      "seed": 2147076634,
+      "version": 48,
+      "versionNonce": 662931674,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "type": "text",
+          "id": "o1iPkwtj1cM7_OOv9IC4H"
+        }
+      ],
+      "updated": 1687335729592,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "o1iPkwtj1cM7_OOv9IC4H",
+      "type": "text",
+      "x": 642.6000823974609,
+      "y": 246.50390625,
+      "width": 239.79977416992188,
+      "height": 75,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": null,
+      "seed": 606653062,
+      "version": 57,
+      "versionNonce": 2142444486,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687335765096,
+      "link": null,
+      "locked": false,
+      "text": "MLP5 is responsible for \n50% of that loss \nincrease",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "baseline": 68,
+      "containerId": "nFX6DGC5gavyi1smlVUMV",
+      "originalText": "MLP5 is responsible for 50% of that loss increase",
+      "lineHeight": 1.25
+    },
+    {
+      "id": "-ydSgbk_FKpCU3eMA4bAB",
+      "type": "rectangle",
+      "x": 524.72216796875,
+      "y": 548.8758951822917,
+      "width": 251.6666259765625,
+      "height": 135,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1384559066,
+      "version": 113,
+      "versionNonce": 1873945670,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "type": "text",
+          "id": "jNllUPDcyfsFw5UMRZO2f"
+        }
+      ],
+      "updated": 1687336844510,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "jNllUPDcyfsFw5UMRZO2f",
+      "type": "text",
+      "x": 531.2155838012695,
+      "y": 553.8758951822917,
+      "width": 238.67979431152344,
+      "height": 125,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": null,
+      "seed": 391680454,
+      "version": 198,
+      "versionNonce": 925215514,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687336844510,
+      "link": null,
+      "locked": false,
+      "text": "Idea 1: check neurons \nwith highest absolute \ndifference in activation \nbetween ablated and \nunablated",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "baseline": 118,
+      "containerId": "-ydSgbk_FKpCU3eMA4bAB",
+      "originalText": "Idea 1: check neurons with highest absolute difference in activation between ablated and unablated",
+      "lineHeight": 1.25
+    },
+    {
+      "id": "z_ua-kDLGie0dWcPOr0vA",
+      "type": "rectangle",
+      "x": -1445.9982808430989,
+      "y": -178.75774807400154,
+      "width": 255.55552164713538,
+      "height": 108.8758850097656,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1366611034,
+      "version": 364,
+      "versionNonce": 1695715226,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "type": "text",
+          "id": "HvUp6CgeSk7ysvo40KoNU"
+        },
+        {
+          "id": "Ier-L_IvRhzOSY0cy8fwW",
+          "type": "arrow"
+        },
+        {
+          "id": "SKxmvg0sRUDrWvx-466O2",
+          "type": "arrow"
+        },
+        {
+          "id": "LEGqJjRWcjt4JeJoW-9pN",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1687337927848,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "HvUp6CgeSk7ysvo40KoNU",
+      "type": "text",
+      "x": -1426.0504379272463,
+      "y": -149.31980556911873,
+      "width": 215.6598358154297,
+      "height": 50,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": null,
+      "seed": 2021485254,
+      "version": 342,
+      "versionNonce": 1098040582,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687337917256,
+      "link": null,
+      "locked": false,
+      "text": "How does a model do \nFrench text",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "baseline": 43,
+      "containerId": "z_ua-kDLGie0dWcPOr0vA",
+      "originalText": "How does a model do French text",
+      "lineHeight": 1.25
+    },
+    {
+      "id": "fqrbzcROM2rx1mrYWV6fU",
+      "type": "rectangle",
+      "x": -2368.914947509765,
+      "y": 238.84209526909734,
+      "width": 234.72223917643225,
+      "height": 185,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1526440730,
+      "version": 383,
+      "versionNonce": 631139526,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "type": "text",
+          "id": "M9dqEUGCTOrbtZPEtnDuM"
+        }
+      ],
+      "updated": 1687337847230,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "M9dqEUGCTOrbtZPEtnDuM",
+      "type": "text",
+      "x": -2361.8737436930337,
+      "y": 243.84209526909734,
+      "width": 220.63983154296875,
+      "height": 175,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": null,
+      "seed": 1789402,
+      "version": 470,
+      "versionNonce": 1533029018,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687337847230,
+      "link": null,
+      "locked": false,
+      "text": "Idea 1: learn concepts\nin a language \nindependent way, then \nactivate language \nspecific circuits that \nhandle grammar and \nvocabulary",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "baseline": 168,
+      "containerId": "fqrbzcROM2rx1mrYWV6fU",
+      "originalText": "Idea 1: learn concepts in a language independent way, then activate language specific circuits that handle grammar and vocabulary",
+      "lineHeight": 1.25
+    },
+    {
+      "id": "j7qs3PjzPNUzsNqfW7-X5",
+      "type": "rectangle",
+      "x": -1605.329895019531,
+      "y": 240.07909986707915,
+      "width": 223.611094156901,
+      "height": 181.09807332356763,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 3
+      },
+      "seed": 526853830,
+      "version": 402,
+      "versionNonce": 1173240858,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "type": "text",
+          "id": "DkDLpgnV5pv_1AKRPYMwk"
+        }
+      ],
+      "updated": 1687338026601,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "DkDLpgnV5pv_1AKRPYMwk",
+      "type": "text",
+      "x": -1598.3342615763345,
+      "y": 268.12813652886285,
+      "width": 209.6198272705078,
+      "height": 125,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": null,
+      "seed": 514842630,
+      "version": 422,
+      "versionNonce": 70691462,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687338026601,
+      "link": null,
+      "locked": false,
+      "text": "Idea 2: do smart \nthings on English, only\ndo bigram / trigram \nstatistics in other \nlangauges",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "baseline": 118,
+      "containerId": "j7qs3PjzPNUzsNqfW7-X5",
+      "originalText": "Idea 2: do smart things on English, only do bigram / trigram statistics in other langauges",
+      "lineHeight": 1.25
+    },
+    {
+      "id": "tpkYchOfHtCCJerkQHnE9",
+      "type": "rectangle",
+      "x": -1305.189168294271,
+      "y": 243.2475365532768,
+      "width": 244,
+      "height": 183,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1717702874,
+      "version": 407,
+      "versionNonce": 1460561754,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "type": "text",
+          "id": "iZU3ebTXCXVNIz27HUrqq"
+        }
+      ],
+      "updated": 1687338049397,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "iZU3ebTXCXVNIz27HUrqq",
+      "type": "text",
+      "x": -1296.1190617879233,
+      "y": 284.7475365532768,
+      "width": 225.8597869873047,
+      "height": 100,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": null,
+      "seed": 976441734,
+      "version": 401,
+      "versionNonce": 888263494,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687338049397,
+      "link": null,
+      "locked": false,
+      "text": "Idea 3: learn \ncompletely independent \nways to handle \ndifferent languages",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "baseline": 93,
+      "containerId": "tpkYchOfHtCCJerkQHnE9",
+      "originalText": "Idea 3: learn completely independent ways to handle different languages",
+      "lineHeight": 1.25
+    },
+    {
+      "id": "z87JbOCg4ms5m_xu6LSv2",
+      "type": "rectangle",
+      "x": -1569.435729980469,
+      "y": 504.9879540337456,
+      "width": 451,
+      "height": 120,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 3
+      },
+      "seed": 2093580762,
+      "version": 667,
+      "versionNonce": 1977000026,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "type": "text",
+          "id": "0dbHVNKNTXyTsTuXTJd59"
+        }
+      ],
+      "updated": 1687338298323,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "0dbHVNKNTXyTsTuXTJd59",
+      "type": "text",
+      "x": -1562.25553894043,
+      "y": 527.4879540337456,
+      "width": 436.6396179199219,
+      "height": 75,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": null,
+      "seed": 892226842,
+      "version": 970,
+      "versionNonce": 1889905222,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687338298323,
+      "link": null,
+      "locked": false,
+      "text": "Test: run model in bigram mode, see if loss \non French text is mostly explained by bigram\n/ trigram statistics",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "baseline": 68,
+      "containerId": "z87JbOCg4ms5m_xu6LSv2",
+      "originalText": "Test: run model in bigram mode, see if loss on French text is mostly explained by bigram / trigram statistics",
+      "lineHeight": 1.25
+    },
+    {
+      "id": "ypf3bXa369jwt4c5ykihs",
+      "type": "rectangle",
+      "x": -2724.231719970703,
+      "y": 209.82731713189014,
+      "width": 974.3056233723961,
+      "height": 699.3923950195312,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 3
+      },
+      "seed": 623466182,
+      "version": 607,
+      "versionNonce": 1112518362,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "Ier-L_IvRhzOSY0cy8fwW",
+          "type": "arrow"
+        },
+        {
+          "id": "RxFvbxuzpN4DQBI3HrXIm",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1687338345303,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "S3T7rIvCEl0zetsgffJtm",
+      "type": "rectangle",
+      "x": -1647.8428141276045,
+      "y": 192.31430901421447,
+      "width": 622.7647908528648,
+      "height": 464.00828043619777,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1743772570,
+      "version": 515,
+      "versionNonce": 147630278,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "SKxmvg0sRUDrWvx-466O2",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1687338337337,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "Ier-L_IvRhzOSY0cy8fwW",
+      "type": "arrow",
+      "x": -1418.0556052932275,
+      "y": -47.619193472951196,
+      "width": 786.3021531784425,
+      "height": 225.4465106048414,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 2
+      },
+      "seed": 1576090438,
+      "version": 1270,
+      "versionNonce": 1619310662,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687338324457,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -786.3021531784425,
+          225.4465106048414
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": {
+        "elementId": "z_ua-kDLGie0dWcPOr0vA",
+        "gap": 22.262669591284737,
+        "focus": -0.5244615674211334
+      },
+      "endBinding": {
+        "elementId": "ypf3bXa369jwt4c5ykihs",
+        "gap": 32,
+        "focus": -0.7608014792559084
+      },
+      "startArrowhead": null,
+      "endArrowhead": "arrow"
+    },
+    {
+      "id": "SKxmvg0sRUDrWvx-466O2",
+      "type": "arrow",
+      "x": -1329.6220572426341,
+      "y": -59.48390723118986,
+      "width": 23.605732528450517,
+      "height": 231.80280215111736,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 2
+      },
+      "seed": 616106374,
+      "version": 1174,
+      "versionNonce": 1852180614,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687338334771,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -23.605732528450517,
+          231.80280215111736
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": {
+        "elementId": "z_ua-kDLGie0dWcPOr0vA",
+        "gap": 10.397955833046082,
+        "focus": 0.03612468033188784
+      },
+      "endBinding": {
+        "elementId": "S3T7rIvCEl0zetsgffJtm",
+        "gap": 19.995414094286936,
+        "focus": -0.12692945576135733
+      },
+      "startArrowhead": null,
+      "endArrowhead": "arrow"
+    },
+    {
+      "id": "aEjmqYjJWddnjYX6Emcnq",
+      "type": "rectangle",
+      "x": -2368.9149475097656,
+      "y": 445.30910068088093,
+      "width": 231.94442749023438,
+      "height": 199.15359497070312,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 3
+      },
+      "seed": 274546714,
+      "version": 238,
+      "versionNonce": 762694682,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "type": "text",
+          "id": "BG6aaX3vvXlaPFtWlhuVL"
+        }
+      ],
+      "updated": 1687337847231,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "BG6aaX3vvXlaPFtWlhuVL",
+      "type": "text",
+      "x": -2362.972640991211,
+      "y": 482.3858981662325,
+      "width": 220.059814453125,
+      "height": 125,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": null,
+      "seed": 1319046618,
+      "version": 262,
+      "versionNonce": 1722817158,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687337847231,
+      "link": null,
+      "locked": false,
+      "text": "Test: try to get the \nmodel to output text\nin a different \nlanguage by patching \ncontext neurons",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "baseline": 118,
+      "containerId": "aEjmqYjJWddnjYX6Emcnq",
+      "originalText": "Test: try to get the model to output text in a different language by patching context neurons",
+      "lineHeight": 1.25
+    },
+    {
+      "id": "sT6nBKVjBZ5NM1EBMvd9G",
+      "type": "rectangle",
+      "x": -2371.692708333334,
+      "y": 670.3091006808811,
+      "width": 224.9999999999999,
+      "height": 194.98697916666652,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 3
+      },
+      "seed": 2036489370,
+      "version": 180,
+      "versionNonce": 802765018,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "type": "text",
+          "id": "rjWjCxPQxD_MuhaFp8VIg"
+        }
+      ],
+      "updated": 1687337847231,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "rjWjCxPQxD_MuhaFp8VIg",
+      "type": "text",
+      "x": -2353.4726460774746,
+      "y": 680.3025902642144,
+      "width": 188.55987548828125,
+      "height": 175,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": null,
+      "seed": 1297840602,
+      "version": 267,
+      "versionNonce": 1075239366,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687337847231,
+      "link": null,
+      "locked": false,
+      "text": "Result: the model \noutputs looped \nEnglish text when \ndisabling English \nneurons and \nactivating German \nneurons",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "baseline": 168,
+      "containerId": "sT6nBKVjBZ5NM1EBMvd9G",
+      "originalText": "Result: the model outputs looped English text when disabling English neurons and activating German neurons",
+      "lineHeight": 1.25
+    },
+    {
+      "id": "F5nPOTTs1NajEBbCWTGnV",
+      "type": "rectangle",
+      "x": -932.0568135579426,
+      "y": 198.55428398980075,
+      "width": 392.0573425292967,
+      "height": 472.46101379394514,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 3
+      },
+      "seed": 229601626,
+      "version": 236,
+      "versionNonce": 400563270,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "LEGqJjRWcjt4JeJoW-9pN",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1687338354875,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "WmxMTboOq1XaLkGuxpgXE",
+      "type": "rectangle",
+      "x": -878.7366536458333,
+      "y": 241.03482903374606,
+      "width": 284.5703124999998,
+      "height": 157.06382751464832,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 3
+      },
+      "seed": 152335002,
+      "version": 184,
+      "versionNonce": 1192345562,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "type": "text",
+          "id": "WEsAtsPHI8ASZalXZpV11"
+        }
+      ],
+      "updated": 1687338354875,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "WEsAtsPHI8ASZalXZpV11",
+      "type": "text",
+      "x": -872.2914021809896,
+      "y": 269.5667427910702,
+      "width": 271.6798095703125,
+      "height": 100,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": null,
+      "seed": 1985296710,
+      "version": 237,
+      "versionNonce": 1003373254,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687338354875,
+      "link": null,
+      "locked": false,
+      "text": "Idea 4: does computation \nin English, then translation \ncircuitry creates French \noutput",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "baseline": 93,
+      "containerId": "WmxMTboOq1XaLkGuxpgXE",
+      "originalText": "Idea 4: does computation in English, then translation circuitry creates French output",
+      "lineHeight": 1.25
+    },
+    {
+      "id": "o7qZ2T1vanWtFj3zVrEYI",
+      "type": "rectangle",
+      "x": -834.9865010579426,
+      "y": 436.8681115044491,
+      "width": 205.4035949707029,
+      "height": 184.14710998535145,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 3
+      },
+      "seed": 138780122,
+      "version": 174,
+      "versionNonce": 1631630490,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "type": "text",
+          "id": "Zihtb3nJnHj9JhrymSuZL"
+        }
+      ],
+      "updated": 1687338354875,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "Zihtb3nJnHj9JhrymSuZL",
+      "type": "text",
+      "x": -827.8346150716146,
+      "y": 466.4416664971248,
+      "width": 191.09982299804688,
+      "height": 125,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": null,
+      "seed": 1029237978,
+      "version": 244,
+      "versionNonce": 1472592390,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687338354875,
+      "link": null,
+      "locked": false,
+      "text": "Unlikely: on french \ninput the model \nwould first need to\ntranslate French \nto English as well",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "baseline": 118,
+      "containerId": "o7qZ2T1vanWtFj3zVrEYI",
+      "originalText": "Unlikely: on french input the model would first need to translate French to English as well",
+      "lineHeight": 1.25
+    },
+    {
+      "id": "-dxO1-o3MvR4nVhL3Lc_0",
+      "type": "rectangle",
+      "x": -2094.882130940755,
+      "y": 465.9548577202693,
+      "width": 309,
+      "height": 185,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 3
+      },
+      "seed": 732318106,
+      "version": 315,
+      "versionNonce": 89614298,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "type": "text",
+          "id": "OpIrc8ebTccCtSIWe3vat"
+        }
+      ],
+      "updated": 1687338311348,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "OpIrc8ebTccCtSIWe3vat",
+      "type": "text",
+      "x": -2088.692006429036,
+      "y": 470.9548577202693,
+      "width": 296.6197509765625,
+      "height": 175,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": null,
+      "seed": 198443226,
+      "version": 512,
+      "versionNonce": 739711686,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687338311348,
+      "link": null,
+      "locked": false,
+      "text": "Test: try to find \nnon-language context neuron \non English text, see if it also\nactivates on text in other \nlanguages. We can test on \nparts of speech data (e.g. \nidentify verbs)",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "baseline": 168,
+      "containerId": "-dxO1-o3MvR4nVhL3Lc_0",
+      "originalText": "Test: try to find non-language context neuron on English text, see if it also activates on text in other languages. We can test on parts of speech data (e.g. identify verbs)",
+      "lineHeight": 1.25
+    },
+    {
+      "id": "LEGqJjRWcjt4JeJoW-9pN",
+      "type": "arrow",
+      "x": -1292.8860873882236,
+      "y": -53.70264350043363,
+      "width": 543.0450453659442,
+      "height": 226.8988800048828,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 2
+      },
+      "seed": 1458559258,
+      "version": 105,
+      "versionNonce": 1465951110,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687338354875,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          543.0450453659442,
+          226.8988800048828
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": {
+        "elementId": "z_ua-kDLGie0dWcPOr0vA",
+        "focus": 0.560284882571331,
+        "gap": 16.17921956380232
+      },
+      "endBinding": {
+        "elementId": "F5nPOTTs1NajEBbCWTGnV",
+        "focus": 0.8041110952928576,
+        "gap": 25.358047485351562
+      },
+      "startArrowhead": null,
+      "endArrowhead": "arrow"
+    },
+    {
+      "id": "8akwxHzKTBZMWy7q_s2fw",
+      "type": "rectangle",
+      "x": -1982.316975911458,
+      "y": 1014.1360253228083,
+      "width": 563,
+      "height": 110,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 3
+      },
+      "seed": 2125949018,
+      "version": 368,
+      "versionNonce": 1529996358,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "type": "text",
+          "id": "KYD4RAaeJ6DKWkeAoiIlB"
+        },
+        {
+          "id": "RxFvbxuzpN4DQBI3HrXIm",
+          "type": "arrow"
+        },
+        {
+          "id": "DdWYGkTUwkjALc1GknaAz",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1687338346990,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "KYD4RAaeJ6DKWkeAoiIlB",
+      "type": "text",
+      "x": -1977.2367757161455,
+      "y": 1019.1360253228083,
+      "width": 552.839599609375,
+      "height": 100,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": null,
+      "seed": 38140634,
+      "version": 329,
+      "versionNonce": 34688410,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687338339516,
+      "link": null,
+      "locked": false,
+      "text": "Idea 1 + 2+ 3 are probably on a spectrum and depend \non model size + training data. Pythia 70M generates \nvery incoherent German text but larger Pythia models \nget much better",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "baseline": 93,
+      "containerId": "8akwxHzKTBZMWy7q_s2fw",
+      "originalText": "Idea 1 + 2+ 3 are probably on a spectrum and depend on model size + training data. Pythia 70M generates very incoherent German text but larger Pythia models get much better",
+      "lineHeight": 1.25
+    },
+    {
+      "id": "XGX0QsmKGNVHOaAaqSlFp",
+      "type": "rectangle",
+      "x": -2660.637288411458,
+      "y": 473.7390297783749,
+      "width": 247,
+      "height": 146,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 3
+      },
+      "seed": 694839878,
+      "version": 311,
+      "versionNonce": 1507774662,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "type": "text",
+          "id": "dQcTEasDiFn8e1Ft2_Pgs"
+        }
+      ],
+      "updated": 1687338322664,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "dQcTEasDiFn8e1Ft2_Pgs",
+      "type": "text",
+      "x": -2651.717206319173,
+      "y": 484.2390297783748,
+      "width": 229.1598358154297,
+      "height": 125,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": null,
+      "seed": 1966959258,
+      "version": 469,
+      "versionNonce": 1422395034,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687338322664,
+      "link": null,
+      "locked": false,
+      "text": "Test for language \nspecific circuits (e.g. \n\"L'\" being attached to \nthe next word in \nFrench)",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "baseline": 118,
+      "containerId": "XGX0QsmKGNVHOaAaqSlFp",
+      "originalText": "Test for language specific circuits (e.g. \"L'\" being attached to the next word in French)",
+      "lineHeight": 1.25
+    },
+    {
+      "id": "RxFvbxuzpN4DQBI3HrXIm",
+      "type": "arrow",
+      "x": -1911.027913411458,
+      "y": 938.7779778374568,
+      "width": 67.90374755859375,
+      "height": 57.063827514648324,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 2
+      },
+      "seed": 733013510,
+      "version": 145,
+      "versionNonce": 1727334982,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687338345918,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          67.90374755859375,
+          57.063827514648324
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": {
+        "elementId": "ypf3bXa369jwt4c5ykihs",
+        "focus": 0.13865850849965553,
+        "gap": 29.558265686035384
+      },
+      "endBinding": {
+        "elementId": "8akwxHzKTBZMWy7q_s2fw",
+        "focus": -0.15878438083265176,
+        "gap": 18.29421997070324
+      },
+      "startArrowhead": null,
+      "endArrowhead": "arrow"
+    },
+    {
+      "id": "DdWYGkTUwkjALc1GknaAz",
+      "type": "arrow",
+      "x": -1407.3024251614536,
+      "y": 692.3284463933785,
+      "width": 209.58501583789507,
+      "height": 298.0771101794297,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 2
+      },
+      "seed": 1584493658,
+      "version": 170,
+      "versionNonce": 1564044166,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687338347390,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -209.58501583789507,
+          298.0771101794297
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": {
+        "elementId": "8akwxHzKTBZMWy7q_s2fw",
+        "focus": 0.08924050862663609,
+        "gap": 23.730468750000114
+      },
+      "startArrowhead": null,
+      "endArrowhead": "arrow"
+    },
+    {
+      "id": "4twAQso4ko3XUp36oPIAz",
+      "type": "rectangle",
+      "x": -702.7400207519515,
+      "y": 967.7119428846574,
+      "width": 355,
+      "height": 131,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1748751898,
+      "version": 448,
+      "versionNonce": 181416090,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "type": "text",
+          "id": "HQ-_2ZgXBIDonUbY_nLiZ"
+        },
+        {
+          "id": "KEprSNhVJQFhYH4ZyG7KQ",
+          "type": "arrow"
+        },
+        {
+          "id": "N8Qh-4--pSNUXHBIkn_gE",
+          "type": "arrow"
+        },
+        {
+          "id": "sM4LlDGA27aUddl8D7ddc",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1687340129963,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "HQ-_2ZgXBIDonUbY_nLiZ",
+      "type": "text",
+      "x": -679.0698852539047,
+      "y": 995.7119428846574,
+      "width": 307.65972900390625,
+      "height": 75,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": null,
+      "seed": 1866641242,
+      "version": 480,
+      "versionNonce": 1779765638,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687340048684,
+      "link": null,
+      "locked": false,
+      "text": "Initial hope: Context neuron \ncomposes with bigram table to \nboost words of that language",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "baseline": 68,
+      "containerId": "4twAQso4ko3XUp36oPIAz",
+      "originalText": "Initial hope: Context neuron composes with bigram table to boost words of that language",
+      "lineHeight": 1.25
+    },
+    {
+      "id": "1du7ksLwzwRGqm1OJof9l",
+      "type": "rectangle",
+      "x": -1090.3440246582013,
+      "y": 1201.1233808729382,
+      "width": 361.3020019531248,
+      "height": 211.30206298828125,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 3
+      },
+      "seed": 893427206,
+      "version": 167,
+      "versionNonce": 892032218,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "type": "text",
+          "id": "mKpo_fTWtDnhy-sTd-sOJ"
+        },
+        {
+          "id": "KEprSNhVJQFhYH4ZyG7KQ",
+          "type": "arrow"
+        },
+        {
+          "id": "jJCd4D96YmBqUzFBJRCYn",
+          "type": "arrow"
+        },
+        {
+          "id": "JNu3DwS7bnyzl964Tgsi4",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1687340270326,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "mKpo_fTWtDnhy-sTd-sOJ",
+      "type": "text",
+      "x": -1081.5528717040997,
+      "y": 1244.2744123670789,
+      "width": 343.7196960449219,
+      "height": 125,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": null,
+      "seed": 181788742,
+      "version": 260,
+      "versionNonce": 704977818,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687340234464,
+      "link": null,
+      "locked": false,
+      "text": "Negative evidence: ablating the \nfrench neuron has a high direct \neffect on loss (+1.72% loss \nincrease) - the direct effect CAN \nONLY be unigram?",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "baseline": 118,
+      "containerId": "1du7ksLwzwRGqm1OJof9l",
+      "originalText": "Negative evidence: ablating the french neuron has a high direct effect on loss (+1.72% loss increase) - the direct effect CAN ONLY be unigram?",
+      "lineHeight": 1.25
+    },
+    {
+      "id": "UGsR1NWO1RIkW8jVjn3gl",
+      "type": "rectangle",
+      "x": -666.0210266113268,
+      "y": 1201.123319837782,
+      "width": 355,
+      "height": 200,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1855979674,
+      "version": 66,
+      "versionNonce": 1000128218,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "type": "text",
+          "id": "4E5e19qR6ti9GsKtEVpAB"
+        },
+        {
+          "id": "N8Qh-4--pSNUXHBIkn_gE",
+          "type": "arrow"
+        },
+        {
+          "id": "lCFQm9rOukx88mncvNqQL",
+          "type": "arrow"
+        },
+        {
+          "id": "I8zYxhokx6xfV6sK3wNtR",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1687339534847,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "4E5e19qR6ti9GsKtEVpAB",
+      "type": "text",
+      "x": -657.060867309569,
+      "y": 1238.623319837782,
+      "width": 337.0796813964844,
+      "height": 125,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": null,
+      "seed": 2102284678,
+      "version": 201,
+      "versionNonce": 1489050822,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687339054486,
+      "link": null,
+      "locked": false,
+      "text": "Negative evidence: manually \nactivating language neurons in \nambiguous prompts (e.g. \"gift\") \ndoesn't result in text in different\nlangauges",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "baseline": 118,
+      "containerId": "UGsR1NWO1RIkW8jVjn3gl",
+      "originalText": "Negative evidence: manually activating language neurons in ambiguous prompts (e.g. \"gift\") doesn't result in text in different langauges",
+      "lineHeight": 1.25
+    },
+    {
+      "id": "KEprSNhVJQFhYH4ZyG7KQ",
+      "type": "arrow",
+      "x": -586.0184262987034,
+      "y": 1115.4722578260632,
+      "width": 185.5872236589346,
+      "height": 70,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 2
+      },
+      "seed": 1249803974,
+      "version": 212,
+      "versionNonce": 432337094,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687340048684,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -185.5872236589346,
+          70
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": {
+        "elementId": "4twAQso4ko3XUp36oPIAz",
+        "focus": -0.44915037617477127,
+        "gap": 16.760314941405795
+      },
+      "endBinding": {
+        "elementId": "1du7ksLwzwRGqm1OJof9l",
+        "focus": -0.39828832483396,
+        "gap": 15.651123046875
+      },
+      "startArrowhead": null,
+      "endArrowhead": "arrow"
+    },
+    {
+      "id": "N8Qh-4--pSNUXHBIkn_gE",
+      "type": "arrow",
+      "x": -540.6974487625735,
+      "y": 1113.8056318495007,
+      "width": 82.62695287700797,
+      "height": 73.33331298828125,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 2
+      },
+      "seed": 1328193478,
+      "version": 210,
+      "versionNonce": 1589045254,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687340048684,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          82.62695287700797,
+          73.33331298828125
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": {
+        "elementId": "4twAQso4ko3XUp36oPIAz",
+        "focus": 0.4213119675036197,
+        "gap": 15.093688964843295
+      },
+      "endBinding": {
+        "elementId": "UGsR1NWO1RIkW8jVjn3gl",
+        "focus": 0.5475362411939644,
+        "gap": 13.984375
+      },
+      "startArrowhead": null,
+      "endArrowhead": "arrow"
+    },
+    {
+      "id": "n_k37zkKHGGQRj_pj3smh",
+      "type": "rectangle",
+      "x": -428.17752075195176,
+      "y": 1497.5558149549695,
+      "width": 248,
+      "height": 147,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 3
+      },
+      "seed": 878461126,
+      "version": 669,
+      "versionNonce": 990346266,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "type": "text",
+          "id": "1mzfhCUyBEfSWEY3kH68k"
+        },
+        {
+          "id": "lCFQm9rOukx88mncvNqQL",
+          "type": "arrow"
+        },
+        {
+          "id": "7yJuqKPdGJ8t_3TXZ3fnU",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1687340195253,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "1mzfhCUyBEfSWEY3kH68k",
+      "type": "text",
+      "x": -421.8074188232408,
+      "y": 1521.0558149549695,
+      "width": 235.25979614257812,
+      "height": 100,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": null,
+      "seed": 889877126,
+      "version": 691,
+      "versionNonce": 2018601606,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687340195253,
+      "link": null,
+      "locked": false,
+      "text": "Possible explanation 2: \nNeuron only boosts \nunigrams, doesn't \nunderstand bigrams. ",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "baseline": 93,
+      "containerId": "n_k37zkKHGGQRj_pj3smh",
+      "originalText": "Possible explanation 2: Neuron only boosts unigrams, doesn't understand bigrams. ",
+      "lineHeight": 1.25
+    },
+    {
+      "id": "ijlgIMmJVzXE2-OSKhxNr",
+      "type": "rectangle",
+      "x": -761.3856506347643,
+      "y": 1493.7274458143445,
+      "width": 292,
+      "height": 154,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1980226694,
+      "version": 322,
+      "versionNonce": 1970190106,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "type": "text",
+          "id": "c4XQfTw7ojvbtkttab01t"
+        },
+        {
+          "id": "I8zYxhokx6xfV6sK3wNtR",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1687340198167,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "c4XQfTw7ojvbtkttab01t",
+      "type": "text",
+      "x": -751.4255371093736,
+      "y": 1508.2274458143445,
+      "width": 272.07977294921875,
+      "height": 125,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": null,
+      "seed": 843869146,
+      "version": 460,
+      "versionNonce": 1733255046,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687340198167,
+      "link": null,
+      "locked": false,
+      "text": "Possible explanation 1: \nNeuron boosts the bigram \nbut the bigrams in English \nare way more likely due to \ntraining data distribution",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "baseline": 118,
+      "containerId": "ijlgIMmJVzXE2-OSKhxNr",
+      "originalText": "Possible explanation 1: Neuron boosts the bigram but the bigrams in English are way more likely due to training data distribution",
+      "lineHeight": 1.25
+    },
+    {
+      "id": "lCFQm9rOukx88mncvNqQL",
+      "type": "arrow",
+      "x": -374.6239873539406,
+      "y": 1413.1545088026257,
+      "width": 22.621668314401063,
+      "height": 60.85943603515625,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 2
+      },
+      "seed": 76066010,
+      "version": 441,
+      "versionNonce": 823011782,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687340195253,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          22.621668314401063,
+          60.85943603515625
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": {
+        "elementId": "UGsR1NWO1RIkW8jVjn3gl",
+        "focus": -0.3248726829839316,
+        "gap": 12.03118896484375
+      },
+      "endBinding": {
+        "elementId": "n_k37zkKHGGQRj_pj3smh",
+        "focus": -0.07767627854677164,
+        "gap": 23.5418701171875
+      },
+      "startArrowhead": null,
+      "endArrowhead": "arrow"
+    },
+    {
+      "id": "I8zYxhokx6xfV6sK3wNtR",
+      "type": "arrow",
+      "x": -551.2213467008678,
+      "y": 1411.4878828260632,
+      "width": 8.907920583262808,
+      "height": 58.61981201171875,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 2
+      },
+      "seed": 405335238,
+      "version": 174,
+      "versionNonce": 1451589318,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687340198170,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -8.907920583262808,
+          58.61981201171875
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": {
+        "elementId": "UGsR1NWO1RIkW8jVjn3gl",
+        "focus": 0.2402067309709612,
+        "gap": 10.36456298828125
+      },
+      "endBinding": {
+        "elementId": "ijlgIMmJVzXE2-OSKhxNr",
+        "focus": 0.2534296910167728,
+        "gap": 23.6197509765625
+      },
+      "startArrowhead": null,
+      "endArrowhead": "arrow"
+    },
+    {
+      "id": "tU7oQTG1-3AKY_6ihvsyM",
+      "type": "rectangle",
+      "x": -338.05276489257676,
+      "y": 1750.3941175672742,
+      "width": 215.9896240234375,
+      "height": 135,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 3
+      },
+      "seed": 172642394,
+      "version": 280,
+      "versionNonce": 1516549466,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "type": "text",
+          "id": "Xjx5R4_nUqdzMOZ5QXhFd"
+        },
+        {
+          "id": "7yJuqKPdGJ8t_3TXZ3fnU",
+          "type": "arrow"
+        },
+        {
+          "id": "CzcAd0CrjvvnYWs4ZGsxM",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1687340182284,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "Xjx5R4_nUqdzMOZ5QXhFd",
+      "type": "text",
+      "x": -331.72785949706895,
+      "y": 1755.3941175672742,
+      "width": 203.33981323242188,
+      "height": 125,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": null,
+      "seed": 744778586,
+      "version": 300,
+      "versionNonce": 2085924634,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687340168693,
+      "link": null,
+      "locked": false,
+      "text": "Test: see if \nablating the neuron \nboosts the same \ntokens indepedenent \nof prompt",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "baseline": 118,
+      "containerId": "tU7oQTG1-3AKY_6ihvsyM",
+      "originalText": "Test: see if ablating the neuron boosts the same tokens indepedenent of prompt",
+      "lineHeight": 1.25
+    },
+    {
+      "id": "7yJuqKPdGJ8t_3TXZ3fnU",
+      "type": "arrow",
+      "x": -271.4236148568738,
+      "y": 1663.3629896375867,
+      "width": 19.632767321472897,
+      "height": 59.7135009765625,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 2
+      },
+      "seed": 13914630,
+      "version": 598,
+      "versionNonce": 175177990,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687340195253,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          19.632767321472897,
+          59.7135009765625
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": {
+        "elementId": "n_k37zkKHGGQRj_pj3smh",
+        "focus": -0.009874681550828785,
+        "gap": 18.807174682617188
+      },
+      "endBinding": {
+        "elementId": "tU7oQTG1-3AKY_6ihvsyM",
+        "focus": 0.07252226330305434,
+        "gap": 27.317626953125
+      },
+      "startArrowhead": null,
+      "endArrowhead": "arrow"
+    },
+    {
+      "id": "TttYLw2I1LRsMYlV0c-uE",
+      "type": "rectangle",
+      "x": -1030.3442687988265,
+      "y": 1502.7899915907117,
+      "width": 217.65624999999977,
+      "height": 127.3177490234375,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1373913690,
+      "version": 56,
+      "versionNonce": 526126406,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "type": "text",
+          "id": "xbygHuhrgWp_wmzdYe4xD"
+        },
+        {
+          "id": "jJCd4D96YmBqUzFBJRCYn",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1687339734709,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "xbygHuhrgWp_wmzdYe4xD",
+      "type": "text",
+      "x": -1018.0660629272447,
+      "y": 1541.4488661024304,
+      "width": 193.09983825683594,
+      "height": 50,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": null,
+      "seed": 1117853126,
+      "version": 72,
+      "versionNonce": 506122778,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687339734709,
+      "link": null,
+      "locked": false,
+      "text": "Check which tokens \nthe neuron boosts",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "baseline": 43,
+      "containerId": "TttYLw2I1LRsMYlV0c-uE",
+      "originalText": "Check which tokens the neuron boosts",
+      "lineHeight": 1.25
+    },
+    {
+      "id": "jJCd4D96YmBqUzFBJRCYn",
+      "type": "arrow",
+      "x": -921.9972330096715,
+      "y": 1432.1389295789932,
+      "width": 0.28996560040320674,
+      "height": 55.65106201171852,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 2
+      },
+      "seed": 1824929178,
+      "version": 70,
+      "versionNonce": 268271322,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687339734709,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0.28996560040320674,
+          55.65106201171852
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": {
+        "elementId": "1du7ksLwzwRGqm1OJof9l",
+        "focus": 0.08397875330535826,
+        "gap": 19.713485717773665
+      },
+      "endBinding": {
+        "elementId": "TttYLw2I1LRsMYlV0c-uE",
+        "focus": 0.002003690067940374,
+        "gap": 15
+      },
+      "startArrowhead": null,
+      "endArrowhead": "arrow"
+    },
+    {
+      "id": "qX-N92cRxNQb62Jjyhw-e",
+      "type": "rectangle",
+      "x": -227.01126098632676,
+      "y": 1211.1231214735244,
+      "width": 354,
+      "height": 195,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 3
+      },
+      "seed": 982516570,
+      "version": 97,
+      "versionNonce": 2030179654,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "type": "text",
+          "id": "kzQmiu4Muouvi0Sskv_J_"
+        },
+        {
+          "id": "sM4LlDGA27aUddl8D7ddc",
+          "type": "arrow"
+        },
+        {
+          "id": "CzcAd0CrjvvnYWs4ZGsxM",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1687340160187,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "kzQmiu4Muouvi0Sskv_J_",
+      "type": "text",
+      "x": -221.24111938476426,
+      "y": 1246.1231214735244,
+      "width": 342.459716796875,
+      "height": 125,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": null,
+      "seed": 1124039046,
+      "version": 233,
+      "versionNonce": 299782854,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687340120675,
+      "link": null,
+      "locked": false,
+      "text": "Positive evidence: the direct \neffect of ablating the French \nneuron (+1.72%) is lower than the \ntotal effect (~6%) . Maybe later\ncomponents do bigram stuff. ",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "baseline": 118,
+      "containerId": "qX-N92cRxNQb62Jjyhw-e",
+      "originalText": "Positive evidence: the direct effect of ablating the French neuron (+1.72%) is lower than the total effect (~6%) . Maybe later components do bigram stuff. ",
+      "lineHeight": 1.25
+    },
+    {
+      "id": "sM4LlDGA27aUddl8D7ddc",
+      "type": "arrow",
+      "x": -430.65689086913926,
+      "y": 1113.1544325086807,
+      "width": 237.6561279296875,
+      "height": 70.65106201171875,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 2
+      },
+      "seed": 290720262,
+      "version": 32,
+      "versionNonce": 1845247494,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687340129963,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          237.6561279296875,
+          70.65106201171875
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": {
+        "elementId": "4twAQso4ko3XUp36oPIAz",
+        "focus": 0.43819712129907873,
+        "gap": 14.44248962402321
+      },
+      "endBinding": {
+        "elementId": "qX-N92cRxNQb62Jjyhw-e",
+        "focus": 0.5482936488043063,
+        "gap": 27.317626953125
+      },
+      "startArrowhead": null,
+      "endArrowhead": "arrow"
+    },
+    {
+      "id": "CzcAd0CrjvvnYWs4ZGsxM",
+      "type": "arrow",
+      "x": -45.96993423491432,
+      "y": 1433.805433485243,
+      "width": 148.56844893329463,
+      "height": 289.9219970703125,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 2
+      },
+      "seed": 178248390,
+      "version": 336,
+      "versionNonce": 2070324954,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687340182536,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -148.56844893329463,
+          289.9219970703125
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": {
+        "elementId": "qX-N92cRxNQb62Jjyhw-e",
+        "focus": -0.30044567713591236,
+        "gap": 27.682312011718523
+      },
+      "endBinding": {
+        "elementId": "tU7oQTG1-3AKY_6ihvsyM",
+        "focus": -0.08931865539449148,
+        "gap": 26.66668701171875
+      },
+      "startArrowhead": null,
+      "endArrowhead": "arrow"
+    },
+    {
+      "id": "H0dYUJ3M7PXhu3BkuLQB2",
+      "type": "rectangle",
+      "x": -1297.8901672363297,
+      "y": 1480.9164360894094,
+      "width": 207.20499674479174,
+      "height": 176.08500162760424,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 3
+      },
+      "seed": 215128154,
+      "version": 67,
+      "versionNonce": 1633659290,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "type": "text",
+          "id": "gQ9DmoRBvNDe8adI7jD43"
+        },
+        {
+          "id": "JNu3DwS7bnyzl964Tgsi4",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1687340270326,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "gQ9DmoRBvNDe8adI7jD43",
+      "type": "text",
+      "x": -1291.837603251141,
+      "y": 1518.9589369032117,
+      "width": 195.09986877441406,
+      "height": 100,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": null,
+      "seed": 850716230,
+      "version": 123,
+      "versionNonce": 1410120454,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687340267509,
+      "link": null,
+      "locked": false,
+      "text": "Can a singe neuron \nboost different \nthings depending on \ncontext?",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "baseline": 93,
+      "containerId": "H0dYUJ3M7PXhu3BkuLQB2",
+      "originalText": "Can a singe neuron boost different things depending on context?",
+      "lineHeight": 1.25
+    },
+    {
+      "id": "JNu3DwS7bnyzl964Tgsi4",
+      "type": "arrow",
+      "x": -1113.428090413413,
+      "y": 1413.164767795139,
+      "width": 23.350830078125,
+      "height": 37.196146647135265,
+      "angle": 0,
+      "strokeColor": "#000000",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 2
+      },
+      "seed": 1282728026,
+      "version": 13,
+      "versionNonce": 92569030,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1687340270326,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -23.350830078125,
+          37.196146647135265
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": {
+        "elementId": "1du7ksLwzwRGqm1OJof9l",
+        "focus": 0.5544900464790921,
+        "gap": 23.084065755211668
+      },
+      "endBinding": {
+        "elementId": "H0dYUJ3M7PXhu3BkuLQB2",
+        "focus": -0.10665211111678799,
+        "gap": 30.55552164713515
+      },
+      "startArrowhead": null,
+      "endArrowhead": "arrow"
+    }
+  ],
+  "appState": {
+    "gridSize": null,
+    "viewBackgroundColor": "#ffffff"
+  },
+  "files": {}
+}
