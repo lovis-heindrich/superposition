@@ -6,7 +6,9 @@ from tqdm.auto import tqdm
 import torch
 from typing import List
 import plotly.express as px
+import plotly.graph_objects as go
 import gc
+import numpy as np
 
 def load_txt_data(path: str) -> List[str]:
     """Loads line separated dataset examples from a text file.
@@ -255,3 +257,45 @@ def generate_text(prompt, model, fwd_hooks=[], k=20, truncate_index=None):
             predictions.append(next_char)
 
         return "".join(truncated_prompt) + "".join(predictions)
+
+def two_histogram(data_1: Float[Tensor, "n"], data_2: Float[Tensor, "n"], data_1_name="", data_2_name="", title: str = "", x_label: str= "", y_label: str=""):
+    fig = go.Figure()
+    fig.add_trace(go.Histogram(x=data_1.cpu().numpy(), histnorm='percent', name=data_1_name))
+    fig.add_trace(go.Histogram(x=data_2.cpu().numpy(), histnorm='percent', name=data_2_name))
+
+    fig.update_layout(
+        width=800,
+        title_text=title, # title of plot
+        xaxis_title_text=x_label, # xaxis label
+        yaxis_title_text=y_label, # yaxis label
+        bargap=0.2, # gap between bars of adjacent location coordinates
+        bargroupgap=0.1 # gap between bars of the same location coordinates
+    )
+    fig.show()
+
+def get_ablated_performance(data: list[str], model:HookedTransformer, layer: int, neurons: list[int], inactive_activations, batch_size=1, display_tqdm=True):
+    assert batch_size == 1, "Only tested with batch size 1"
+
+    def ablate_neuron_hook(value, hook):
+        value[:, :, neurons] = inactive_activations
+        return value
+
+    original_losses = []
+    ablated_losses = []
+    #dataloader = torch.utils.data.DataLoader(data, batch_size=batch_size)
+    #for i, batch in tqdm(enumerate(dataloader)):
+    for example in tqdm(data, disable=(not display_tqdm)):
+        tokens = model.to_tokens(example)
+
+        original_loss = model(tokens, return_type="loss")
+        ablated_loss = model.run_with_hooks(tokens, return_type="loss", fwd_hooks=[(f'blocks.{layer}.mlp.hook_post', ablate_neuron_hook)])
+
+        original_losses.append(original_loss.item())
+        ablated_losses.append(ablated_loss.item())
+
+    mean_original_loss = np.mean(original_losses)
+    mean_ablated_loss = np.mean(ablated_losses)
+    percent_increase = ((mean_ablated_loss - mean_original_loss) / mean_original_loss) * 100
+    return mean_original_loss, mean_ablated_loss, percent_increase
+
+
