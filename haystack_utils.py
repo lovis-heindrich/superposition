@@ -192,23 +192,29 @@ def get_average_loss(data: list[str], model:HookedTransformer, batch_size=1, cro
     dataloader = torch.utils.data.DataLoader(data, batch_size=batch_size)
     for batch in dataloader:
         tokens = model.to_tokens(batch)[:, :crop_context].cuda()
-        loss = model.run_with_hooks(tokens, return_type="loss", loss_per_token=True, fwd_hooks=fwd_hooks)
+        loss = model.run_with_hooks(tokens, return_type="loss", loss_per_token=True, fwd_hooks=fwd_hooks) # includes BOS, excludes final token of longest prompt in batch
     
-        # Produce a mask of every token which we expect to produce a valid loss value. Excludes padding tokens and the final token.
+        # Produce a mask of every token which we expect to produce a valid loss value. Excludes padding tokens and the final token of each row.
         active_tokens = tokens[:, :] != model.tokenizer.pad_token_id
         active_tokens[:, 0] = True  # BOS token ID is sometimes equivalent to pad token ID so we manually set it to true
         # Set each final token prediction to False
         last_true_token_mask = (active_tokens.flip(dims=[1]).cumsum(dim=1) == 1).flip(dims=[1])
         last_true_indices = last_true_token_mask.nonzero() # Tensor of tuples of each final True index in the batch
         active_tokens[last_true_indices[:, 0], last_true_indices[:, 1]] = False
-        active_tokens = active_tokens[:, :-1] # Remove the final column which will never have an associated loss.
+        # Remove the final column which will never have an associated loss. The mask size is now equal to the loss tensor size.
+        print(active_tokens.shape)
+        active_tokens = active_tokens[:, :-1] 
+        print(active_tokens.shape)
+
+
+        # Set loss of inactive tokens to 0
         inactive_tokens = torch.logical_not(active_tokens)
-        
-        loss[inactive_tokens] = 0
-        # Update positionwise loss and counts.
+        loss[inactive_tokens] = 0  # [batch, pos]
+
+        # Sum loss batch-wise and update positionwise loss.
         position_loss[0:loss.shape[1]] += loss.sum(dim=0)
         # Increment by the number of non-pad tokens at each position.
-        position_counts[0:active_tokens.shape[1]] += active_tokens[:, :].sum(dim=0).float()
+        position_counts[0:active_tokens.shape[1]] += active_tokens.sum(dim=0).float()
 
     if positionwise:
         avg_position_loss = []
@@ -216,6 +222,36 @@ def get_average_loss(data: list[str], model:HookedTransformer, batch_size=1, cro
             avg_position_loss.append((position_loss[i] / position_counts[i]).item() if position_counts[i] != 0 else 0)
         return avg_position_loss
 
-    print(position_loss[12:40])
-    print(position_counts)
+    print(position_loss[:10])
+    print(position_counts[:10])
     return position_loss.sum() / position_counts.sum()
+
+
+def generate_text(prompt, model, fwd_hooks=[], k=20, truncate_index=None):
+    """
+    Generate k tokens of text from the model given a tokenized prompt.
+    Index into tokens up to the truncate index.
+    Only tested with a batch size of 1.
+    """
+    tokens = model.to_tokens(prompt)
+    tokens = tokens.cuda()
+    
+    if truncate_index is not None:
+        tokens = tokens[:, :truncate_index]
+    truncated_prompt = model.to_string(tokens[:, 1:]) # don't print BOS token
+
+    with model.hooks(fwd_hooks=fwd_hooks):
+        predictions = []
+        logits = model(tokens)
+        next_token = logits[0, -1].argmax(dim=-1)
+        next_char = model.to_string(next_token)
+        predictions.append(next_char)
+
+        for _ in range(1, k):
+            tokens = torch.cat([tokens, next_token[None, None]], dim=-1)
+            logits = model(tokens)
+            next_token = logits[0, -1].argmax(dim=-1)
+            next_char = model.to_string(next_token)
+            predictions.append(next_char)
+
+        return "".join(truncated_prompt) + "".join(predictions)
