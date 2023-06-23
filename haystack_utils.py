@@ -171,6 +171,48 @@ def get_average_loss(data: list[str], model:HookedTransformer, batch_size=1, cro
     return position_loss.sum() / position_counts.sum()
 
 
+def get_loss_increase_for_component(prompts: list[str], model: HookedTransformer, mean_neuron_activations, neurons = [609], layer_to_ablate=3, patched_component=8, crop_context: None | tuple[int, int]=None):
+    # TODO think about layer normalization
+    original_losses = []
+    patched_losses = []
+    for prompt in tqdm(prompts):
+
+        neurons = torch.LongTensor(neurons)
+        def ablate_neuron_hook(value, hook):
+            value[:, :, neurons] = mean_neuron_activations[neurons]
+            return value
+        
+        if crop_context is not None:
+            tokens = model.to_tokens(prompt)[:, crop_context[0]:crop_context[1]]
+        else:
+            tokens = model.to_tokens(prompt)
+        original_loss, original_cache = model.run_with_cache(tokens, return_type="loss")
+
+        with model.hooks(fwd_hooks=[(f'blocks.{layer_to_ablate}.mlp.hook_post', ablate_neuron_hook)]):
+            ablated_loss, ablated_cache = model.run_with_cache(tokens, return_type="loss")
+
+        # component, batch, pos, residual
+        # TODO figure out if we need layer norm here
+        original_per_layer_residual, original_labels = original_cache.decompose_resid(layer=-1, return_labels=True, apply_ln=False)
+        ablated_per_layer_residual, ablated_labels = ablated_cache.decompose_resid(layer=-1, return_labels=True, apply_ln=False)
+
+        # ['embed', '0_attn_out', '0_mlp_out', '1_attn_out', '1_mlp_out', '2_attn_out', '2_mlp_out', '3_attn_out', '3_mlp_out', '4_attn_out', '4_mlp_out', '5_attn_out', '5_mlp_out']
+        def swap_cache_hook(value, hook):
+            # Batch, pos, residual
+            value -= original_per_layer_residual[patched_component]
+            value += ablated_per_layer_residual[patched_component]
+        
+        with model.hooks(fwd_hooks=[(f'blocks.5.hook_resid_post', swap_cache_hook)]):
+            patched_loss = model(tokens, return_type="loss")
+
+        original_losses.append(original_loss.item())
+        patched_losses.append(patched_loss.item())
+
+
+    print(f"Original loss: {np.mean(original_losses):.2f}, patched loss: {np.mean(patched_losses):.2f} (+{((np.mean(patched_losses) - np.mean(original_losses)) / np.mean(original_losses))*100:.2f}%)")
+    return np.mean(original_losses), np.mean(patched_losses)
+
+
 def get_ablated_performance(data: list[str], model:HookedTransformer, layer: int, neurons: list[int], inactive_activations, batch_size=1, display_tqdm=True):
     assert batch_size == 1, "Only tested with batch size 1"
 
