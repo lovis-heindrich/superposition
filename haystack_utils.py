@@ -204,11 +204,7 @@ def get_average_loss(data: list[str], model:HookedTransformer, batch_size=1, cro
         last_true_indices = last_true_token_mask.nonzero() # Tensor of tuples of each final True index in the batch
         active_tokens[last_true_indices[:, 0], last_true_indices[:, 1]] = False
         # Remove the final column which will never have an associated loss. The mask size is now equal to the loss tensor size.
-        print(active_tokens.shape)
         active_tokens = active_tokens[:, :-1] 
-        print(active_tokens.shape)
-
-
         # Set loss of inactive tokens to 0
         inactive_tokens = torch.logical_not(active_tokens)
         loss[inactive_tokens] = 0  # [batch, pos]
@@ -224,8 +220,6 @@ def get_average_loss(data: list[str], model:HookedTransformer, batch_size=1, cro
             avg_position_loss.append((position_loss[i] / position_counts[i]).item() if position_counts[i] != 0 else 0)
         return avg_position_loss
 
-    print(position_loss[:10])
-    print(position_counts[:10])
     return position_loss.sum() / position_counts.sum()
 
 
