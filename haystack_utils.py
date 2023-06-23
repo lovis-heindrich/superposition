@@ -84,16 +84,19 @@ def get_caches_single_prompt(
     return original_return_value, ablated_return_value, original_cache, ablated_cache
 
 
-def get_average_loss(data: list[str], model:HookedTransformer, batch_size=1, crop_context=-1, fwd_hooks=[], positionwise=False):
+def get_average_loss(data: list[str], model: HookedTransformer, crop_context=-1, fwd_hooks=[], positionwise=False):
+    """
+    Mean over all tokens in the data, not the mean of the mean of each batch. 
+    Uses a mask to account for padding tokens, differing prompt lengths, and final tokens not having a loss value.
+    """
     if crop_context == -1:
         crop_context = model.cfg.n_ctx
 
     position_counts = torch.zeros(model.cfg.n_ctx).cuda()
     position_loss = torch.zeros(model.cfg.n_ctx).cuda()
 
-    dataloader = torch.utils.data.DataLoader(data, batch_size=batch_size)
-    for batch in dataloader:
-        tokens = model.to_tokens(batch)[:, :crop_context].cuda()
+    for item in data:
+        tokens = model.to_tokens(item)[:, :crop_context].cuda()
         loss = model.run_with_hooks(tokens, return_type="loss", loss_per_token=True, fwd_hooks=fwd_hooks) # includes BOS, excludes final token of longest prompt in batch
 
         # Produce a mask of every token which we expect to produce a valid loss value. Excludes padding tokens and the final token of each row.
