@@ -49,58 +49,6 @@ def get_mlp_activations(
     return acts
 
 
-def get_head_activations(
-    prompts: List[str],
-    layer: int,
-    model: HookedTransformer,
-    num_prompts: int = -1,
-    context_crop_start=10,
-    context_crop_end=400,
-    mean=True
-):
-    """
-    Runs the model through a list of prompts and stores the head patterns for a given layer. 
-    The mean calculation is somewhat complex because each head has a different attention matrix size.
-    We pad the patterns with zeros to the maximum context length so they can be stacked. 
-    We saves a running count of attention head size to allow for mean pooling. To use the counts,
-    we convert it to a matrix where [0, 0] is the first position count, [0, 1], [1, 0], and [1, 1] all 
-    have the second position count, and so on. Then we can do elementwise division over the summed
-    attention pattern to get the mean.
-
-    A different implementation is done for MLPs in Haystack_cleaned using a mask.
-    """
-    max_ctx = context_crop_end - context_crop_start
-    position_counts = torch.zeros(max_ctx).cuda()
-    patterns = []
-    pattern_label = f'blocks.{layer}.attn.hook_pattern'
-    if num_prompts == -1:
-        num_prompts = len(prompts)
-    for i in tqdm(range(num_prompts)):
-        tokens = model.to_tokens(prompts[i])
-        _, cache = model.run_with_cache(tokens)
-        # cache[pattern_label].shape == [batch head query_pos key_pos]
-        pattern = cache[pattern_label][:, :, context_crop_start:context_crop_end, context_crop_start:context_crop_end]
-        patterns.append(pattern)
-        position_counts[:pattern.shape[2]] += 1
-    
-    padded_patterns = []
-    for pattern in patterns:
-        pad = (0, max_ctx - pattern.shape[-1], 0, max_ctx - pattern.shape[-1])
-        padded_patterns.append(torch.nn.functional.pad(pattern, pad))
-    
-    patterns = torch.concat(padded_patterns, dim=0)
-    if mean:
-        scaling_matrix = torch.zeros(max_ctx, max_ctx).cuda()
-        for row in range(max_ctx):
-            for col in range(max_ctx):
-                scaling_matrix[row, col] = position_counts[max(row, col)]
-
-        print(scaling_matrix.shape)
-        print(patterns.shape)
-        return patterns.sum(dim=0) / scaling_matrix # [num_prompts head max_pos_len max_pos_len] 
-    return patterns
-
-
 def get_caches_single_prompt(
     prompt: str, 
     model: HookedTransformer, 
