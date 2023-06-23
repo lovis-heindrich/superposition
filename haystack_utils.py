@@ -4,7 +4,7 @@ from torch import Tensor
 import einops
 from tqdm.auto import tqdm
 import torch
-from typing import List
+from typing import List, Tuple
 import plotly.express as px
 import plotly.graph_objects as go
 import gc
@@ -48,40 +48,6 @@ def get_mlp_activations(
         return torch.mean(acts, dim=0)
     return acts
 
-
-def get_caches_single_prompt(
-    prompt: str, 
-    model: HookedTransformer, 
-    fwd_hooks=[], 
-    crop_context_end=None,
-    return_type: str = "loss"
-) -> tuple[float, float, ActivationCache, ActivationCache]:
-    """ Runs the model with and without ablation on a single prompt and returns the caches.
-
-    Args:
-        prompt (str): Prompt to run.
-        model (HookedTransformer): Model to run.
-        fwd_hooks (list, optional): Forward hooks to apply during ablation.
-        crop_context_end (int, optional): Crops the tokens to the specified length.
-
-    Returns:
-        tuple[float, float, ActivationCache, ActivationCache]: Original loss, ablated loss, original cache, ablated cache.
-    """
-    assert return_type in ["loss", "logits"]
-
-    if crop_context_end is not None:
-        tokens = model.to_tokens(prompt)[:, :crop_context_end]
-    else:
-        tokens = model.to_tokens(prompt)
-  
-    original_return_value, original_cache = model.run_with_cache(tokens, return_type=return_type)
-    with model.hooks(fwd_hooks=fwd_hooks):
-        ablated_return_value, ablated_cache = model.run_with_cache(tokens, return_type=return_type)
-    
-    if return_type == "loss":  
-        return original_return_value.item(), ablated_return_value.item(), original_cache, ablated_cache
-    
-    return original_return_value, ablated_return_value, original_cache, ablated_cache
 
 
 def get_average_loss(data: list[str], model: HookedTransformer, crop_context=-1, fwd_hooks=[], positionwise=False):
@@ -161,22 +127,16 @@ def get_loss_increase_for_component(prompts: list[str], model: HookedTransformer
     return np.mean(original_losses), np.mean(patched_losses)
 
 
-def get_ablated_performance(data: list[str], model:HookedTransformer, layer: int, neurons: list[int], inactive_activations, batch_size=1, display_tqdm=True):
+def get_ablated_performance(data: list[str], model: HookedTransformer, fwd_hooks: List[Tuple]=[], batch_size=1, display_tqdm=True):
     assert batch_size == 1, "Only tested with batch size 1"
-
-    def ablate_neuron_hook(value, hook):
-        value[:, :, neurons] = inactive_activations
-        return value
 
     original_losses = []
     ablated_losses = []
-    #dataloader = torch.utils.data.DataLoader(data, batch_size=batch_size)
-    #for i, batch in tqdm(enumerate(dataloader)):
     for example in tqdm(data, disable=(not display_tqdm)):
         tokens = model.to_tokens(example)
 
         original_loss = model(tokens, return_type="loss")
-        ablated_loss = model.run_with_hooks(tokens, return_type="loss", fwd_hooks=[(f'blocks.{layer}.mlp.hook_post', ablate_neuron_hook)])
+        ablated_loss = model.run_with_hooks(tokens, return_type="loss", fwd_hooks=fwd_hooks)
 
         original_losses.append(original_loss.item())
         ablated_losses.append(ablated_loss.item())
@@ -185,6 +145,41 @@ def get_ablated_performance(data: list[str], model:HookedTransformer, layer: int
     mean_ablated_loss = np.mean(ablated_losses)
     percent_increase = ((mean_ablated_loss - mean_original_loss) / mean_original_loss) * 100
     return mean_original_loss, mean_ablated_loss, percent_increase
+
+
+def get_caches_single_prompt(
+    prompt: str, 
+    model: HookedTransformer, 
+    fwd_hooks=[], 
+    crop_context_end=None,
+    return_type: str = "loss"
+) -> tuple[float, float, ActivationCache, ActivationCache]:
+    """ Runs the model with and without ablation on a single prompt and returns the caches.
+
+    Args:
+        prompt (str): Prompt to run.
+        model (HookedTransformer): Model to run.
+        fwd_hooks (list, optional): Forward hooks to apply during ablation.
+        crop_context_end (int, optional): Crops the tokens to the specified length.
+
+    Returns:
+        tuple[float, float, ActivationCache, ActivationCache]: original_loss, ablated_loss, original_cache, ablated_cache.
+    """
+    assert return_type in ["loss", "logits"]
+
+    if crop_context_end is not None:
+        tokens = model.to_tokens(prompt)[:, :crop_context_end]
+    else:
+        tokens = model.to_tokens(prompt)
+  
+    original_return_value, original_cache = model.run_with_cache(tokens, return_type=return_type)
+    with model.hooks(fwd_hooks=fwd_hooks):
+        ablated_return_value, ablated_cache = model.run_with_cache(tokens, return_type=return_type)
+    
+    if return_type == "loss":  
+        return original_return_value.item(), ablated_return_value.item(), original_cache, ablated_cache
+    
+    return original_return_value, ablated_return_value, original_cache, ablated_cache
 
 
 def generate_text(prompt, model, fwd_hooks=[], k=20, truncate_index=None):
