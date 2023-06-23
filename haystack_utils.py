@@ -113,7 +113,8 @@ def get_caches_single_prompt(
     Args:
         prompt (str): Prompt to run.
         model (HookedTransformer): Model to run.
-        fwd_hooks (list, optional): Forward hooks to apply during ablation. Defaults to [].
+        fwd_hooks (list, optional): Forward hooks to apply during ablation.
+        crop_context_end (int, optional): Crops the tokens to the specified length.
 
     Returns:
         tuple[float, float, ActivationCache, ActivationCache]: Original loss, ablated loss, original cache, ablated cache.
