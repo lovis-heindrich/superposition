@@ -175,24 +175,17 @@ def get_average_loss(data: list[str], model:HookedTransformer, batch_size=1, cro
     return position_loss.sum() / position_counts.sum()
 
 
-def get_loss_increase_for_component(prompts: list[str], model: HookedTransformer, mean_neuron_activations, neurons = [609], layer_to_ablate=3, patched_component=8, crop_context: None | tuple[int, int]=None):
-    # TODO think about layer normalization
+def get_loss_increase_for_component(prompts: list[str], model: HookedTransformer, fwd_hooks=[], patched_component=8, crop_context_end: None | int=None):
     original_losses = []
     patched_losses = []
     for prompt in tqdm(prompts):
-
-        neurons = torch.LongTensor(neurons)
-        def ablate_neuron_hook(value, hook):
-            value[:, :, neurons] = mean_neuron_activations[neurons]
-            return value
-        
-        if crop_context is not None:
-            tokens = model.to_tokens(prompt)[:, crop_context[0]:crop_context[1]]
+        if crop_context_end is not None:
+            tokens = model.to_tokens(prompt)[:, :crop_context_end]
         else:
             tokens = model.to_tokens(prompt)
-        original_loss, original_cache = model.run_with_cache(tokens, return_type="loss")
 
-        with model.hooks(fwd_hooks=[(f'blocks.{layer_to_ablate}.mlp.hook_post', ablate_neuron_hook)]):
+        original_loss, original_cache = model.run_with_cache(tokens, return_type="loss")
+        with model.hooks(fwd_hooks=fwd_hooks):
             ablated_loss, ablated_cache = model.run_with_cache(tokens, return_type="loss")
 
         # component, batch, pos, residual
