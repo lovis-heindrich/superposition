@@ -101,35 +101,38 @@ def get_head_activations(
     return patterns
 
 
-def get_caches_single_prompt(prompt: str, model: HookedTransformer, fwd_hooks=[], crop_context: None | tuple[int, int]=None, return_type: str = "loss") -> tuple[float, float, ActivationCache, ActivationCache]:
+def get_caches_single_prompt(
+    prompt: str, 
+    model: HookedTransformer, 
+    fwd_hooks=[], 
+    crop_context_end=None,
+    return_type: str = "loss"
+) -> tuple[float, float, ActivationCache, ActivationCache]:
     """ Runs the model with and without ablation on a single prompt and returns the caches.
 
     Args:
         prompt (str): Prompt to run.
         model (HookedTransformer): Model to run.
-        mean_neuron_activations (Float[Tensor, "d_mlp"]): Mean neuron activations for the layer to ablate.
-        neurons (tuple, optional): Neurons to ablate. Defaults to [609].
-        layer_to_ablate (int, optional): Layer to ablate. Defaults to 3.
+        fwd_hooks (list, optional): Forward hooks to apply during ablation. Defaults to [].
 
     Returns:
         tuple[float, float, ActivationCache, ActivationCache]: Original loss, ablated loss, original cache, ablated cache.
     """
     assert return_type in ["loss", "logits"]
 
-    if crop_context is not None:
-        tokens = model.to_tokens(prompt)[:, crop_context[0]:crop_context[1]]
+    if crop_context_end is not None:
+        tokens = model.to_tokens(prompt)[:, :crop_context_end]
     else:
         tokens = model.to_tokens(prompt)
   
     original_return_value, original_cache = model.run_with_cache(tokens, return_type=return_type)
-
     with model.hooks(fwd_hooks=fwd_hooks):
         ablated_return_value, ablated_cache = model.run_with_cache(tokens, return_type=return_type)
     
-    if return_type == "loss":
+    if return_type == "loss":  
         return original_return_value.item(), ablated_return_value.item(), original_cache, ablated_cache
-    else:
-        return original_return_value, ablated_return_value, original_cache, ablated_cache
+    
+    return original_return_value, ablated_return_value, original_cache, ablated_cache
 
 
 def get_average_loss(data: list[str], model:HookedTransformer, batch_size=1, crop_context=-1, fwd_hooks=[], positionwise=False):
