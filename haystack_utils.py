@@ -10,24 +10,6 @@ import plotly.graph_objects as go
 import gc
 import numpy as np
 
-def load_txt_data(path: str) -> List[str]:
-    """Loads line separated dataset examples from a text file.
-
-    Args:
-        path (str): Path to the text file.
-
-    Returns:
-        list[str]: List of examples.
-    """
-    with open(path, "r") as f:
-        data = f.read().split("\n")
-    min_len = min([len(example) for example in data])
-    max_len = max([len(example) for example in data])
-    print(
-        f"{path}: Loaded {len(data)} examples with {min_len} to {max_len} characters each."
-    )
-    return data
-
 
 def get_mlp_activations(
     prompts: List[str],
@@ -119,37 +101,7 @@ def get_head_activations(
     return patterns
 
 
-def imshow(tensor, xaxis="", yaxis="", title="", **kwargs):
-    plot_kwargs = {
-        "color_continuous_scale":"RdBu", 
-        "color_continuous_midpoint":0.0,
-        "labels":{"x":xaxis, "y":yaxis}
-    }
-    plot_kwargs.update(kwargs)
-    px.imshow(tensor, **plot_kwargs, title=title).show()
-
-
-def line(x, xlabel="", ylabel="", title="", xticks=None, width=800):
-    fig = px.line(x, title=title)
-    fig.update_layout(xaxis_title=xlabel, yaxis_title=ylabel, width=width)
-    if xticks != None:
-        fig.update_layout(
-            xaxis = dict(
-            tickmode = 'array',
-            tickvals = [i for i in range(len(xticks))],
-            ticktext = xticks
-            )
-        )
-    fig.show()
-
-
-def clean_cache():
-    """Cleans the cache and empties the GPU cache.
-    """
-    gc.collect()
-    torch.cuda.empty_cache()
-
-def get_caches_single_prompt(prompt: str, model: HookedTransformer, mean_neuron_activations: Float[Tensor, "d_mlp"], neurons =(609), layer_to_ablate=3, crop_context: None | tuple[int, int]=None, return_type: str = "loss") -> tuple[float, float, ActivationCache, ActivationCache]:
+def get_caches_single_prompt(prompt: str, model: HookedTransformer, fwd_hooks=[], crop_context: None | tuple[int, int]=None, return_type: str = "loss") -> tuple[float, float, ActivationCache, ActivationCache]:
     """ Runs the model with and without ablation on a single prompt and returns the caches.
 
     Args:
@@ -163,11 +115,7 @@ def get_caches_single_prompt(prompt: str, model: HookedTransformer, mean_neuron_
         tuple[float, float, ActivationCache, ActivationCache]: Original loss, ablated loss, original cache, ablated cache.
     """
     assert return_type in ["loss", "logits"]
-    neurons = torch.LongTensor(neurons)
-    def ablate_neuron_hook(value, hook):
-        value[:, :, neurons] = mean_neuron_activations[neurons]
-        return value
-    
+
     if crop_context is not None:
         tokens = model.to_tokens(prompt)[:, crop_context[0]:crop_context[1]]
     else:
@@ -175,7 +123,7 @@ def get_caches_single_prompt(prompt: str, model: HookedTransformer, mean_neuron_
   
     original_return_value, original_cache = model.run_with_cache(tokens, return_type=return_type)
 
-    with model.hooks(fwd_hooks=[(f'blocks.{layer_to_ablate}.mlp.hook_post', ablate_neuron_hook)]):
+    with model.hooks(fwd_hooks=fwd_hooks):
         ablated_return_value, ablated_cache = model.run_with_cache(tokens, return_type=return_type)
     
     if return_type == "loss":
@@ -195,7 +143,7 @@ def get_average_loss(data: list[str], model:HookedTransformer, batch_size=1, cro
     for batch in dataloader:
         tokens = model.to_tokens(batch)[:, :crop_context].cuda()
         loss = model.run_with_hooks(tokens, return_type="loss", loss_per_token=True, fwd_hooks=fwd_hooks) # includes BOS, excludes final token of longest prompt in batch
-    
+
         # Produce a mask of every token which we expect to produce a valid loss value. Excludes padding tokens and the final token of each row.
         active_tokens = tokens[:, :] != model.tokenizer.pad_token_id
         active_tokens[:, 0] = True  # BOS token ID is sometimes equivalent to pad token ID so we manually set it to true
@@ -221,6 +169,32 @@ def get_average_loss(data: list[str], model:HookedTransformer, batch_size=1, cro
         return avg_position_loss
 
     return position_loss.sum() / position_counts.sum()
+
+
+def get_ablated_performance(data: list[str], model:HookedTransformer, layer: int, neurons: list[int], inactive_activations, batch_size=1, display_tqdm=True):
+    assert batch_size == 1, "Only tested with batch size 1"
+
+    def ablate_neuron_hook(value, hook):
+        value[:, :, neurons] = inactive_activations
+        return value
+
+    original_losses = []
+    ablated_losses = []
+    #dataloader = torch.utils.data.DataLoader(data, batch_size=batch_size)
+    #for i, batch in tqdm(enumerate(dataloader)):
+    for example in tqdm(data, disable=(not display_tqdm)):
+        tokens = model.to_tokens(example)
+
+        original_loss = model(tokens, return_type="loss")
+        ablated_loss = model.run_with_hooks(tokens, return_type="loss", fwd_hooks=[(f'blocks.{layer}.mlp.hook_post', ablate_neuron_hook)])
+
+        original_losses.append(original_loss.item())
+        ablated_losses.append(ablated_loss.item())
+
+    mean_original_loss = np.mean(original_losses)
+    mean_ablated_loss = np.mean(ablated_losses)
+    percent_increase = ((mean_ablated_loss - mean_original_loss) / mean_original_loss) * 100
+    return mean_original_loss, mean_ablated_loss, percent_increase
 
 
 def generate_text(prompt, model, fwd_hooks=[], k=20, truncate_index=None):
@@ -252,6 +226,7 @@ def generate_text(prompt, model, fwd_hooks=[], k=20, truncate_index=None):
 
         return "".join(truncated_prompt) + "".join(predictions)
 
+
 def two_histogram(data_1: Float[Tensor, "n"], data_2: Float[Tensor, "n"], data_1_name="", data_2_name="", title: str = "", x_label: str= "", y_label: str=""):
     fig = go.Figure()
     fig.add_trace(go.Histogram(x=data_1.cpu().numpy(), histnorm='percent', name=data_1_name))
@@ -267,29 +242,52 @@ def two_histogram(data_1: Float[Tensor, "n"], data_2: Float[Tensor, "n"], data_1
     )
     fig.show()
 
-def get_ablated_performance(data: list[str], model:HookedTransformer, layer: int, neurons: list[int], inactive_activations, batch_size=1, display_tqdm=True):
-    assert batch_size == 1, "Only tested with batch size 1"
 
-    def ablate_neuron_hook(value, hook):
-        value[:, :, neurons] = inactive_activations
-        return value
-
-    original_losses = []
-    ablated_losses = []
-    #dataloader = torch.utils.data.DataLoader(data, batch_size=batch_size)
-    #for i, batch in tqdm(enumerate(dataloader)):
-    for example in tqdm(data, disable=(not display_tqdm)):
-        tokens = model.to_tokens(example)
-
-        original_loss = model(tokens, return_type="loss")
-        ablated_loss = model.run_with_hooks(tokens, return_type="loss", fwd_hooks=[(f'blocks.{layer}.mlp.hook_post', ablate_neuron_hook)])
-
-        original_losses.append(original_loss.item())
-        ablated_losses.append(ablated_loss.item())
-
-    mean_original_loss = np.mean(original_losses)
-    mean_ablated_loss = np.mean(ablated_losses)
-    percent_increase = ((mean_ablated_loss - mean_original_loss) / mean_original_loss) * 100
-    return mean_original_loss, mean_ablated_loss, percent_increase
+def imshow(tensor, xaxis="", yaxis="", title="", **kwargs):
+    plot_kwargs = {
+        "color_continuous_scale":"RdBu", 
+        "color_continuous_midpoint":0.0,
+        "labels":{"x":xaxis, "y":yaxis}
+    }
+    plot_kwargs.update(kwargs)
+    px.imshow(tensor, **plot_kwargs, title=title).show()
 
 
+def line(x, xlabel="", ylabel="", title="", xticks=None, width=800):
+    fig = px.line(x, title=title)
+    fig.update_layout(xaxis_title=xlabel, yaxis_title=ylabel, width=width)
+    if xticks != None:
+        fig.update_layout(
+            xaxis = dict(
+            tickmode = 'array',
+            tickvals = [i for i in range(len(xticks))],
+            ticktext = xticks
+            )
+        )
+    fig.show()
+
+
+def clean_cache():
+    """Cleans the cache and empties the GPU cache.
+    """
+    gc.collect()
+    torch.cuda.empty_cache()
+
+
+def load_txt_data(path: str) -> List[str]:
+    """Loads line separated dataset examples from a text file.
+
+    Args:
+        path (str): Path to the text file.
+
+    Returns:
+        list[str]: List of examples.
+    """
+    with open(path, "r") as f:
+        data = f.read().split("\n")
+    min_len = min([len(example) for example in data])
+    max_len = max([len(example) for example in data])
+    print(
+        f"{path}: Loaded {len(data)} examples with {min_len} to {max_len} characters each."
+    )
+    return data
