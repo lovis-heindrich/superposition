@@ -117,7 +117,8 @@ def get_direct_loss_increase_for_component(
         else:
             tokens = model.to_tokens(prompt)
 
-        original_loss, _, original_cache, ablated_cache = get_caches_single_prompt(prompt, model, fwd_hooks=fwd_hooks, return_type="loss")
+        original_loss, _, original_cache, ablated_cache = get_caches_single_prompt(
+            prompt, model, fwd_hooks=fwd_hooks, crop_context_end=crop_context_end, return_type="loss")
 
         # Applying layer norm here with layer=-1 would apply the final layer's layer norm to the component output we're going to patch.
         # Since we're adding/removing these components from hook_resid_post before the final layer norm is appled, we don't need this.
@@ -134,7 +135,7 @@ def get_direct_loss_increase_for_component(
         with model.hooks(fwd_hooks=[(f'blocks.5.hook_resid_post', swap_cache_hook)]):
             patched_loss = model(tokens, return_type="loss")
 
-        original_losses.append(original_loss.item())
+        original_losses.append(original_loss)
         patched_losses.append(patched_loss.item())
 
 
