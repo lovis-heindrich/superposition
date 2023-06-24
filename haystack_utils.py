@@ -11,6 +11,7 @@ import gc
 import numpy as np
 from einops import einsum
 from IPython.display import display, HTML
+import re
 
 
 def DLA(prompts: list[str], model: HookedTransformer):
@@ -354,10 +355,12 @@ def print_strings_as_html(strings: list[str], color_values: list[float], max_val
         
         # Determine text color based on background luminance
         text_color = "black" if luminance > 0.5 else "white"
+
+        visible_string = re.sub(r'\s+', '&nbsp;', strings[i])
         
         # Generate the HTML with background color, text color, and tooltip for each string
         html += f'<span style="background-color: rgb({red}, {green}, {blue}); color: {text_color}; padding: 2px;" ' \
-                f'title="{color_values[i]}">{strings[i]}</span> '
+                f'title="{color_values[i]}">{visible_string}</span> '
     
     html += "</div>"
     
