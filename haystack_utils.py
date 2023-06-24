@@ -9,6 +9,26 @@ import plotly.express as px
 import plotly.graph_objects as go
 import gc
 import numpy as np
+from einops import einsum
+
+
+def DLA(prompts: list[str], model: HookedTransformer):
+    logit_attributions = []
+    for prompt in tqdm(prompts):
+        tokens = model.to_tokens(prompt)
+        answers = tokens[:, 1:]
+        tokens = tokens[:, :-1]
+        answer_residual_directions = model.tokens_to_residual_directions(answers)  # [batch pos d_model]
+        _, cache = model.run_with_cache(tokens)
+        accumulated_residual, labels = cache.accumulated_resid(layer=-1, incl_mid=False, pos_slice=None, return_labels=True)
+        # Component batch pos d_model
+        scaled_residual_stack = cache.apply_ln_to_stack(accumulated_residual, layer = -1, pos_slice=None)
+        # print(scaled_residual_stack[0, 0, 0, :10]) # 0.0001 difference in some values before the hooked component
+        logit_attribution = einsum(scaled_residual_stack, answer_residual_directions, "component batch pos d_model, batch pos d_model -> component") / answers.shape[1]
+        logit_attributions.append(logit_attribution)
+    
+    logit_attributions = torch.stack(logit_attributions)
+    return logit_attributions, labels
 
 
 def get_mlp_activations(
@@ -101,8 +121,10 @@ def get_direct_loss_increase_for_component(
         disable_progress_bar=False
     ):
     """
-    Measures the direct effect on loss of patching the component (does not include the effect of the patched component on other components).
-    Does include the contribution of the original component to the layer normalizations of the residual stream.
+    Measures the direct effect on loss of patching the component.
+    - Does not include the effect of the patched component on other components.
+    - Does include the effect of the pre-patched component on other components.
+    - Does include the contribution of the original component to the layer normalizations of the residual stream.
 
     Get the original loss of a forward pass. Patch in the contribution to the residual of the patched component and remove 
     the contribution of the original component, then measure the patched loss. Return the patched and original losses.
