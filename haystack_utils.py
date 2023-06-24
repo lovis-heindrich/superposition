@@ -69,7 +69,6 @@ def get_mlp_activations(
     return acts
 
 
-
 def get_average_loss(data: List[str], model: HookedTransformer, crop_context=-1, fwd_hooks=[], positionwise=False):
     """
     Mean over all tokens in the data, not the mean of the mean of each batch. 
