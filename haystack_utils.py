@@ -92,10 +92,10 @@ def get_average_loss(data: list[str], model: HookedTransformer, crop_context=-1,
     return position_loss.sum() / position_counts.sum()
 
 
-def get_loss_increase_for_component(prompts: list[str], model: HookedTransformer, fwd_hooks=[], patched_component=8, crop_context_end: None | int=None):
+def get_loss_increase_for_component(prompts: list[str], model: HookedTransformer, fwd_hooks=[], patched_component=8, crop_context_end: None | int=None, disable_progress_bar=False):
     original_losses = []
     patched_losses = []
-    for prompt in tqdm(prompts):
+    for prompt in tqdm(prompts, disable=disable_progress_bar):
         if crop_context_end is not None:
             tokens = model.to_tokens(prompt)[:, :crop_context_end]
         else:
