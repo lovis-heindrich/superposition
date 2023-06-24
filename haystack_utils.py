@@ -123,7 +123,7 @@ def get_direct_loss_increase_for_component(
     Measures the direct effect on loss of patching the component.
     - Does not include the effect of the patched component on other components.
     - Does include the effect of the pre-patched component on other components.
-    - Does include the contribution of the original component to the layer normalizations of the residual stream.
+    - Does include the contribution of the pre-patched component to the layer normalizations of the residual stream.
 
     Get the original loss of a forward pass. Patch in the contribution to the residual of the patched component and remove 
     the contribution of the original component, then measure the patched loss. Return the patched and original losses.
