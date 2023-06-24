@@ -50,7 +50,7 @@ def get_mlp_activations(
 
 
 
-def get_average_loss(data: list[str], model: HookedTransformer, crop_context=-1, fwd_hooks=[], positionwise=False):
+def get_average_loss(data: List[str], model: HookedTransformer, crop_context=-1, fwd_hooks=[], positionwise=False):
     """
     Mean over all tokens in the data, not the mean of the mean of each batch. 
     Uses a mask to account for padding tokens, differing prompt lengths, and final tokens not having a loss value.
@@ -92,7 +92,23 @@ def get_average_loss(data: list[str], model: HookedTransformer, crop_context=-1,
     return position_loss.sum() / position_counts.sum()
 
 
-def get_loss_increase_for_component(prompts: list[str], model: HookedTransformer, fwd_hooks=[], patched_component=8, crop_context_end: None | int=None, disable_progress_bar=False):
+def get_direct_loss_increase_for_component(
+        prompts: List[str],
+        model: HookedTransformer,
+        fwd_hooks=[],
+        patched_component=8,
+        crop_context_end: None | int=None,
+        disable_progress_bar=False
+    ):
+    """
+    Measures the direct effect on loss of patching the component (does not include the effect of the patched component on other components).
+    Does include the contribution of the original component to the layer normalizations of the residual stream.
+
+    Get the original loss of a forward pass. Patch in the contribution to the residual of the patched component and remove 
+    the contribution of the original component, then measure the patched loss. Return the patched and original losses.
+
+    Print the patched loss, original loss, and patched loss increase as a percentage of the original loss.
+    """
     original_losses = []
     patched_losses = []
     for prompt in tqdm(prompts, disable=disable_progress_bar):
@@ -101,16 +117,15 @@ def get_loss_increase_for_component(prompts: list[str], model: HookedTransformer
         else:
             tokens = model.to_tokens(prompt)
 
-        original_loss, original_cache = model.run_with_cache(tokens, return_type="loss")
-        with model.hooks(fwd_hooks=fwd_hooks):
-            ablated_loss, ablated_cache = model.run_with_cache(tokens, return_type="loss")
+        original_loss, _, original_cache, ablated_cache = get_caches_single_prompt(prompt, model, fwd_hooks=fwd_hooks, return_type="loss")
 
-        # component, batch, pos, residual
-        # TODO figure out if we need layer norm here
-        original_per_layer_residual, original_labels = original_cache.decompose_resid(layer=-1, return_labels=True, apply_ln=False)
+        # Applying layer norm here with layer=-1 would apply the final layer's layer norm to the component output we're going to patch.
+        # Since we're adding/removing these components from hook_resid_post before the final layer norm is appled, we don't need this.
+        original_per_layer_residual, original_labels = original_cache.decompose_resid(layer=-1, return_labels=True, apply_ln=False)  # [component batch pos residual]
         ablated_per_layer_residual, ablated_labels = ablated_cache.decompose_resid(layer=-1, return_labels=True, apply_ln=False)
 
         # ['embed', '0_attn_out', '0_mlp_out', '1_attn_out', '1_mlp_out', '2_attn_out', '2_mlp_out', '3_attn_out', '3_mlp_out', '4_attn_out', '4_mlp_out', '5_attn_out', '5_mlp_out']
+        # Ablate at the final residual stream value to remove the direct component output
         def swap_cache_hook(value, hook):
             # Batch, pos, residual
             value -= original_per_layer_residual[patched_component]
