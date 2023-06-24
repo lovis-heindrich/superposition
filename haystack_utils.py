@@ -275,7 +275,7 @@ def imshow(tensor, xaxis="", yaxis="", title="", **kwargs):
     px.imshow(tensor, **plot_kwargs, title=title).show()
 
 
-def line(x, xlabel="", ylabel="", title="", xticks=None, width=800):
+def line(x, xlabel="", ylabel="", title="", xticks=None, width=800, hover_data=None):
     fig = px.line(x, title=title)
     fig.update_layout(xaxis_title=xlabel, yaxis_title=ylabel, width=width)
     if xticks != None:
@@ -286,6 +286,8 @@ def line(x, xlabel="", ylabel="", title="", xticks=None, width=800):
             ticktext = xticks
             )
         )
+    if hover_data != None:
+        fig.update(data=[{'customdata': hover_data, 'hovertemplate': "Loss: %{y:.4f} (+%{customdata:.2f}%)"}])
     fig.show()
 
 
