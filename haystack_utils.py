@@ -10,6 +10,7 @@ import plotly.graph_objects as go
 import gc
 import numpy as np
 from einops import einsum
+from IPython.display import display, HTML
 
 
 def DLA(prompts: list[str], model: HookedTransformer):
@@ -315,3 +316,50 @@ def load_txt_data(path: str) -> List[str]:
         f"{path}: Loaded {len(data)} examples with {min_len} to {max_len} characters each."
     )
     return data
+
+
+def print_strings_as_html(strings: list[str], color_values: list[float], max_value: float=None):
+    """ Magic GPT function that prints a string as HTML and colors it according to a list of color values. Color values are normalized to the max value preserving the sign.
+    """
+
+    def normalize(values, max_value=None, min_value=None):
+        if max_value is None:
+            max_value = max(values)
+        if min_value is None:
+            min_value = min(values)
+        min_value = abs(min_value)
+        normalized = [value / max_value if value > 0 else value / min_value for value in values]
+        return normalized
+    
+    html = "<div>"
+    
+    # Normalize color values
+    normalized_values = normalize(color_values, max_value, max_value)
+
+    for i in range(len(strings)):
+        color = color_values[i]
+        normalized_color = normalized_values[i]
+        
+        if color < 0:
+            red = int(max(0, min(255, (1 + normalized_color) * 255)))
+            green = int(max(0, min(255, (1 + normalized_color) * 255)))
+            blue = 255
+        else:
+            red = 255
+            green = int(max(0, min(255, (1 - normalized_color) * 255)))
+            blue = int(max(0, min(255, (1 - normalized_color) * 255)))
+        
+        # Calculate luminance to determine if text should be black
+        luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255
+        
+        # Determine text color based on background luminance
+        text_color = "black" if luminance > 0.5 else "white"
+        
+        # Generate the HTML with background color, text color, and tooltip for each string
+        html += f'<span style="background-color: rgb({red}, {green}, {blue}); color: {text_color}; padding: 2px;" ' \
+                f'title="{color_values[i]}">{strings[i]}</span> '
+    
+    html += "</div>"
+    
+    # Print the HTML in Jupyter Notebook
+    display(HTML(html))
