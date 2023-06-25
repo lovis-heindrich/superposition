@@ -1,5 +1,5 @@
 from transformer_lens import HookedTransformer, ActivationCache
-from jaxtyping import Float
+from jaxtyping import Float, Int
 from torch import Tensor
 import einops
 from tqdm.auto import tqdm
@@ -318,7 +318,7 @@ def load_txt_data(path: str) -> List[str]:
     return data
 
 
-def print_strings_as_html(strings: list[str], color_values: list[float], max_value: float=None):
+def print_strings_as_html(strings: list[str], color_values: list[float], max_value: float=None, original_log_probs: list[float]=None, ablated_log_probs: list[float]=None):
     """ Magic GPT function that prints a string as HTML and colors it according to a list of color values. Color values are normalized to the max value preserving the sign.
     """
 
@@ -331,6 +331,9 @@ def print_strings_as_html(strings: list[str], color_values: list[float], max_val
         normalized = [value / max_value if value > 0 else value / min_value for value in values]
         return normalized
     
+    if (original_log_probs is not None) and (ablated_log_probs is not None):
+        assert len(strings) == len(color_values) == len(original_log_probs) == len(ablated_log_probs), f"Lengths of strings, color_values, original_log_probs, and ablated_log_probs must be equal. Got {len(strings)}, {len(color_values)}, {len(original_log_probs)}, and {len(ablated_log_probs)}."
+
     html = "<div>"
     
     # Normalize color values
@@ -357,11 +360,55 @@ def print_strings_as_html(strings: list[str], color_values: list[float], max_val
 
         visible_string = re.sub(r'\s+', '&nbsp;', strings[i])
         
-        # Generate the HTML with background color, text color, and tooltip for each string
-        html += f'<span style="background-color: rgb({red}, {green}, {blue}); color: {text_color}; padding: 2px;" ' \
-                f'title="{color_values[i]}">{visible_string}</span> '
+        if (original_log_probs is not None) and (ablated_log_probs is not None):
+            html += f'<span style="background-color: rgb({red}, {green}, {blue}); color: {text_color}; padding: 2px;" ' \
+                    f'title="Difference: {color_values[i]:.4f}, Original logprob: {original_log_probs[i]:.4f}, Ablated logprob: {ablated_log_probs[i]:.4f}">{visible_string}</span> '
+        else:
+            # Generate the HTML with background color, text color, and tooltip for each string
+            html += f'<span style="background-color: rgb({red}, {green}, {blue}); color: {text_color}; padding: 2px;" ' \
+                    f'title="{color_values[i]:.4f}">{visible_string}</span> '
     
     html += "</div>"
     
     # Print the HTML in Jupyter Notebook
     display(HTML(html))
+
+def get_weird_tokens(model: HookedTransformer, w_e_threshold=0.4, w_u_threshold=15, plot_norms=False) -> Int[Tensor, "d_vocab"]:
+    w_u_norm = model.W_U.norm(dim=0)
+    w_e_norm = model.W_E.norm(dim=1)
+    w_u_ignore = torch.argwhere(w_u_norm > w_u_threshold).flatten()
+    w_e_ignore = torch.argwhere(w_e_norm < w_e_threshold).flatten()
+    all_ignore = torch.argwhere((w_u_norm > w_u_threshold) | (w_e_norm < w_e_threshold)).flatten()
+    not_ignore = torch.argwhere((w_u_norm <= w_u_threshold) & (w_e_norm >= w_e_threshold)).flatten()
+    print(f"Number of W_U neurons to ignore: {len(w_u_ignore)}")
+    print(f"Number of W_E neurons to ignore: {len(w_e_ignore)}")
+    print(f"Number of unique W_U and W_E neurons to ignore: {len(all_ignore)}")
+
+    if plot_norms:
+        fig = px.line(w_u_norm.cpu().numpy(), title="W_U Norm", labels={"value": "W_U.norm(dim=0)", "index": "Vocab Index"})
+        fig.add_hline(y=w_u_threshold, line_dash="dash", line_color="red")
+        fig.show()
+        fig = px.line(w_e_norm.cpu().numpy(), title="W_E Norm", labels={"value": "W_E.norm(dim=1)", "index": "Vocab Index"})
+        fig.add_hline(y=w_e_threshold, line_dash="dash", line_color="red")
+        fig.show()
+    return all_ignore, not_ignore
+
+def top_k_with_exclude(activations: Tensor, k: int, exclude: Tensor, largest=True) -> Tuple[Tensor, Tensor]:
+    """Returns the top k activations and indices excluding the indices in exclude.
+
+    Args:
+        activations (Tensor): Activations to find the top k of.
+        k (int): Number of top activations to return.
+        exclude (Tensor): Indices to exclude.
+
+    Returns:
+        Tuple[Tensor, Tensor]: Top k activations and indices.
+    """
+    assert len(activations) >= k + len(exclude), f"Length of activations ({len(activations)}) must be greater than k ({k}) + length of exclude ({len(exclude)})."
+    activations = activations.clone()
+    if largest:
+        activations[exclude] = -float("inf")
+    else:
+        activations[exclude] = float("inf")
+    top_k_values, top_k_indices = torch.topk(activations, k=k, largest=largest)
+    return top_k_values, top_k_indices
