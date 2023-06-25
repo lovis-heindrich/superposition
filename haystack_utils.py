@@ -14,7 +14,7 @@ from IPython.display import display, HTML
 import re
 
 
-def DLA(prompts: list[str], model: HookedTransformer):
+def DLA(prompts: List[str], model: HookedTransformer):
     logit_attributions = []
     for prompt in tqdm(prompts):
         tokens = model.to_tokens(prompt)
@@ -25,7 +25,6 @@ def DLA(prompts: list[str], model: HookedTransformer):
         accumulated_residual, labels = cache.accumulated_resid(layer=-1, incl_mid=False, pos_slice=None, return_labels=True)
         # Component batch pos d_model
         scaled_residual_stack = cache.apply_ln_to_stack(accumulated_residual, layer = -1, pos_slice=None)
-        # print(scaled_residual_stack[0, 0, 0, :10]) # 0.0001 difference in some values before the hooked component
         logit_attribution = einsum(scaled_residual_stack, answer_residual_directions, "component batch pos d_model, batch pos d_model -> component") / answers.shape[1]
         logit_attributions.append(logit_attribution)
     
