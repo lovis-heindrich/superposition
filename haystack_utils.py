@@ -1,4 +1,5 @@
 from transformer_lens import HookedTransformer, ActivationCache
+from transformer_lens.hook_points import HookPoint
 from jaxtyping import Float, Int
 from torch import Tensor
 import einops
@@ -412,3 +413,43 @@ def top_k_with_exclude(activations: Tensor, k: int, exclude: Tensor, largest=Tru
         activations[exclude] = float("inf")
     top_k_values, top_k_indices = torch.topk(activations, k=k, largest=largest)
     return top_k_values, top_k_indices
+
+
+def get_frozen_loss_difference_for_component(
+        prompts: List[str],
+        model: HookedTransformer,
+        ablation_hooks=[],
+        freeze_act_names=[],
+        crop_context_end: None | int=None,
+        disable_progress_bar=False
+    ):
+    original_losses = []
+    ablated_losses = []
+    frozen_losses = []
+    for prompt in tqdm(prompts, disable=disable_progress_bar):
+        if crop_context_end is not None:
+            tokens = model.to_tokens(prompt)[:, :crop_context_end]
+        else:
+            tokens = model.to_tokens(prompt)
+
+        original_loss, ablated_loss, original_cache, ablated_cache = get_caches_single_prompt(
+            prompt, model, fwd_hooks=ablation_hooks, crop_context_end=crop_context_end, return_type="loss")
+
+        # ['embed', '0_attn_out', '0_mlp_out', '1_attn_out', '1_mlp_out', '2_attn_out', '2_mlp_out', '3_attn_out', '3_mlp_out', '4_attn_out', '4_mlp_out', '5_attn_out', '5_mlp_out']
+        # Ablate at the final residual stream value to remove the direct component output
+        def freeze_hook(value, hook: HookPoint):
+            value = original_cache[hook.name]
+            return value            
+        
+        freeze_hooks = [(freeze_act_name, freeze_hook) for freeze_act_name in freeze_act_names]
+
+        with model.hooks(fwd_hooks=freeze_hooks+ablation_hooks):
+            frozen_loss = model(tokens, return_type="loss")
+
+        original_losses.append(original_loss)
+        ablated_losses.append(ablated_loss)
+        frozen_losses.append(frozen_loss.item())
+
+
+    print(f"Original loss: {np.mean(original_losses):.2f}, frozen loss: {np.mean(frozen_losses):.2f} (+{((np.mean(frozen_losses) - np.mean(original_losses)) / np.mean(original_losses))*100:.2f}%), ablated loss: {np.mean(ablated_losses):.2f} (+{((np.mean(ablated_losses) - np.mean(original_losses)) / np.mean(original_losses))*100:.2f}%)")
+    return np.mean(original_losses), np.mean(ablated_losses), np.mean(frozen_losses)
