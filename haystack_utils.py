@@ -40,7 +40,8 @@ def get_mlp_activations(
     num_prompts: int = -1,
     context_crop_start=10,
     context_crop_end=400,
-    mean=True
+    mean=True,
+    hook_pre = False
 ) -> Float[Tensor, "num_activations d_mlp"]:
     """Runs the model through a list of prompts and stores the mlp activations for a given layer. Might be slow for large batches as examples are run one by one.
 
@@ -56,7 +57,10 @@ def get_mlp_activations(
         Float[Tensor, "num_activations d_mlp"]: Stacked activations for each prompt and position.
     """
     acts = []
-    act_label = f"blocks.{layer}.mlp.hook_post"
+    if hook_pre:
+        act_label = f"blocks.{layer}.mlp.hook_pre"
+    else:
+        act_label = f"blocks.{layer}.mlp.hook_post"
     if num_prompts == -1:
         num_prompts = len(prompts)
     for i in tqdm(range(num_prompts)):
@@ -251,7 +255,7 @@ def generate_text(prompt, model, fwd_hooks=[], k=20, truncate_index=None):
         return "".join(truncated_prompt) + "".join(predictions)
 
 
-def two_histogram(data_1: Float[Tensor, "n"], data_2: Float[Tensor, "n"], data_1_name="", data_2_name="", title: str = "", x_label: str= "", y_label: str=""):
+def two_histogram(data_1: Float[Tensor, "n"], data_2: Float[Tensor, "n"], data_1_name="", data_2_name="", title: str = "", x_label: str= "", y_label: str="", histnorm="", n_bins=100):
     fig = go.Figure()
     fig.add_trace(go.Histogram(x=data_1.cpu().numpy(), histnorm='percent', name=data_1_name))
     fig.add_trace(go.Histogram(x=data_2.cpu().numpy(), histnorm='percent', name=data_2_name))
@@ -359,7 +363,8 @@ def print_strings_as_html(strings: list[str], color_values: list[float], max_val
         # Determine text color based on background luminance
         text_color = "black" if luminance > 0.5 else "white"
 
-        visible_string = re.sub(r'\s+', '&nbsp;', strings[i])
+        #visible_string = re.sub(r'\s+', '&nbsp;', strings[i])
+        visible_string = re.sub(r'\s+', '_', strings[i])
         
         if (original_log_probs is not None) and (ablated_log_probs is not None):
             html += f'<span style="background-color: rgb({red}, {green}, {blue}); color: {text_color}; padding: 2px;" ' \
