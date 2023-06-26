@@ -386,11 +386,12 @@ def get_weird_tokens(model: HookedTransformer, w_e_threshold=0.4, w_u_threshold=
     w_e_ignore = torch.argwhere(w_e_norm < w_e_threshold).flatten()
     all_ignore = torch.argwhere((w_u_norm > w_u_threshold) | (w_e_norm < w_e_threshold)).flatten()
     not_ignore = torch.argwhere((w_u_norm <= w_u_threshold) & (w_e_norm >= w_e_threshold)).flatten()
-    print(f"Number of W_U neurons to ignore: {len(w_u_ignore)}")
-    print(f"Number of W_E neurons to ignore: {len(w_e_ignore)}")
-    print(f"Number of unique W_U and W_E neurons to ignore: {len(all_ignore)}")
 
     if plot_norms:
+        print(f"Number of W_U neurons to ignore: {len(w_u_ignore)}")
+        print(f"Number of W_E neurons to ignore: {len(w_e_ignore)}")
+        print(f"Number of unique W_U and W_E neurons to ignore: {len(all_ignore)}")
+
         fig = px.line(w_u_norm.cpu().numpy(), title="W_U Norm", labels={"value": "W_U.norm(dim=0)", "index": "Vocab Index"})
         fig.add_hline(y=w_u_threshold, line_dash="dash", line_color="red")
         fig.show()
@@ -458,3 +459,31 @@ def get_frozen_loss_difference_for_component(
 
     print(f"Original loss: {np.mean(original_losses):.2f}, frozen loss: {np.mean(frozen_losses):.2f} (+{((np.mean(frozen_losses) - np.mean(original_losses)) / np.mean(original_losses))*100:.2f}%), ablated loss: {np.mean(ablated_losses):.2f} (+{((np.mean(ablated_losses) - np.mean(original_losses)) / np.mean(original_losses))*100:.2f}%)")
     return np.mean(original_losses), np.mean(ablated_losses), np.mean(frozen_losses)
+
+
+def get_neuron_unembed(model, neuron, layer, mean_activation_active, mean_activation_inactive, top_k=20, plot=False):
+    neuron_weight = model.W_out[layer, neuron].view(1, 1, -1)
+    neuron_direction_active = neuron_weight * mean_activation_active 
+    neuron_direction_inactive = neuron_weight * mean_activation_inactive 
+
+    tokens_active = model.unembed(neuron_direction_active)
+    tokens_inactive = model.unembed(neuron_direction_inactive)
+    # Active: German neuron is active - we expect German tokens boosted
+    # Inactive: German neuron is inactive - we expect no boost to German tokens
+    # Active - Inactive: If the neuron boosts German tokens, we expect this to be positive
+    token_differences = (tokens_active - tokens_inactive).flatten()
+
+    all_ignore, _ = get_weird_tokens(model, plot_norms=False)
+
+    boosted_values, boosted_tokens = top_k_with_exclude(token_differences, top_k, exclude=all_ignore)
+    inhibited_values, inhibited_tokens = top_k_with_exclude(token_differences, top_k, largest=False, exclude=all_ignore)
+    boosted_labels = model.to_str_tokens(boosted_tokens)
+    inhibited_labels = model.to_str_tokens(inhibited_tokens)
+
+    if plot:
+        assert top_k < 300, "Too many tokens to plot"
+        fig = line(x=boosted_values.cpu().numpy(), xticks=boosted_labels, title=f"Boosted tokens from active L{layer}N{neuron}", width=1200)
+        fig = line(x=inhibited_values.cpu().numpy(), xticks=inhibited_labels, title=f"Inhibited tokens from active L{layer}N{neuron}", width=1200)
+
+
+    return boosted_tokens, inhibited_tokens
