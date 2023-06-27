@@ -1,3 +1,4 @@
+import warnings
 from transformer_lens import HookedTransformer, ActivationCache
 from transformer_lens.hook_points import HookPoint
 from jaxtyping import Float, Int
@@ -415,7 +416,10 @@ def top_k_with_exclude(activations: Tensor, k: int, exclude: Tensor, largest=Tru
     Returns:
         Tuple[Tensor, Tensor]: Top k activations and indices.
     """
-    assert len(activations) >= k + len(exclude), f"Length of activations ({len(activations)}) must be greater than k ({k}) + length of exclude ({len(exclude)})."
+    if len(activations) < k + len(exclude):
+        warnings.warn(f"Length of activations ({len(activations)}) is less than k ({k}) + length of exclude ({len(exclude)}).")
+        k = len(activations) - len(exclude)
+    #assert len(activations) >= k + len(exclude), f"Length of activations ({len(activations)}) must be greater than k ({k}) + length of exclude ({len(exclude)})."
     activations = activations.clone()
     if largest:
         activations[exclude] = -float("inf")
@@ -623,12 +627,26 @@ def get_frozen_loss_difference_measure(
         prompt: str,
         model: HookedTransformer,
         ablation_hooks=[],
-        freeze_act_names=[],
+        freeze_act_names=("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.4.hook_mlp_out", "blocks.5.hook_mlp_out"),
         crop_context_end: None | int=None,
-        disable_progress_bar=False,
+        debug_log=True
     ):
+    """ 
+    Ablates context neuron via ablation_hooks but freezes some later components listed in freeze_act_names with the clean unablated activations. 
+    Return the difference of the full ablated loss and the loss with some frozen components. 
+    This allows to remove the effect of non frozen components from the total loss. 
+    By default, all later components are frozen, resulting in the direct effect of the context neuron being removed from the overall loss. 
 
-    to_freeze = ["blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.4.hook_mlp_out", "blocks.5.hook_mlp_out"]
+    Args:
+        prompt (str): _description_
+        model (HookedTransformer): _description_
+        ablation_hooks (list, optional): _description_. Defaults to [].
+        freeze_act_names (tuple, optional): _description_. Defaults to ("blocks.4.hook_attn_out", "blocks.5.hookattn_out", "blocks.4.hook_mlp_out", "blocks.5.hook_mlp_out").
+        crop_context_end (None | int, optional): _description_. Defaults to None._
+
+    Returns:
+        _type_: _description_
+    """
 
     if crop_context_end is not None:
         tokens = model.to_tokens(prompt)[:, :crop_context_end]
@@ -645,7 +663,7 @@ def get_frozen_loss_difference_measure(
         value = original_cache[hook.name]
         return value            
     
-    freeze_hooks = [(freeze_act_name, freeze_hook) for freeze_act_name in to_freeze]
+    freeze_hooks = [(freeze_act_name, freeze_hook) for freeze_act_name in freeze_act_names]
 
     with model.hooks(fwd_hooks=freeze_hooks+ablation_hooks):
         frozen_loss = model(tokens, return_type="loss", loss_per_token=True)
@@ -655,6 +673,11 @@ def get_frozen_loss_difference_measure(
     # We care about high loss from later components 
     loss_increase = ablated_loss[0,:] - frozen_loss[0,:]
 
+    if debug_log:
+        print("Loss from ablated context neuron (total effect)", ablated_loss[0,:])
+        print("Loss from ablating context neuron but restoring later activations (direct effect)", frozen_loss[0,:])
+        print("Indirect effect: total_effect - direct effect", loss_increase)
+
     #print(f"Original loss: {np.max(original_loss):.2f}, frozen loss: {np.max(frozen_loss):.2f} (+{((np.mean(frozen_loss) - np.mean(original_loss)) / np.mean(original_losses))*100:.2f}%), ablated loss: {np.mean(ablated_losses):.2f} (+{((np.mean(ablated_losses) - np.mean(original_losses)) / np.mean(original_losses))*100:.2f}%)")
     return loss_increase
 
@@ -662,10 +685,14 @@ def get_ablated_loss_difference_measure(
         prompt: str,
         model: HookedTransformer,
         ablation_hooks=[],
+        freeze_act_names=("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.4.hook_mlp_out", "blocks.5.hook_mlp_out"),
         crop_context_end: None | int=None,
+        debug_log=True
     ):
+    """ Runs model without ablating the context neuron but inserts corrupted caches from ablated context neuron into some later components. Returns the difference between the fully corrupted and the partially corrupted run. By default, all later components are corrupted, resulting in the indirect effect of ablating the context neuron being subtracted from the total effect.
+    
 
-    to_freeze = ["blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.4.hook_mlp_out", "blocks.5.hook_mlp_out"]
+    """
 
     if crop_context_end is not None:
         tokens = model.to_tokens(prompt)[:, :crop_context_end]
@@ -681,15 +708,21 @@ def get_ablated_loss_difference_measure(
         value = ablated_cache[hook.name]
         return value            
     
-    freeze_hooks = [(freeze_act_name, freeze_hook) for freeze_act_name in to_freeze]
+    freeze_hooks = [(freeze_act_name, freeze_hook) for freeze_act_name in freeze_act_names]
 
     with model.hooks(fwd_hooks=freeze_hooks):
         frozen_loss = model(tokens, return_type="loss", loss_per_token=True)
+
 
     # Frozen loss is the direct loss effect of context neuron
     # Ablated loss is the total loss effect of context neuron + later components
     # We care about high loss from later components 
     loss_increase = ablated_loss[0,:] - frozen_loss[0,:]
+
+    if debug_log:
+        print("Loss from ablated context neuron (total effect)", ablated_loss[0,:])
+        print("Loss from not ablating context neuron but corrupting later activations (indirect effect)", frozen_loss[0,:])
+        print("Direct effect: total_effect - indirect effect", loss_increase)
 
     #print(f"Original loss: {np.max(original_loss):.2f}, frozen loss: {np.max(frozen_loss):.2f} (+{((np.mean(frozen_loss) - np.mean(original_loss)) / np.mean(original_losses))*100:.2f}%), ablated loss: {np.mean(ablated_losses):.2f} (+{((np.mean(ablated_losses) - np.mean(original_losses)) / np.mean(original_losses))*100:.2f}%)")
     return loss_increase
