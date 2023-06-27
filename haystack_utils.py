@@ -323,7 +323,7 @@ def load_txt_data(path: str) -> List[str]:
     return data
 
 
-def print_strings_as_html(strings: list[str], color_values: list[float], max_value: float=None, original_log_probs: list[float]=None, ablated_log_probs: list[float]=None):
+def print_strings_as_html(strings: list[str], color_values: list[float], max_value: float=None, original_log_probs: list[float]=None, ablated_log_probs: list[float]=None, logit_difference: list[float]=None):
     """ Magic GPT function that prints a string as HTML and colors it according to a list of color values. Color values are normalized to the max value preserving the sign.
     """
 
@@ -366,7 +366,11 @@ def print_strings_as_html(strings: list[str], color_values: list[float], max_val
         #visible_string = re.sub(r'\s+', '&nbsp;', strings[i])
         visible_string = re.sub(r'\s+', '_', strings[i])
         
-        if (original_log_probs is not None) and (ablated_log_probs is not None):
+        
+        if (original_log_probs is not None) and (ablated_log_probs is not None) and (logit_difference is not None):
+            html += f'<span style="background-color: rgb({red}, {green}, {blue}); color: {text_color}; padding: 2px;" ' \
+                    f'title="Difference: {color_values[i]:.4f}, Original logprob: {original_log_probs[i]:.4f}, Ablated logprob: {ablated_log_probs[i]:.4f}, Logit difference: {logit_difference[i]:.4f}">{visible_string}</span> '
+        elif (original_log_probs is not None) and (ablated_log_probs is not None):
             html += f'<span style="background-color: rgb({red}, {green}, {blue}); color: {text_color}; padding: 2px;" ' \
                     f'title="Difference: {color_values[i]:.4f}, Original logprob: {original_log_probs[i]:.4f}, Ablated logprob: {ablated_log_probs[i]:.4f}">{visible_string}</span> '
         else:
@@ -487,3 +491,205 @@ def get_neuron_unembed(model, neuron, layer, mean_activation_active, mean_activa
 
 
     return boosted_tokens, inhibited_tokens
+
+
+def get_frozen_loss_difference_position(
+        prompt: str,
+        model: HookedTransformer,
+        ablation_hooks=[],
+        freeze_act_names=[],
+        crop_context_end: None | int=None,
+        pos=-1
+    ):
+
+    if crop_context_end is not None:
+        tokens = model.to_tokens(prompt)[:, :crop_context_end]
+    else:
+        tokens = model.to_tokens(prompt)
+
+    original_loss, original_cache = model.run_with_cache(tokens, return_type="loss", loss_per_token=True)
+    with model.hooks(fwd_hooks=ablation_hooks):
+        ablated_loss, ablated_cache = model.run_with_cache(tokens, return_type="loss", loss_per_token=True)
+
+    # ['embed', '0_attn_out', '0_mlp_out', '1_attn_out', '1_mlp_out', '2_attn_out', '2_mlp_out', '3_attn_out', '3_mlp_out', '4_attn_out', '4_mlp_out', '5_attn_out', '5_mlp_out']
+    # Ablate at the final residual stream value to remove the direct component output
+    def freeze_hook(value, hook: HookPoint):
+        value = original_cache[hook.name]
+        return value            
+    
+    freeze_hooks = [(freeze_act_name, freeze_hook) for freeze_act_name in freeze_act_names]
+
+    with model.hooks(fwd_hooks=freeze_hooks+ablation_hooks):
+        frozen_loss = model(tokens, return_type="loss", loss_per_token=True)
+
+    original_loss = original_loss[0, pos].item()
+    ablated_loss = ablated_loss[0, pos].item()
+    frozen_loss = frozen_loss[0,pos].item()
+
+    print(f"Loss on token {model.to_str_tokens(tokens[0, pos-1])} -> {model.to_str_tokens(tokens[0, pos])}")
+    print(f"Original loss: {original_loss:.2f}, direct loss of context neuron: {frozen_loss:.2f} (+{((frozen_loss - original_loss) / original_loss)*100:.2f}%), ablated loss: {ablated_loss:.2f} (+{((ablated_loss - original_loss) / original_loss)*100:.2f}%)")
+    return original_loss, ablated_loss, frozen_loss
+
+
+def get_ablated_loss_difference_position(
+        prompt: str,
+        model: HookedTransformer,
+        ablation_hooks=[],
+        ablate_act_names=[],
+        crop_context_end: None | int=None,
+        disable_progress_bar=False,
+        pos=-1
+    ):
+    original_losses = []
+    ablated_losses = []
+    frozen_losses = []
+
+    if crop_context_end is not None:
+        tokens = model.to_tokens(prompt)[:, :crop_context_end]
+    else:
+        tokens = model.to_tokens(prompt)
+
+    original_loss, original_cache = model.run_with_cache(tokens, return_type="loss", loss_per_token=True)
+    with model.hooks(fwd_hooks=ablation_hooks):
+        ablated_loss, ablated_cache = model.run_with_cache(tokens, return_type="loss", loss_per_token=True)
+
+    # ['embed', '0_attn_out', '0_mlp_out', '1_attn_out', '1_mlp_out', '2_attn_out', '2_mlp_out', '3_attn_out', '3_mlp_out', '4_attn_out', '4_mlp_out', '5_attn_out', '5_mlp_out']
+    # Ablate at the final residual stream value to remove the direct component output
+    def freeze_hook(value, hook: HookPoint):
+        value = ablated_cache[hook.name]
+        return value            
+    
+    freeze_hooks = [(freeze_act_name, freeze_hook) for freeze_act_name in ablate_act_names]
+
+    with model.hooks(fwd_hooks=freeze_hooks):
+        frozen_loss = model(tokens, return_type="loss", loss_per_token=True)
+
+    original_losses.append(original_loss[0, pos].item())
+    ablated_losses.append(ablated_loss[0, pos].item())
+    frozen_losses.append(frozen_loss[0,pos].item())
+
+    print(f"Loss on token {model.to_str_tokens(tokens[0, pos-1])} -> {model.to_str_tokens(tokens[0, pos])}")
+    print(f"Original loss: {np.mean(original_losses):.2f}, indirect loss of later components: {np.mean(frozen_losses):.2f} (+{((np.mean(frozen_losses) - np.mean(original_losses)) / np.mean(original_losses))*100:.2f}%), ablated loss: {np.mean(ablated_losses):.2f} (+{((np.mean(ablated_losses) - np.mean(original_losses)) / np.mean(original_losses))*100:.2f}%)")
+    return np.mean(original_losses), np.mean(ablated_losses), np.mean(frozen_losses)
+
+def get_frozen_logits(prompt: str, model: HookedTransformer, ablation_hooks, freeze_act_names, crop_context_end=None):
+    
+    if crop_context_end is not None:
+        tokens = model.to_tokens(prompt)[:, :crop_context_end]
+    else:
+        tokens = model.to_tokens(prompt)
+
+    original_loss, original_cache = model.run_with_cache(tokens, return_type="loss", loss_per_token=True)
+    
+
+    # ['embed', '0_attn_out', '0_mlp_out', '1_attn_out', '1_mlp_out', '2_attn_out', '2_mlp_out', '3_attn_out', '3_mlp_out', '4_attn_out', '4_mlp_out', '5_attn_out', '5_mlp_out']
+    # Ablate at the final residual stream value to remove the direct component output
+    def freeze_hook(value, hook: HookPoint):
+        value = original_cache[hook.name]
+        return value            
+    
+    freeze_hooks = [(freeze_act_name, freeze_hook) for freeze_act_name in freeze_act_names]
+
+    with model.hooks(fwd_hooks=freeze_hooks+ablation_hooks):
+        frozen_logits = model(tokens, return_type="logits", loss_per_token=True)
+
+    return frozen_logits
+
+
+def get_ablated_logits(prompt: str, model: HookedTransformer, ablation_hooks, freeze_act_names, crop_context_end=None):
+    
+    if crop_context_end is not None:
+        tokens = model.to_tokens(prompt)[:, :crop_context_end]
+    else:
+        tokens = model.to_tokens(prompt)
+    
+    with model.hooks(fwd_hooks=ablation_hooks):
+        ablated_loss, ablated_cache = model.run_with_cache(tokens, return_type="loss", loss_per_token=True)
+
+    # ['embed', '0_attn_out', '0_mlp_out', '1_attn_out', '1_mlp_out', '2_attn_out', '2_mlp_out', '3_attn_out', '3_mlp_out', '4_attn_out', '4_mlp_out', '5_attn_out', '5_mlp_out']
+    # Ablate at the final residual stream value to remove the direct component output
+    def freeze_hook(value, hook: HookPoint):
+        value = ablated_cache[hook.name]
+        return value            
+    
+    freeze_hooks = [(freeze_act_name, freeze_hook) for freeze_act_name in freeze_act_names]
+
+    with model.hooks(fwd_hooks=freeze_hooks):
+        frozen_logits = model(tokens, return_type="logits", loss_per_token=True)
+
+    return frozen_logits
+
+def get_frozen_loss_difference_measure(
+        prompt: str,
+        model: HookedTransformer,
+        ablation_hooks=[],
+        freeze_act_names=[],
+        crop_context_end: None | int=None,
+        disable_progress_bar=False,
+    ):
+
+    to_freeze = ["blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.4.hook_mlp_out", "blocks.5.hook_mlp_out"]
+
+    if crop_context_end is not None:
+        tokens = model.to_tokens(prompt)[:, :crop_context_end]
+    else:
+        tokens = model.to_tokens(prompt)
+
+    original_loss, original_cache = model.run_with_cache(tokens, return_type="loss", loss_per_token=True)
+    with model.hooks(fwd_hooks=ablation_hooks):
+        ablated_loss, ablated_cache = model.run_with_cache(tokens, return_type="loss", loss_per_token=True)
+
+    # ['embed', '0_attn_out', '0_mlp_out', '1_attn_out', '1_mlp_out', '2_attn_out', '2_mlp_out', '3_attn_out', '3_mlp_out', '4_attn_out', '4_mlp_out', '5_attn_out', '5_mlp_out']
+    # Ablate at the final residual stream value to remove the direct component output
+    def freeze_hook(value, hook: HookPoint):
+        value = original_cache[hook.name]
+        return value            
+    
+    freeze_hooks = [(freeze_act_name, freeze_hook) for freeze_act_name in to_freeze]
+
+    with model.hooks(fwd_hooks=freeze_hooks+ablation_hooks):
+        frozen_loss = model(tokens, return_type="loss", loss_per_token=True)
+
+    # Frozen loss is the direct loss effect of context neuron
+    # Ablated loss is the total loss effect of context neuron + later components
+    # We care about high loss from later components 
+    loss_increase = ablated_loss[0,:] - frozen_loss[0,:]
+
+    #print(f"Original loss: {np.max(original_loss):.2f}, frozen loss: {np.max(frozen_loss):.2f} (+{((np.mean(frozen_loss) - np.mean(original_loss)) / np.mean(original_losses))*100:.2f}%), ablated loss: {np.mean(ablated_losses):.2f} (+{((np.mean(ablated_losses) - np.mean(original_losses)) / np.mean(original_losses))*100:.2f}%)")
+    return loss_increase
+
+def get_ablated_loss_difference_measure(
+        prompt: str,
+        model: HookedTransformer,
+        ablation_hooks=[],
+        crop_context_end: None | int=None,
+    ):
+
+    to_freeze = ["blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.4.hook_mlp_out", "blocks.5.hook_mlp_out"]
+
+    if crop_context_end is not None:
+        tokens = model.to_tokens(prompt)[:, :crop_context_end]
+    else:
+        tokens = model.to_tokens(prompt)
+
+    with model.hooks(fwd_hooks=ablation_hooks):
+        ablated_loss, ablated_cache = model.run_with_cache(tokens, return_type="loss", loss_per_token=True)
+
+    # ['embed', '0_attn_out', '0_mlp_out', '1_attn_out', '1_mlp_out', '2_attn_out', '2_mlp_out', '3_attn_out', '3_mlp_out', '4_attn_out', '4_mlp_out', '5_attn_out', '5_mlp_out']
+    # Ablate at the final residual stream value to remove the direct component output
+    def freeze_hook(value, hook: HookPoint):
+        value = ablated_cache[hook.name]
+        return value            
+    
+    freeze_hooks = [(freeze_act_name, freeze_hook) for freeze_act_name in to_freeze]
+
+    with model.hooks(fwd_hooks=freeze_hooks):
+        frozen_loss = model(tokens, return_type="loss", loss_per_token=True)
+
+    # Frozen loss is the direct loss effect of context neuron
+    # Ablated loss is the total loss effect of context neuron + later components
+    # We care about high loss from later components 
+    loss_increase = ablated_loss[0,:] - frozen_loss[0,:]
+
+    #print(f"Original loss: {np.max(original_loss):.2f}, frozen loss: {np.max(frozen_loss):.2f} (+{((np.mean(frozen_loss) - np.mean(original_loss)) / np.mean(original_losses))*100:.2f}%), ablated loss: {np.mean(ablated_losses):.2f} (+{((np.mean(ablated_losses) - np.mean(original_losses)) / np.mean(original_losses))*100:.2f}%)")
+    return loss_increase
