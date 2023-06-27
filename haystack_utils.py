@@ -170,7 +170,7 @@ def get_direct_loss_increase_for_component(
     return np.mean(original_losses), np.mean(patched_losses)
 
 
-def get_ablated_performance(data: list[str], model: HookedTransformer, fwd_hooks: List[Tuple]=[], batch_size=1, display_tqdm=True):
+def get_ablated_performance(data: List[str], model: HookedTransformer, fwd_hooks: List[Tuple]=[], batch_size=1, display_tqdm=True):
     assert batch_size == 1, "Only tested with batch size 1"
 
     original_losses = []
@@ -196,7 +196,7 @@ def get_caches_single_prompt(
     fwd_hooks=[], 
     crop_context_end=None,
     return_type: str = "loss"
-) -> tuple[float, float, ActivationCache, ActivationCache]:
+) -> Tuple[float, float, ActivationCache, ActivationCache]:
     """ Runs the model with and without ablation on a single prompt and returns the caches.
 
     Args:
