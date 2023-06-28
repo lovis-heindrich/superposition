@@ -733,7 +733,8 @@ def split_effects(
         model: HookedTransformer,
         ablation_hooks=[],
         freeze_act_names=("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.4.hook_mlp_out", "blocks.5.hook_mlp_out"),
-        debug_log=True
+        debug_log=True,
+        return_absolute=False
     ) -> Tuple[Tensor, Tensor, Tensor]:
     """Gets the absolute contribution to loss of an ablation's direct effect, indirect effect, and total effect. Also returns the component of loss unaffected by the ablation."""
     original_loss, original_cache = model.run_with_cache(prompt, return_type="loss", loss_per_token=True)
@@ -769,5 +770,8 @@ def split_effects(
         print("direct effect change in loss", direct_effect_loss_change[0,:5])
         print("indirect effect change in loss", indirect_effect_loss_change[0,:5])
 
-    #print(f"Original loss: {np.max(original_loss):.2f}, frozen loss: {np.max(frozen_loss):.2f} (+{((np.mean(frozen_loss) - np.mean(original_loss)) / np.mean(original_losses))*100:.2f}%), ablated loss: {np.mean(ablated_losses):.2f} (+{((np.mean(ablated_losses) - np.mean(original_losses)) / np.mean(original_losses))*100:.2f}%)")
-    return original_loss, total_effect_loss_change, direct_effect_loss_change, indirect_effect_loss_change
+    if return_absolute:
+        return original_loss, ablated_loss, ablated_with_original_frozen_loss, original_with_frozen_ablated
+    else:
+        #print(f"Original loss: {np.max(original_loss):.2f}, frozen loss: {np.max(frozen_loss):.2f} (+{((np.mean(frozen_loss) - np.mean(original_loss)) / np.mean(original_losses))*100:.2f}%), ablated loss: {np.mean(ablated_losses):.2f} (+{((np.mean(ablated_losses) - np.mean(original_losses)) / np.mean(original_losses))*100:.2f}%)")
+        return original_loss, total_effect_loss_change, direct_effect_loss_change, indirect_effect_loss_change
