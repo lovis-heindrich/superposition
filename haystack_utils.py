@@ -1,5 +1,5 @@
 import warnings
-from transformer_lens import HookedTransformer, ActivationCache
+from transformer_lens import HookedTransformer, ActivationCache, utils
 from transformer_lens.hook_points import HookPoint
 from jaxtyping import Float, Int
 from torch import Tensor
@@ -14,6 +14,7 @@ import numpy as np
 from einops import einsum
 from IPython.display import display, HTML
 import re
+
 
 
 def DLA(prompts: List[str], model: HookedTransformer):
@@ -804,3 +805,79 @@ def plot_barplot(data: list[list[float]], names: list[str], xlabel="", ylabel=""
     )
     
     fig.show()
+
+
+# New
+
+def get_mlp5_attribution_without_mlp4(prompt: str, model: HookedTransformer, ablation_hooks: list, pos: int | None = -1):
+    # Freeze everything except for MLP5 to see if MLP5 depends on MLP4
+    freeze_act_names=("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.4.hook_mlp_out")
+    original_loss, total_effect_loss, direct_mlp3_mlp5_loss, _= split_effects(prompt, model, ablation_hooks=ablation_hooks, freeze_act_names=freeze_act_names, debug_log=False, return_absolute=True)
+    freeze_act_names=("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.4.hook_mlp_out", "blocks.5.hook_mlp_out")
+    _, _, direct_mlp3_loss, _ = split_effects(prompt, model, ablation_hooks=ablation_hooks, freeze_act_names=freeze_act_names, debug_log=False, return_absolute=True)
+
+    if pos is not None:
+        return original_loss[0, pos].item(), total_effect_loss[0, pos].item(), direct_mlp3_mlp5_loss[0, pos].item(), direct_mlp3_loss[0, pos].item()
+    else:
+        return original_loss[0, :], total_effect_loss[0, :], direct_mlp3_mlp5_loss[0, :], direct_mlp3_loss[0, :]
+
+
+def get_neuron_logit_contribution(cache: ActivationCache, model: HookedTransformer, answer_tokens: Int[Tensor, "batch pos"], layer: int, pos:int | None) -> Float[Tensor, "neuron pos"]:
+    # Expects cache from a single example, won't work on batched examples
+    # Get per neuron output of MLP layer
+    neuron_directions = cache.get_neuron_results(layer, neuron_slice=utils.Slice(input_slice=None), pos_slice=utils.Slice(input_slice=None))
+    neuron_directions = einops.rearrange(neuron_directions, 'batch pos neuron residual -> neuron batch pos residual')
+    # We need to apply the final layer norm because the unembed operation is applied after the final layer norm, so the answer token
+    # directions are in the same space as the final layer norm output
+    # LN leads to finding top tokens with slightly higher loss attribution
+    if pos is None:
+        scaled_neuron_directions = cache.apply_ln_to_stack(neuron_directions)[:, 0, :-1, :]
+    else:
+        scaled_neuron_directions = cache.apply_ln_to_stack(neuron_directions)[:, 0, pos-1, :] # [neuron embed]
+    # Unembed of correct answer tokens
+    correct_token_directions = model.W_U[:, answer_tokens].squeeze(1) # [embed] 
+    # Neuron attribution to correct answer token by position
+    if pos is None:
+        unembedded = einops.einsum(scaled_neuron_directions, correct_token_directions, 'neuron pos residual, residual pos -> pos neuron')
+    else:
+        unembedded = einops.einsum(scaled_neuron_directions, correct_token_directions, 'neuron residual, residual -> neuron')
+    return unembedded
+
+def MLP_attribution(prompt: str, model: HookedTransformer, fwd_hooks, layer_to_compare=5, pos: int | None =-1):
+    
+    tokens = model.to_tokens(prompt)
+    if pos is None:
+        answer_tokens = tokens[:, 1:]
+    else:
+        answer_tokens = tokens[:, pos] #TODO check
+    # Get difference between ablated and unablated neurons' contribution to answer logit
+    _, _, original_cache, ablated_cache = get_caches_single_prompt(
+        prompt, model, fwd_hooks)
+    original_unembedded = get_neuron_logit_contribution(original_cache, model, answer_tokens, layer=layer_to_compare, pos=pos) # [neuron]
+    ablated_unembedded = get_neuron_logit_contribution(ablated_cache, model, answer_tokens, layer=layer_to_compare, pos=pos)
+    differences = (original_unembedded - ablated_unembedded).detach().cpu() # [neuron]
+    return differences
+
+def get_neuron_loss_attribution(prompt, model, neurons, ablation_hooks: list, pos: int | None=-1):
+    original_loss, original_cache = model.run_with_cache(prompt, return_type="loss", loss_per_token=True)
+    with model.hooks(fwd_hooks=ablation_hooks):
+        ablated_loss, ablated_cache = model.run_with_cache(prompt, return_type="loss", loss_per_token=True)
+
+    # Remove the effects of ablating at MLP3 from the components after MLP3
+    def freeze_neurons_hook(value, hook: HookPoint):
+        if pos is not None:
+            #print(neurons)
+            value[:, :, neurons] = original_cache[hook.name][:, :, neurons] # [batch pos neuron]
+        else:
+            #print(neurons[0])
+            value[0, :-1, :] = value[0, :-1, :].scatter_(dim=1, index=neurons.cuda(), src=original_cache[hook.name][0, :-1, :])
+        return value      
+
+    freeze_original_hooks = [("blocks.5.mlp.hook_post", freeze_neurons_hook)]
+    with model.hooks(fwd_hooks=ablation_hooks+freeze_original_hooks):
+        ablated_with_original_frozen_loss = model(prompt, return_type="loss", loss_per_token=True)
+    #print(ablated_loss[0, :], ablated_with_original_frozen_loss[0, :])
+    if pos is not None:
+        return original_loss[0, pos].item(), ablated_loss[0, pos].item(), ablated_with_original_frozen_loss[0, pos].item()
+    else:
+        return original_loss[0, :], ablated_loss[0, :], ablated_with_original_frozen_loss[0, :]
