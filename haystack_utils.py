@@ -833,7 +833,7 @@ def get_neuron_logit_contribution(cache: ActivationCache, model: HookedTransform
     if pos is None:
         scaled_neuron_directions = cache.apply_ln_to_stack(neuron_directions)[:, 0, :-1, :]
     else:
-        scaled_neuron_directions = cache.apply_ln_to_stack(neuron_directions)[:, 0, pos-1, :] # [neuron embed]
+        scaled_neuron_directions = cache.apply_ln_to_stack(neuron_directions)[:, 0, pos, :] # [neuron embed]
     # Unembed of correct answer tokens
     correct_token_directions = model.W_U[:, answer_tokens].squeeze(1) # [embed] 
     # Neuron attribution to correct answer token by position
@@ -849,7 +849,7 @@ def MLP_attribution(prompt: str, model: HookedTransformer, fwd_hooks, layer_to_c
     if pos is None:
         answer_tokens = tokens[:, 1:]
     else:
-        answer_tokens = tokens[:, pos] #TODO check
+        answer_tokens = tokens[:, pos+1] #TODO check
     # Get difference between ablated and unablated neurons' contribution to answer logit
     _, _, original_cache, ablated_cache = get_caches_single_prompt(
         prompt, model, fwd_hooks)
@@ -868,10 +868,8 @@ def get_neuron_loss_attribution(prompt, model, neurons, ablation_hooks: list, po
         if pos is not None:
             value[:, :, neurons] = original_cache[hook.name][:, :, neurons] # [batch pos neuron]
         else:
-            value_tmp = value.clone()[0, :-1, :]
             src_tmp = original_cache[hook.name][0, :-1, :].gather(dim=-1, index=neurons.cuda())
-            tmp = value_tmp.scatter_(dim=-1, index=neurons.cuda(), src=src_tmp)
-            value[0, :-1, :] = tmp
+            value[0, :-1, :] = value[0, :-1, :].scatter_(dim=-1, index=neurons.cuda(), src=src_tmp)
         return value      
 
     freeze_original_hooks = [("blocks.5.mlp.hook_post", freeze_neurons_hook)]
@@ -882,3 +880,53 @@ def get_neuron_loss_attribution(prompt, model, neurons, ablation_hooks: list, po
         return original_loss[0, pos].item(), ablated_loss[0, pos].item(), ablated_with_original_frozen_loss[0, pos].item()
     else:
         return original_loss[0, :], ablated_loss[0, :], ablated_with_original_frozen_loss[0, :]
+    
+def pos_wise_mlp_effect_on_single_prompt(prompt: str, model:HookedTransformer, ablation_hooks: list, k = 20, log=False, top_neurons=None, answer_pos=None):
+    
+    if answer_pos is not None:
+        pos = answer_pos
+        assert pos != 0, "First answer position = 1"
+        if pos < 0:
+            pos = model.to_tokens(prompt).shape[1]-1+pos
+        elif pos > 0:
+            pos -= 1
+    else:
+        pos = None
+
+    if (top_neurons is not None) and (len(top_neurons) < k):
+            print(f"Warning: Only {len(top_neurons)} neurons given for k={k}.")
+
+    original_loss, total_effect_loss, direct_mlp3_mlp5_loss, direct_mlp3_loss = get_mlp5_attribution_without_mlp4(prompt, model, ablation_hooks=ablation_hooks, pos=pos)
+    if top_neurons is None:
+        differences = MLP_attribution(prompt, model, fwd_hooks=ablation_hooks, layer_to_compare=5, pos=pos)
+        # Shape (pos, k)
+        top_diff, top_diff_neurons = torch.topk(differences, k, largest=True)
+        #print(top_diff_neurons)
+    else:
+        top_diff_neurons = torch.LongTensor(top_neurons)
+    
+    # TODO Frozen loss does not match for single position and pos=None
+    if pos is None:
+        _, _, frozen_loss = get_neuron_loss_attribution(prompt, model, top_diff_neurons[:, :k], ablation_hooks=ablation_hooks, pos=pos)
+    else:
+        _, _, frozen_loss = get_neuron_loss_attribution(prompt, model, top_diff_neurons[:k], ablation_hooks=ablation_hooks, pos=pos)
+    
+    ablation_loss_increase = total_effect_loss - original_loss
+    frozen_loss_decrease = total_effect_loss - frozen_loss
+
+    if log and (pos is not None):
+        print(f"\n{prompt}")
+        print(f"Original loss: {original_loss:.4f}")
+        print(f"Total effect loss: {total_effect_loss:.4f}")#
+        print(f"Direct effect loss of MLP3 and MLP5 (restoring MLP4 and attention): {direct_mlp3_mlp5_loss:.4f}")
+        print(f"Direct effect loss of MLP3 (restoring MLP4 and MLP5 and attention): {direct_mlp3_loss:.4f}")
+        print(f"Total effect loss when freezing top MLP5 neurons: {frozen_loss:.4f}")
+    elif log:
+        print(f"\n{prompt}")
+        print(f"Original loss: {original_loss}")
+        print(f"Total effect loss: {total_effect_loss}")#
+        print(f"Direct effect loss of MLP3 and MLP5 (restoring MLP4 and attention): {direct_mlp3_mlp5_loss}")
+        print(f"Direct effect loss of MLP3 (restoring MLP4 and MLP5 and attention): {direct_mlp3_loss}")
+        print(f"Total effect loss when freezing top MLP5 neurons: {frozen_loss}")
+    
+    return original_loss, total_effect_loss, direct_mlp3_mlp5_loss, direct_mlp3_loss, frozen_loss
