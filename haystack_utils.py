@@ -674,6 +674,7 @@ def get_frozen_loss_difference_measure(
     loss_increase = ablated_loss[0,:] - frozen_loss[0,:]
 
     if debug_log:
+        # print("No effect (original loss)", original_loss[0,:5])
         print("Loss from ablated context neuron (total effect)", ablated_loss[0,:])
         print("Loss from ablating context neuron but restoring later activations (direct effect)", frozen_loss[0,:])
         print("Indirect effect: total_effect - direct effect", loss_increase)
@@ -689,9 +690,8 @@ def get_ablated_loss_difference_measure(
         crop_context_end: None | int=None,
         debug_log=True
     ):
-    """ Runs model without ablating the context neuron but inserts corrupted caches from ablated context neuron into some later components. Returns the difference between the fully corrupted and the partially corrupted run. By default, all later components are corrupted, resulting in the indirect effect of ablating the context neuron being subtracted from the total effect.
-    
-
+    """ Runs model without ablating the context neuron but inserts corrupted caches from ablated context neuron into some later components. Returns the difference between the fully 
+    corrupted and the partially corrupted run. By default, all later components are corrupted, resulting in the indirect effect of ablating the context neuron.
     """
 
     if crop_context_end is not None:
@@ -720,9 +720,54 @@ def get_ablated_loss_difference_measure(
     loss_increase = ablated_loss[0,:] - frozen_loss[0,:]
 
     if debug_log:
-        print("Loss from ablated context neuron (total effect)", ablated_loss[0,:])
-        print("Loss from not ablating context neuron but corrupting later activations (indirect effect)", frozen_loss[0,:])
-        print("Direct effect: total_effect - indirect effect", loss_increase)
+        print("Total effect (loss from ablated context neuron)", ablated_loss[0,:])
+        print("Indirect effect (loss from not ablating context neuron but corrupting later activations)", frozen_loss[0,:])
+        print("Direct effect (total_effect - indirect effect)", loss_increase)
 
     #print(f"Original loss: {np.max(original_loss):.2f}, frozen loss: {np.max(frozen_loss):.2f} (+{((np.mean(frozen_loss) - np.mean(original_loss)) / np.mean(original_losses))*100:.2f}%), ablated loss: {np.mean(ablated_losses):.2f} (+{((np.mean(ablated_losses) - np.mean(original_losses)) / np.mean(original_losses))*100:.2f}%)")
     return loss_increase
+
+
+def split_effects(
+        prompt: str,
+        model: HookedTransformer,
+        ablation_hooks=[],
+        freeze_act_names=("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.4.hook_mlp_out", "blocks.5.hook_mlp_out"),
+        debug_log=True
+    ) -> Tuple[Tensor, Tensor, Tensor]:
+    """Gets the absolute contribution to loss of an ablation's direct effect, indirect effect, and total effect. Also returns the component of loss unaffected by the ablation."""
+    original_loss, original_cache = model.run_with_cache(prompt, return_type="loss", loss_per_token=True)
+    with model.hooks(fwd_hooks=ablation_hooks):
+        ablated_loss, ablated_cache = model.run_with_cache(prompt, return_type="loss", loss_per_token=True)
+
+    # Add the effects of ablating at MLP3 to the components after MLP3
+    def freeze_ablated_hook(value, hook: HookPoint):
+        value = ablated_cache[hook.name]
+        return value             
+    freeze_ablated_hooks = [(freeze_act_name, freeze_ablated_hook) for freeze_act_name in freeze_act_names]
+    with model.hooks(fwd_hooks=freeze_ablated_hooks):
+        original_with_frozen_ablated = model(prompt, return_type="loss", loss_per_token=True)
+
+    # Remove the effects of ablating at MLP3 from the components after MLP3
+    def freeze_original_hook(value, hook: HookPoint):
+        value = original_cache[hook.name]
+        return value         
+    freeze_original_hooks = [(freeze_act_name, freeze_original_hook) for freeze_act_name in freeze_act_names]
+    with model.hooks(fwd_hooks=freeze_original_hooks+ablation_hooks):
+        ablated_with_original_frozen_loss = model(prompt, return_type="loss", loss_per_token=True)
+
+    # Total effect of ablating German context neuron is total change in loss
+    total_effect_loss_change = ablated_loss - original_loss
+    # Direct effect of ablating German context neuron is change in loss from ablating German context neuron but restoring later activations
+    direct_effect_loss_change = ablated_with_original_frozen_loss - original_loss
+    # Indirect effect of ablating German context neuron is change in loss from patching in ablated later activations
+    indirect_effect_loss_change = original_with_frozen_ablated - original_loss
+
+    if debug_log:
+        print("original loss", original_loss[0,:5])
+        print("total effect change in loss", total_effect_loss_change[0,:5])
+        print("direct effect change in loss", direct_effect_loss_change[0,:5])
+        print("indirect effect change in loss", indirect_effect_loss_change[0,:5])
+
+    #print(f"Original loss: {np.max(original_loss):.2f}, frozen loss: {np.max(frozen_loss):.2f} (+{((np.mean(frozen_loss) - np.mean(original_loss)) / np.mean(original_losses))*100:.2f}%), ablated loss: {np.mean(ablated_losses):.2f} (+{((np.mean(ablated_losses) - np.mean(original_losses)) / np.mean(original_losses))*100:.2f}%)")
+    return original_loss, total_effect_loss_change, direct_effect_loss_change, indirect_effect_loss_change
