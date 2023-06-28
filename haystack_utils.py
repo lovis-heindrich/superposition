@@ -866,11 +866,12 @@ def get_neuron_loss_attribution(prompt, model, neurons, ablation_hooks: list, po
     # Remove the effects of ablating at MLP3 from the components after MLP3
     def freeze_neurons_hook(value, hook: HookPoint):
         if pos is not None:
-            #print(neurons)
             value[:, :, neurons] = original_cache[hook.name][:, :, neurons] # [batch pos neuron]
         else:
-            #print(neurons[0])
-            value[0, :-1, :] = value[0, :-1, :].scatter_(dim=1, index=neurons.cuda(), src=original_cache[hook.name][0, :-1, :])
+            value_tmp = value.clone()[0, :-1, :]
+            src_tmp = original_cache[hook.name][0, :-1, :].gather(dim=-1, index=neurons.cuda())
+            tmp = value_tmp.scatter_(dim=-1, index=neurons.cuda(), src=src_tmp)
+            value[0, :-1, :] = tmp
         return value      
 
     freeze_original_hooks = [("blocks.5.mlp.hook_post", freeze_neurons_hook)]
