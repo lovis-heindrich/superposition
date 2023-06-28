@@ -777,7 +777,7 @@ def split_effects(
         return original_loss, total_effect_loss_change, direct_effect_loss_change, indirect_effect_loss_change
     
 
-def plot_barplot(data: list[list[float]], names: list[str], xlabel="", ylabel="", title=""):
+def plot_barplot(data: list[list[float]], names: list[str], xlabel="", ylabel="", title="", width=1000):
     means = np.mean(data, axis=1)
     stds = np.std(data, axis=1)
     
@@ -799,7 +799,8 @@ def plot_barplot(data: list[list[float]], names: list[str], xlabel="", ylabel=""
         title=title,
         xaxis_title=xlabel,
         yaxis_title=ylabel,
-        barmode='group'
+        barmode='group',
+        width=width,
     )
     
     fig.show()
