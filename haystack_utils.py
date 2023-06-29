@@ -811,7 +811,7 @@ def plot_barplot(data: list[list[float]], names: list[str], xlabel="", ylabel=""
 
 def get_mlp5_attribution_without_mlp4(prompt: str, model: HookedTransformer, ablation_hooks: list, pos: int | None = -1):
     # Freeze everything except for MLP5 to see if MLP5 depends on MLP4
-    freeze_act_names=("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.4.hook_mlp_out")
+    freeze_act_names=("blocks.5.hook_attn_out", "blocks.4.hook_attn_out", "blocks.4.hook_mlp_out")
     original_loss, total_effect_loss, direct_mlp3_mlp5_loss, _= split_effects(prompt, model, ablation_hooks=ablation_hooks, freeze_act_names=freeze_act_names, debug_log=False, return_absolute=True)
     freeze_act_names=("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.4.hook_mlp_out", "blocks.5.hook_mlp_out")
     _, _, direct_mlp3_loss, _ = split_effects(prompt, model, ablation_hooks=ablation_hooks, freeze_act_names=freeze_act_names, debug_log=False, return_absolute=True)
@@ -858,7 +858,7 @@ def MLP_attribution(prompt: str, model: HookedTransformer, fwd_hooks, layer_to_c
     differences = (original_unembedded - ablated_unembedded).detach().cpu() # [neuron]
     return differences
 
-def get_neuron_loss_attribution(prompt, model, neurons, ablation_hooks: list, pos: int | None=-1):
+def get_neuron_loss_attribution(prompt, model, neurons, ablation_hooks: list, pos: int | None=-1, layer=5):
     original_loss, original_cache = model.run_with_cache(prompt, return_type="loss", loss_per_token=True)
     with model.hooks(fwd_hooks=ablation_hooks):
         ablated_loss, ablated_cache = model.run_with_cache(prompt, return_type="loss", loss_per_token=True)
@@ -872,7 +872,7 @@ def get_neuron_loss_attribution(prompt, model, neurons, ablation_hooks: list, po
             value[0, :-1, :] = value[0, :-1, :].scatter_(dim=-1, index=neurons.cuda(), src=src_tmp)
         return value      
 
-    freeze_original_hooks = [("blocks.5.mlp.hook_post", freeze_neurons_hook)]
+    freeze_original_hooks = [(f"blocks.{layer}.mlp.hook_post", freeze_neurons_hook)]
     with model.hooks(fwd_hooks=ablation_hooks+freeze_original_hooks):
         ablated_with_original_frozen_loss = model(prompt, return_type="loss", loss_per_token=True)
     #print(ablated_loss[0, :], ablated_with_original_frozen_loss[0, :])
