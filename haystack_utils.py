@@ -776,19 +776,21 @@ def split_effects(
     if return_absolute:
         return original_loss, ablated_loss, ablated_with_original_frozen_loss, original_with_frozen_ablated
     else:
+        print("Warning: returning relative loss changes.")
         #print(f"Original loss: {np.max(original_loss):.2f}, frozen loss: {np.max(frozen_loss):.2f} (+{((np.mean(frozen_loss) - np.mean(original_loss)) / np.mean(original_losses))*100:.2f}%), ablated loss: {np.mean(ablated_losses):.2f} (+{((np.mean(ablated_losses) - np.mean(original_losses)) / np.mean(original_losses))*100:.2f}%)")
         return original_loss, total_effect_loss_change, direct_effect_loss_change, indirect_effect_loss_change
     
 
-def plot_barplot(data: list[list[float]], names: list[str], xlabel="", ylabel="", title="", width=1000):
+def plot_barplot(data: list[list[float]], names: list[str], short_names = None, xlabel="", ylabel="", title="", width=1000):
     means = np.mean(data, axis=1)
     stds = np.std(data, axis=1)
     
     fig = go.Figure()
-    
+    if short_names is None:
+        short_names = names
     for i in range(len(names)):
         fig.add_trace(go.Bar(
-            x=[names[i]],
+            x=[short_names[i]],
             y=[means[i]],
             error_y=dict(
                 type='data',
