@@ -742,7 +742,6 @@ def split_effects(
     with model.hooks(fwd_hooks=ablation_hooks):
         ablated_loss, ablated_cache = model.run_with_cache(prompt, return_type="loss", loss_per_token=True)
 
-    clean_cache()
     # Add the effects of ablating at MLP3 to the components after MLP3
     def freeze_ablated_hook(value, hook: HookPoint):
         value = ablated_cache[hook.name]
