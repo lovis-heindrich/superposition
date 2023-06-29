@@ -885,7 +885,7 @@ def get_neuron_loss_attribution(prompt, model, neurons, ablation_hooks: list, po
     else:
         return original_loss[0, :], ablated_loss[0, :], ablated_with_original_frozen_loss[0, :]
     
-def pos_wise_mlp_effect_on_single_prompt(prompt: str, model:HookedTransformer, ablation_hooks: list, k = 20, log=False, top_neurons=None, answer_pos=None):
+def pos_wise_mlp_effect_on_single_prompt(prompt: str, model:HookedTransformer, ablation_hooks: list, k = 20, log=False, top_neurons=None, answer_pos=None, return_mlp4_less_mlp5=False):
     
     if answer_pos is not None:
         pos = answer_pos
@@ -909,12 +909,25 @@ def pos_wise_mlp_effect_on_single_prompt(prompt: str, model:HookedTransformer, a
     else:
         top_diff_neurons = torch.LongTensor(top_neurons)
     
-    # TODO Frozen loss does not match for single position and pos=None
+    if return_mlp4_less_mlp5:
+        with model.hooks(fwd_hooks=ablation_hooks):
+            _, ablated_cache = model.run_with_cache(prompt)
+        def deactivate_component_hook(value, hook: HookPoint):
+            value = ablated_cache[hook.name]
+            return value
+        deactivate_4_hooks = [(f"blocks.4.hook_attn_out", deactivate_component_hook), (f"blocks.4.mlp.hook_pre", deactivate_component_hook)]
+        with model.hooks(fwd_hooks=deactivate_4_hooks):
+            # TODO Frozen loss does not match for single position and pos=None
+            if pos is None:
+                _, _, frozen_loss_inactive_mlp4 = get_neuron_loss_attribution(prompt, model, top_diff_neurons[:, :k], ablation_hooks=ablation_hooks, pos=pos)
+            else:
+                _, _, frozen_loss_inactive_mlp4 = get_neuron_loss_attribution(prompt, model, top_diff_neurons[:k], ablation_hooks=ablation_hooks, pos=pos)
+    
     if pos is None:
-        _, _, frozen_loss = get_neuron_loss_attribution(prompt, model, top_diff_neurons[:, :k], ablation_hooks=ablation_hooks, pos=pos)
+            _, _, frozen_loss = get_neuron_loss_attribution(prompt, model, top_diff_neurons[:, :k], ablation_hooks=ablation_hooks, pos=pos)
     else:
         _, _, frozen_loss = get_neuron_loss_attribution(prompt, model, top_diff_neurons[:k], ablation_hooks=ablation_hooks, pos=pos)
-    
+
     ablation_loss_increase = total_effect_loss - original_loss
     frozen_loss_decrease = total_effect_loss - frozen_loss
 
@@ -933,4 +946,7 @@ def pos_wise_mlp_effect_on_single_prompt(prompt: str, model:HookedTransformer, a
         print(f"Direct effect loss of MLP3 (restoring MLP4 and MLP5 and attention): {direct_mlp3_loss}")
         print(f"Total effect loss when freezing top MLP5 neurons: {frozen_loss}")
     
-    return original_loss, total_effect_loss, direct_mlp3_mlp5_loss, direct_mlp3_loss, frozen_loss
+    if return_mlp4_less_mlp5:
+        return original_loss, total_effect_loss, direct_mlp3_mlp5_loss, direct_mlp3_loss, frozen_loss, frozen_loss_inactive_mlp4
+    else:
+        return original_loss, total_effect_loss, direct_mlp3_mlp5_loss, direct_mlp3_loss, frozen_loss
