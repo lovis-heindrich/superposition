@@ -822,6 +822,17 @@ def get_mlp5_attribution_without_mlp4(prompt: str, model: HookedTransformer, abl
         return original_loss[0, :], total_effect_loss[0, :], direct_mlp3_mlp5_loss[0, :], direct_mlp3_loss[0, :]
 
 
+def get_mlp3_4_attribution(prompt: str, model: HookedTransformer, ablation_hooks: list, pos: int | None = -1):
+    # Freeze everything except for MLP5 to see if MLP5 depends on MLP4
+    freeze_act_names=("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.5.hook_mlp_out")
+    original_loss, total_effect_loss, direct_mlp3_mlp4_loss, _= split_effects(prompt, model, ablation_hooks=ablation_hooks, freeze_act_names=freeze_act_names, debug_log=False, return_absolute=True)
+
+    if pos is not None:
+        return direct_mlp3_mlp4_loss[0, pos].item()
+    else:
+        return direct_mlp3_mlp4_loss[0, :]
+
+
 def get_neuron_logit_contribution(cache: ActivationCache, model: HookedTransformer, answer_tokens: Int[Tensor, "batch pos"], layer: int, pos:int | None) -> Float[Tensor, "neuron pos"]:
     # Expects cache from a single example, won't work on batched examples
     # Get per neuron output of MLP layer
@@ -897,6 +908,7 @@ def pos_wise_mlp_effect_on_single_prompt(prompt: str, model:HookedTransformer, a
             print(f"Warning: Only {len(top_neurons)} neurons given for k={k}.")
 
     original_loss, total_effect_loss, direct_mlp3_mlp5_loss, direct_mlp3_loss = get_mlp5_attribution_without_mlp4(prompt, model, ablation_hooks=ablation_hooks, pos=pos)
+    direct_mlp3_mlp4_loss = get_mlp3_4_attribution(prompt, model, ablation_hooks=ablation_hooks, pos=pos)
     if top_neurons is None:
         differences = MLP_attribution(prompt, model, fwd_hooks=ablation_hooks, layer_to_compare=5, pos=pos)
         # Shape (pos, k)
@@ -929,4 +941,4 @@ def pos_wise_mlp_effect_on_single_prompt(prompt: str, model:HookedTransformer, a
         print(f"Direct effect loss of MLP3 (restoring MLP4 and MLP5 and attention): {direct_mlp3_loss}")
         print(f"Total effect loss when freezing top MLP5 neurons: {frozen_loss}")
     
-    return original_loss, total_effect_loss, direct_mlp3_mlp5_loss, direct_mlp3_loss, frozen_loss
+    return original_loss, total_effect_loss, direct_mlp3_mlp5_loss, direct_mlp3_loss, frozen_loss, direct_mlp3_mlp4_loss
