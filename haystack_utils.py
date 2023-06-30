@@ -283,7 +283,7 @@ def imshow(tensor, xaxis="", yaxis="", title="", **kwargs):
     px.imshow(tensor, **plot_kwargs, title=title).show()
 
 
-def line(x, xlabel="", ylabel="", title="", xticks=None, width=800, hover_data=None):
+def line(x, xlabel="", ylabel="", title="", xticks=None, width=800, hover_data=None, show_legend=True):
     fig = px.line(x, title=title)
     fig.update_layout(xaxis_title=xlabel, yaxis_title=ylabel, width=width)
     if xticks != None:
@@ -291,9 +291,11 @@ def line(x, xlabel="", ylabel="", title="", xticks=None, width=800, hover_data=N
             xaxis = dict(
             tickmode = 'array',
             tickvals = [i for i in range(len(xticks))],
-            ticktext = xticks
-            )
+            ticktext = xticks,
+            ),
+            showlegend=show_legend
         )
+    #fig.update_yaxes(range=[3.45, 3.85])
     if hover_data != None:
         fig.update(data=[{'customdata': hover_data, 'hovertemplate': "Loss: %{y:.4f} (+%{customdata:.2f}%)"}])
     fig.show()
@@ -774,19 +776,21 @@ def split_effects(
     if return_absolute:
         return original_loss, ablated_loss, ablated_with_original_frozen_loss, original_with_frozen_ablated
     else:
+        print("Warning: returning relative loss changes.")
         #print(f"Original loss: {np.max(original_loss):.2f}, frozen loss: {np.max(frozen_loss):.2f} (+{((np.mean(frozen_loss) - np.mean(original_loss)) / np.mean(original_losses))*100:.2f}%), ablated loss: {np.mean(ablated_losses):.2f} (+{((np.mean(ablated_losses) - np.mean(original_losses)) / np.mean(original_losses))*100:.2f}%)")
         return original_loss, total_effect_loss_change, direct_effect_loss_change, indirect_effect_loss_change
     
 
-def plot_barplot(data: list[list[float]], names: list[str], xlabel="", ylabel="", title="", width=1000):
+def plot_barplot(data: list[list[float]], names: list[str], short_names = None, xlabel="", ylabel="", title="", width=1000):
     means = np.mean(data, axis=1)
     stds = np.std(data, axis=1)
     
     fig = go.Figure()
-    
+    if short_names is None:
+        short_names = names
     for i in range(len(names)):
         fig.add_trace(go.Bar(
-            x=[names[i]],
+            x=[short_names[i]],
             y=[means[i]],
             error_y=dict(
                 type='data',
@@ -811,7 +815,7 @@ def plot_barplot(data: list[list[float]], names: list[str], xlabel="", ylabel=""
 
 def get_mlp5_attribution_without_mlp4(prompt: str, model: HookedTransformer, ablation_hooks: list, pos: int | None = -1):
     # Freeze everything except for MLP5 to see if MLP5 depends on MLP4
-    freeze_act_names=("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.4.hook_mlp_out")
+    freeze_act_names=("blocks.5.hook_attn_out", "blocks.4.hook_attn_out", "blocks.4.hook_mlp_out")
     original_loss, total_effect_loss, direct_mlp3_mlp5_loss, _= split_effects(prompt, model, ablation_hooks=ablation_hooks, freeze_act_names=freeze_act_names, debug_log=False, return_absolute=True)
     freeze_act_names=("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.4.hook_mlp_out", "blocks.5.hook_mlp_out")
     _, _, direct_mlp3_loss, _ = split_effects(prompt, model, ablation_hooks=ablation_hooks, freeze_act_names=freeze_act_names, debug_log=False, return_absolute=True)
@@ -869,7 +873,7 @@ def MLP_attribution(prompt: str, model: HookedTransformer, fwd_hooks, layer_to_c
     differences = (original_unembedded - ablated_unembedded).detach().cpu() # [neuron]
     return differences
 
-def get_neuron_loss_attribution(prompt, model, neurons, ablation_hooks: list, pos: int | None=-1):
+def get_neuron_loss_attribution(prompt, model, neurons, ablation_hooks: list, pos: int | None=-1, layer=5):
     original_loss, original_cache = model.run_with_cache(prompt, return_type="loss", loss_per_token=True)
     with model.hooks(fwd_hooks=ablation_hooks):
         ablated_loss, ablated_cache = model.run_with_cache(prompt, return_type="loss", loss_per_token=True)
@@ -883,7 +887,7 @@ def get_neuron_loss_attribution(prompt, model, neurons, ablation_hooks: list, po
             value[0, :-1, :] = value[0, :-1, :].scatter_(dim=-1, index=neurons.cuda(), src=src_tmp)
         return value      
 
-    freeze_original_hooks = [("blocks.5.mlp.hook_post", freeze_neurons_hook)]
+    freeze_original_hooks = [(f"blocks.{layer}.mlp.hook_post", freeze_neurons_hook)]
     with model.hooks(fwd_hooks=ablation_hooks+freeze_original_hooks):
         ablated_with_original_frozen_loss = model(prompt, return_type="loss", loss_per_token=True)
     #print(ablated_loss[0, :], ablated_with_original_frozen_loss[0, :])
@@ -892,7 +896,7 @@ def get_neuron_loss_attribution(prompt, model, neurons, ablation_hooks: list, po
     else:
         return original_loss[0, :], ablated_loss[0, :], ablated_with_original_frozen_loss[0, :]
     
-def pos_wise_mlp_effect_on_single_prompt(prompt: str, model:HookedTransformer, ablation_hooks: list, k = 20, log=False, top_neurons=None, answer_pos=None):
+def pos_wise_mlp_effect_on_single_prompt(prompt: str, model:HookedTransformer, ablation_hooks: list, k = 20, log=False, top_neurons=None, answer_pos=None, return_mlp4_less_mlp5=False):
     
     if answer_pos is not None:
         pos = answer_pos
@@ -917,12 +921,25 @@ def pos_wise_mlp_effect_on_single_prompt(prompt: str, model:HookedTransformer, a
     else:
         top_diff_neurons = torch.LongTensor(top_neurons)
     
-    # TODO Frozen loss does not match for single position and pos=None
+    if return_mlp4_less_mlp5:
+        with model.hooks(fwd_hooks=ablation_hooks):
+            _, ablated_cache = model.run_with_cache(prompt)
+        def deactivate_component_hook(value, hook: HookPoint):
+            value = ablated_cache[hook.name]
+            return value
+        deactivate_4_hooks = [(f"blocks.4.hook_attn_out", deactivate_component_hook), (f"blocks.4.mlp.hook_pre", deactivate_component_hook)]
+        with model.hooks(fwd_hooks=deactivate_4_hooks):
+            # TODO Frozen loss does not match for single position and pos=None
+            if pos is None:
+                _, _, frozen_loss_inactive_mlp4 = get_neuron_loss_attribution(prompt, model, top_diff_neurons[:, :k], ablation_hooks=ablation_hooks, pos=pos)
+            else:
+                _, _, frozen_loss_inactive_mlp4 = get_neuron_loss_attribution(prompt, model, top_diff_neurons[:k], ablation_hooks=ablation_hooks, pos=pos)
+    
     if pos is None:
-        _, _, frozen_loss = get_neuron_loss_attribution(prompt, model, top_diff_neurons[:, :k], ablation_hooks=ablation_hooks, pos=pos)
+            _, _, frozen_loss = get_neuron_loss_attribution(prompt, model, top_diff_neurons[:, :k], ablation_hooks=ablation_hooks, pos=pos)
     else:
         _, _, frozen_loss = get_neuron_loss_attribution(prompt, model, top_diff_neurons[:k], ablation_hooks=ablation_hooks, pos=pos)
-    
+
     ablation_loss_increase = total_effect_loss - original_loss
     frozen_loss_decrease = total_effect_loss - frozen_loss
 
@@ -941,4 +958,7 @@ def pos_wise_mlp_effect_on_single_prompt(prompt: str, model:HookedTransformer, a
         print(f"Direct effect loss of MLP3 (restoring MLP4 and MLP5 and attention): {direct_mlp3_loss}")
         print(f"Total effect loss when freezing top MLP5 neurons: {frozen_loss}")
     
-    return original_loss, total_effect_loss, direct_mlp3_mlp5_loss, direct_mlp3_loss, frozen_loss, direct_mlp3_mlp4_loss
+    if return_mlp4_less_mlp5:
+        return original_loss, total_effect_loss, direct_mlp3_mlp5_loss, direct_mlp3_loss, frozen_loss, frozen_loss_inactive_mlp4
+    else:
+        return original_loss, total_effect_loss, direct_mlp3_mlp5_loss, direct_mlp3_loss, frozen_loss
