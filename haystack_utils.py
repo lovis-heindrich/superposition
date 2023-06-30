@@ -921,6 +921,7 @@ def pos_wise_mlp_effect_on_single_prompt(prompt: str, model:HookedTransformer, a
     else:
         top_diff_neurons = torch.LongTensor(top_neurons)
     
+    # also ablates attention 4
     if return_mlp4_less_mlp5:
         with model.hooks(fwd_hooks=ablation_hooks):
             _, ablated_cache = model.run_with_cache(prompt)
