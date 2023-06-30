@@ -917,7 +917,7 @@ def pos_wise_mlp_effect_on_single_prompt(prompt: str, model:HookedTransformer, a
         differences = MLP_attribution(prompt, model, fwd_hooks=ablation_hooks, layer_to_compare=5, pos=pos)
         # Shape (pos, k)
         top_diff, top_diff_neurons = torch.topk(differences, k, largest=True)
-        #print(top_diff_neurons)
+        # print(top_diff_neurons)
     else:
         top_diff_neurons = torch.LongTensor(top_neurons)
     
@@ -928,7 +928,8 @@ def pos_wise_mlp_effect_on_single_prompt(prompt: str, model:HookedTransformer, a
         def deactivate_component_hook(value, hook: HookPoint):
             value = ablated_cache[hook.name]
             return value
-        deactivate_4_hooks = [(f"blocks.4.hook_attn_out", deactivate_component_hook), (f"blocks.4.mlp.hook_pre", deactivate_component_hook)]
+        deactivate_4_hooks = [(f"blocks.4.mlp.hook_pre", deactivate_component_hook)]
+        # deactivate_4_hooks = [(f"blocks.4.hook_attn_out", deactivate_component_hook), (f"blocks.4.mlp.hook_pre", deactivate_component_hook)]
         with model.hooks(fwd_hooks=deactivate_4_hooks):
             # TODO Frozen loss does not match for single position and pos=None
             if pos is None:
@@ -963,3 +964,82 @@ def pos_wise_mlp_effect_on_single_prompt(prompt: str, model:HookedTransformer, a
         return original_loss, total_effect_loss, direct_mlp3_mlp5_loss, direct_mlp3_loss, frozen_loss, frozen_loss_inactive_mlp4
     else:
         return original_loss, total_effect_loss, direct_mlp3_mlp5_loss, direct_mlp3_loss, frozen_loss
+
+
+
+def MLP_attribution_4_5(prompt: str, model: HookedTransformer, fwd_hooks, layer_to_compare=5, pos: int | None =-1):
+    # neurons with top differences when ablated 3 is patched in vs ablated 3 AND ablated 4
+    tokens = model.to_tokens(prompt)
+    if pos is None:
+        answer_tokens = tokens[:, 1:]
+    else:
+        answer_tokens = tokens[:, pos+1] #TODO check
+
+    # Get difference between ablated and unablated neurons' contribution to answer logit
+    _, _, original_cache, ablated_cache = get_caches_single_prompt(
+        prompt, model, fwd_hooks)
+    
+    with model.hooks(fwd_hooks=fwd_hooks+[(f"blocks.4.mlp.hook_pre", lambda value, hook: ablated_cache[hook.name])]):
+        logits, mlp_3_4_disabled_cache = model.run_with_cache(prompt)
+
+    mlp_3_4_disabled_unembedded = get_neuron_logit_contribution(mlp_3_4_disabled_cache, model, answer_tokens, layer=layer_to_compare, pos=pos) # [neuron]
+    mlp_3_disabled_unembedded = get_neuron_logit_contribution(ablated_cache, model, answer_tokens, layer=layer_to_compare, pos=pos)
+    differences = (mlp_3_disabled_unembedded - mlp_3_4_disabled_unembedded).detach().cpu() # [neuron]
+    return differences
+
+
+def effect_of_context_and_mlp_4_on_neurons_vs_just_context(prompt: str, model:HookedTransformer, ablation_hooks: list, k = 20, log=False, top_neurons=None, answer_pos=-1, return_mlp4_less_mlp5=False):
+    # We have a subset of neurons which are different when the context neuron is disabled. We want a group of neurons which are different when context neuron is disabled, vs. context 
+    # neuron Identify neurons which 
+    pos = model.to_tokens(prompt).shape[1]-1+answer_pos
+
+    original_loss, total_effect_loss, direct_mlp3_mlp5_loss, direct_mlp3_loss = get_mlp5_attribution_without_mlp4(prompt, model, ablation_hooks=ablation_hooks, pos=pos)
+
+    if top_neurons is None:
+        differences = MLP_attribution(prompt, model, fwd_hooks=ablation_hooks, layer_to_compare=5, pos=pos)
+        differences_with_4 = MLP_attribution(prompt, model, fwd_hooks=ablation_hooks, layer_to_compare=5, pos=pos)
+        top_diff, top_diff_neurons = torch.topk(differences, k, largest=True) # Shape (pos, k)
+    else:
+        top_diff_neurons = torch.LongTensor(top_neurons)
+    
+    differences_with_34_disabled = MLP_attribution_4_5(prompt, model, fwd_hooks=ablation_hooks, layer_to_compare=5, pos=pos)    
+    top_diff_3_4_disabled, top_diff_neurons_3_4_disabled = torch.topk(differences_with_34_disabled, 200, largest=True)
+    # print(top_diff_neurons_3_4_disabled)
+    # indices = torch.zeros_like(top_diff_neurons, dtype = torch.uint8).cpu()
+    # for elem in top_diff_neurons_3_4_disabled:
+    #     indices = indices | (top_diff_neurons == elem.cpu())  
+    # intersection = top_diff_neurons[indices]  
+    # print(intersection)
+
+    if return_mlp4_less_mlp5:
+        with model.hooks(fwd_hooks=ablation_hooks):
+            _, ablated_cache = model.run_with_cache(prompt)
+        def deactivate_component_hook(value, hook: HookPoint):
+            value = ablated_cache[hook.name]
+            return value
+        deactivate_4_hooks = [(f"blocks.4.mlp.hook_pre", deactivate_component_hook)]
+
+        # Currently we look at neurons that contribute differently to the answer token when MLP3 is ablated vs. not. 
+        # Within this subset, some neurons read directly from MLP3. Some are more complex and also read from MLP4 (3 + 4, not 3 via 4).
+
+        # For these, they won't activate as differently when enabling MLP3 but patching in a disabled MLP4, vs. on the original cache.
+        # They will be a subset of top_neurons. We want to list out the top_neurons but how different their activation is in this scenario.
+        
+        # Task: Disable MLP4 and see how the MLP5 neurons contribute differently to the answer token.
+
+        # patching in the clean MLP4 on its own doesn't help with loss. But context neuron + MLP4 helps some of the top MLP5 neurons be more different.
+        # We can identify these by looking at which of the top neurons are more different when we patch in the clean MLP4 - but which direction?
+
+        # we want to split the top neurons into ones which read from 4 and ones which read from 3. Basically, if we ablate the context neuron but patch in the clean 4 some of these
+        # neurons will be very different. These are our AND neurons.
+        with model.hooks(fwd_hooks=deactivate_4_hooks):
+            _, _, frozen_loss_inactive_mlp4 = get_neuron_loss_attribution(prompt, model, top_diff_neurons[:k], ablation_hooks=ablation_hooks, pos=pos)
+        _, _, frozen_loss = get_neuron_loss_attribution(prompt, model, top_diff_neurons[:k], ablation_hooks=ablation_hooks, pos=pos)
+
+    ablation_loss_increase = total_effect_loss - original_loss
+    frozen_loss_decrease = total_effect_loss - frozen_loss
+    
+    if return_mlp4_less_mlp5:
+        return original_loss, total_effect_loss, direct_mlp3_mlp5_loss, direct_mlp3_loss, frozen_loss, frozen_loss_inactive_mlp4, top_diff_neurons, top_diff_neurons_3_4_disabled
+    else:
+        return original_loss, total_effect_loss, direct_mlp3_mlp5_loss, direct_mlp3_loss, frozen_loss, frozen_loss_inactive_mlp4, top_diff_neurons, top_diff_neurons_3_4_disabled
