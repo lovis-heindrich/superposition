@@ -15,9 +15,9 @@ class GermanHook():
         """Language neuron hooks for Pythia 70m V1 """
         
         # Load data
-        english_data = load_txt_data("kde4_english.txt")[:500]
-        german_data = load_txt_data("wmt_german_large.txt")[:500]
-        # french_data = load_txt_data("kde4_french.txt")[:500]
+        english_data = load_txt_data("data/kde4_english.txt")[:500]
+        german_data = load_txt_data("data/wmt_german_large.txt")[:500]
+        # french_data = load_txt_data("data/kde4_french.txt")[:500]
 
         # Define hook patterns
         self.mlp_pattern = lambda name: name.endswith("mlp.hook_post")

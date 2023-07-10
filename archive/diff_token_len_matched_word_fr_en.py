@@ -16,7 +16,7 @@
 # API that doesn't work
 # from googletrans import Translator
 # translator = Translator()
-# english_data = haystack_utils.load_txt_data("kde4_english.txt")
+# english_data = haystack_utils.load_txt_data("data/kde4_english.txt")
 
 # print(translator.translate("hello", src='en', dest='fr'))
 
