@@ -14,7 +14,7 @@ import numpy as np
 from einops import einsum
 from IPython.display import display, HTML
 import re
-
+from pathlib import Path
 
 
 def DLA(prompts: List[str], model: HookedTransformer):
@@ -317,7 +317,7 @@ def load_txt_data(path: str) -> List[str]:
     Returns:
         list[str]: List of examples.
     """
-    with open(path, "r") as f:
+    with open(Path(path), "r") as f:
         data = f.read().split("\n")
     min_len = min([len(example) for example in data])
     max_len = max([len(example) for example in data])
