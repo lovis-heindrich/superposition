@@ -1043,3 +1043,48 @@ def effect_of_context_and_mlp_4_on_neurons_vs_just_context(prompt: str, model:Ho
         return original_loss, total_effect_loss, direct_mlp3_mlp5_loss, direct_mlp3_loss, frozen_loss, frozen_loss_inactive_mlp4, top_diff_neurons, top_diff_neurons_3_4_disabled
     else:
         return original_loss, total_effect_loss, direct_mlp3_mlp5_loss, direct_mlp3_loss, frozen_loss, frozen_loss_inactive_mlp4, top_diff_neurons, top_diff_neurons_3_4_disabled
+
+
+def get_direct_effect(prompt: str, model: HookedTransformer, context_ablation_hooks: list, context_activation_hooks: list, pos: int | None = -1,
+                      deactivated_components=("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.4.hook_mlp_out"),
+                      activated_components=("blocks.5.hook_mlp_out",)
+):
+    """ Direct MLP5 effect
+
+    Args:
+        prompt (str): _description_
+        model (HookedTransformer): _description_
+        context_ablation_hooks (list): _description_
+        context_activation_hooks (list): _description_
+        pos (int | None, optional): _description_. Defaults to -1.
+        deactivated_components (tuple, optional): _description_. Defaults to ("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.4.hook_mlp_out").
+        activated_components (tuple, optional): _description_. Defaults to ("blocks.5.hook_mlp_out",).
+
+    Returns:
+        _type_: _description_
+    """
+    # 1. Deactivate context neuron, cache activations
+    original_loss, original_cache = model.run_with_cache(prompt, return_type="loss", loss_per_token=True)
+    with model.hooks(fwd_hooks=context_ablation_hooks):
+        ablated_loss, ablated_cache = model.run_with_cache(prompt, return_type="loss", loss_per_token=True)
+
+    # 2. Activate context neuron, ablate deactivated_components, cache activations    
+    def deactivate_components_hook(value, hook: HookPoint):
+        value = ablated_cache[hook.name]
+        return value             
+    deactivate_components_hooks = [(freeze_act_name, deactivate_components_hook) for freeze_act_name in deactivated_components]
+    with model.hooks(fwd_hooks=deactivate_components_hooks+context_activation_hooks):
+        context_and_activated_loss, context_and_activated_cache = model.run_with_cache(prompt, return_type="loss", loss_per_token=True)
+
+    # 3. Deactivate context neuron, patch context neuron into activated_components, deactivate deactivated_components (doesn't matter when looking at MLP5)
+    def activate_components_hook(value, hook: HookPoint):
+        value = context_and_activated_cache[hook.name]
+        return value         
+    activate_components_hooks = [(freeze_act_name, activate_components_hook) for freeze_act_name in activated_components]
+    with model.hooks(fwd_hooks=activate_components_hooks+context_ablation_hooks+deactivate_components_hooks):
+        only_activated_loss = model(prompt, return_type="loss", loss_per_token=True)
+
+    if pos is not None:
+        return original_loss[0, pos].item(), ablated_loss[0, pos].item(), context_and_activated_loss[0, pos].item(), only_activated_loss[0, pos].item()
+    else:
+        return original_loss[0, :].item(), ablated_loss[0, :].item(), context_and_activated_loss[0, :].item(), only_activated_loss[0, :].item()
