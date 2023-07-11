@@ -1141,13 +1141,14 @@ def clean_print_strings_as_html(strings: list[str], color_values: list[float], m
 
         #visible_string = re.sub(r'\s+', '&nbsp;', strings[i])
         visible_string = re.sub(r'\s+', '_', strings[i])
+        visible_string = re.sub(r"[\n\t\s]*", "", visible_string)
         
         html += f'<span style="background-color: rgb({red}, {green}, {blue}); color: {text_color}; padding: 2px;" '
-        html += f'title="Difference: {color_values[i]:.4f}"' 
+        html += f'title="Difference: {color_values[i]:.4f}' 
         if additional_measure_names is not None:
             for j in range(len(additional_measure_names)):
                 html += f', {additional_measure_names[j]}: {additional_measures[j][i]:.4f}'
-        html += '>{visible_string}</span></div>'
-    
+        html += f'"> {visible_string} </span> </div>'
+
     # Print the HTML in Jupyter Notebook
     display(HTML(html))
