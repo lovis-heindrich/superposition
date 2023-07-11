@@ -15,6 +15,7 @@ from einops import einsum
 from IPython.display import display, HTML
 import re
 from pathlib import Path
+import json
 
 
 def DLA(prompts: List[str], model: HookedTransformer):
@@ -319,6 +320,17 @@ def load_txt_data(path: str) -> List[str]:
     """
     with open(Path(path), "r") as f:
         data = f.read().split("\n")
+    min_len = min([len(example) for example in data])
+    max_len = max([len(example) for example in data])
+    print(
+        f"{path}: Loaded {len(data)} examples with {min_len} to {max_len} characters each."
+    )
+    return data
+
+def load_json_data(path: str) -> list[str]:
+    with open(path, 'r') as f:
+        data = json.load(f)
+
     min_len = min([len(example) for example in data])
     max_len = max([len(example) for example in data])
     print(
@@ -1064,7 +1076,7 @@ def get_direct_effect(prompt: str, model: HookedTransformer, context_ablation_ho
         _type_: _description_
     """
     # 1. Deactivate context neuron, cache activations
-    original_loss, original_cache = model.run_with_cache(prompt, return_type="loss", loss_per_token=True)
+    original_loss = model(prompt, return_type="loss", loss_per_token=True)
     with model.hooks(fwd_hooks=context_ablation_hooks):
         ablated_loss, ablated_cache = model.run_with_cache(prompt, return_type="loss", loss_per_token=True)
 
@@ -1087,4 +1099,55 @@ def get_direct_effect(prompt: str, model: HookedTransformer, context_ablation_ho
     if pos is not None:
         return original_loss[0, pos].item(), ablated_loss[0, pos].item(), context_and_activated_loss[0, pos].item(), only_activated_loss[0, pos].item()
     else:
-        return original_loss[0, :].item(), ablated_loss[0, :].item(), context_and_activated_loss[0, :].item(), only_activated_loss[0, :].item()
+        return original_loss[0, :], ablated_loss[0, :], context_and_activated_loss[0, :], only_activated_loss[0, :]
+    
+
+def clean_print_strings_as_html(strings: list[str], color_values: list[float], max_value: float=None, additional_measures: list[list[float]] | None = None, additional_measure_names: list[str] | None = None):
+    """ Magic GPT function that prints a string as HTML and colors it according to a list of color values. Color values are normalized to the max value preserving the sign.
+    """
+
+    def normalize(values, max_value=None, min_value=None):
+        if max_value is None:
+            max_value = max(values)
+        if min_value is None:
+            min_value = min(values)
+        min_value = abs(min_value)
+        normalized = [value / max_value if value > 0 else value / min_value for value in values]
+        return normalized
+    
+    html = "<div>"
+    
+    # Normalize color values
+    normalized_values = normalize(color_values, max_value, max_value)
+
+    for i in range(len(strings)):
+        color = color_values[i]
+        normalized_color = normalized_values[i]
+        
+        if color < 0:
+            red = int(max(0, min(255, (1 + normalized_color) * 255)))
+            green = int(max(0, min(255, (1 + normalized_color) * 255)))
+            blue = 255
+        else:
+            red = 255
+            green = int(max(0, min(255, (1 - normalized_color) * 255)))
+            blue = int(max(0, min(255, (1 - normalized_color) * 255)))
+        
+        # Calculate luminance to determine if text should be black
+        luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255
+        
+        # Determine text color based on background luminance
+        text_color = "black" if luminance > 0.5 else "white"
+
+        #visible_string = re.sub(r'\s+', '&nbsp;', strings[i])
+        visible_string = re.sub(r'\s+', '_', strings[i])
+        
+        html += f'<span style="background-color: rgb({red}, {green}, {blue}); color: {text_color}; padding: 2px;" '
+        html += f'title="Difference: {color_values[i]:.4f}"' 
+        if additional_measure_names is not None:
+            for j in range(len(additional_measure_names)):
+                html += f', {additional_measure_names[j]}: {additional_measures[j][i]:.4f}'
+        html += '>{visible_string}</span></div>'
+    
+    # Print the HTML in Jupyter Notebook
+    display(HTML(html))
