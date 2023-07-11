@@ -23,3 +23,8 @@ pip install jupyter ipykernel
 # pip install git+https://github.com/neelnanda-io/TransformerLens
 # curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -; sudo apt-get install -y nodejs
 # pip install git+https://github.com/neelnanda-io/PySvelte.git
+
+
+# ACDC
+# sudo apt-get install graphviz-dev
+# pip install git+https://github.com/ArthurConmy/Automatic-Circuit-Discovery.git@9d5844a
