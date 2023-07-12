@@ -1076,7 +1076,8 @@ def get_direct_effect(prompt: str, model: HookedTransformer, context_ablation_ho
         _type_: _description_
     """
     # 1. Deactivate context neuron, cache activations
-    original_loss = model(prompt, return_type="loss", loss_per_token=True)
+    with model.hooks(fwd_hooks=context_activation_hooks):
+        original_loss = model(prompt, return_type="loss", loss_per_token=True)
     with model.hooks(fwd_hooks=context_ablation_hooks):
         ablated_loss, ablated_cache = model.run_with_cache(prompt, return_type="loss", loss_per_token=True)
 
