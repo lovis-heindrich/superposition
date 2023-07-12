@@ -1,5 +1,4 @@
-conda deactivate
-
+sudo apt-get update
 sudo apt install -y build-essential libffi-dev git libssl-dev zlib1g-dev liblzma-dev libbz2-dev libreadline-dev libsqlite3-dev
 curl https://pyenv.run | bash
 
