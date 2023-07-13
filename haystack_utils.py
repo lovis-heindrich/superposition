@@ -1057,7 +1057,7 @@ def effect_of_context_and_mlp_4_on_neurons_vs_just_context(prompt: str, model:Ho
         return original_loss, total_effect_loss, direct_mlp3_mlp5_loss, direct_mlp3_loss, frozen_loss, frozen_loss_inactive_mlp4, top_diff_neurons, top_diff_neurons_3_4_disabled
 
 
-def get_direct_effect(prompt: str, model: HookedTransformer, context_ablation_hooks: list, context_activation_hooks: list, pos: int | None = -1,
+def get_direct_effect(prompt: str | list[str], model: HookedTransformer, context_ablation_hooks: list, context_activation_hooks: list, pos: int | None = -1,
                       deactivated_components=("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.4.hook_mlp_out"),
                       activated_components=("blocks.5.hook_mlp_out",)
 ):
@@ -1097,6 +1097,11 @@ def get_direct_effect(prompt: str, model: HookedTransformer, context_ablation_ho
     with model.hooks(fwd_hooks=activate_components_hooks+context_ablation_hooks+deactivate_components_hooks):
         only_activated_loss = model(prompt, return_type="loss", loss_per_token=True)
 
+    if original_loss.shape[0] > 1:
+        if pos is not None:
+            return original_loss[:, pos], ablated_loss[:, pos], context_and_activated_loss[:, pos], only_activated_loss[:, pos],
+        else:
+            return original_loss, ablated_loss, context_and_activated_loss, only_activated_loss
     if pos is not None:
         return original_loss[0, pos].item(), ablated_loss[0, pos].item(), context_and_activated_loss[0, pos].item(), only_activated_loss[0, pos].item()
     else:
