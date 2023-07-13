@@ -1108,6 +1108,85 @@ def get_direct_effect(prompt: str | list[str], model: HookedTransformer, context
         return original_loss[0, :], ablated_loss[0, :], context_and_activated_loss[0, :], only_activated_loss[0, :]
 
 
+def relevant_names_filter(name: str):
+    return any([name.endswith(s) for s in ["attn_out", "mlp_out"]])
+
+
+def get_direct_indirect_mlp_effect(prompt: str | list[str], model: HookedTransformer, context_ablation_hooks: list, context_activation_hooks: list, pos: int | None = -1,
+                      senders=("blocks.4.hook_mlp_out"), receivers=("blocks.5.hook_mlp_out")
+):
+    """ Many effect of senders via receivers with attn frozen
+
+    Args:
+        prompt (str): _description_
+        model (HookedTransformer): _description_
+        context_ablation_hooks (list): _description_
+        context_activation_hooks (list): _description_
+        pos (int | None, optional): _description_. Defaults to -1.
+        deactivated_components (tuple, optional): _description_. Defaults to ("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.4.hook_mlp_out").
+        activated_components (tuple, optional): _description_. Defaults to ("blocks.5.hook_mlp_out",).
+
+    Returns:
+        _type_: _description_
+    """
+
+    # 1. Activate context neuron, cache activations
+    # 2. Deactivate context neuron, cache activations
+    # 3. Deactivate context neuron, patch enabled sender, freeze attn, cache activations
+    #   Total effect of sender
+    # 4. Deactivate context neuron, patch receiver from previous run
+    # 	Indirect effect of sender
+    # 5. Deactivate context neuron, patch enabled sender, freeze attn, patch disabled receiver
+    # 	Direct effect of sender
+
+    # 1. Activate context neuron, cache activations
+    with model.hooks(fwd_hooks=context_activation_hooks):
+        original_loss, original_cache = model(prompt, return_type="loss", loss_per_token=True)
+
+    # 2. Deactivate context neuron, cache activations
+    with model.hooks(fwd_hooks=context_ablation_hooks):
+        ablated_loss, ablated_cache = model.run_with_cache(prompt, return_type="loss", loss_per_token=True)
+
+    # 3. Deactivate context neuron, freeze attn, patch enabled sender, cache activations
+    def deactivate_attn_hook(value, hook: HookPoint):
+        value = ablated_cache[hook.name]
+        return value
+    deactivate_attn_hooks = [(lambda name: name.endswith("attn_out"), deactivate_attn_hook)]
+    def activate_components_hook(value, hook: HookPoint):
+        value = original_cache[hook.name]
+        return value         
+    activate_senders_hooks = [(freeze_act_name, activate_components_hook) for freeze_act_name in senders]
+    with model.hooks(fwd_hooks=context_ablation_hooks+deactivate_attn_hooks+activate_senders_hooks):
+        total_mlp_effect_loss, senders_activated_cache = model(prompt, return_type="loss", loss_per_token=True)
+
+    # 4. Deactivate context neuron, patch receiver from previous run
+    def activate_receivers_hook(value, hook: HookPoint):
+        value = senders_activated_cache[hook.name]
+        return value  
+    activate_receivers_hooks = [(freeze_act_name, activate_receivers_hook) for freeze_act_name in receivers]
+    with model.hooks(fwd_hooks=context_ablation_hooks+activate_receivers_hooks):
+        indirect_effect_loss, receivers_activated_cache = model.run_with_cache(prompt, return_type="loss", loss_per_token=True)
+
+    # 5. Deactivate context neuron, freeze attn, patch enabled sender, patch disabled receiver
+    def deactivate_components_hook(value, hook: HookPoint):
+        value = ablated_cache[hook.name]
+        return value             
+    deactivate_receivers_hooks = [(freeze_act_name, deactivate_components_hook) for freeze_act_name in receivers]
+    with model.hooks(fwd_hooks=context_ablation_hooks+deactivate_attn_hooks+activate_senders_hooks+deactivate_receivers_hooks):
+        direct_effect_loss, senders_direct_effect_cache = model.run_with_cache(prompt, return_type="loss", loss_per_token=True)
+
+
+    if original_loss.shape[0] > 1:
+        if pos is not None:
+            return original_loss[:, pos], ablated_loss[:, pos], indirect_effect_loss[:, pos], total_mlp_effect_loss[:, pos], direct_effect_loss[:, pos]
+        else:
+            return original_loss, ablated_loss, indirect_effect_loss, total_mlp_effect_loss, direct_effect_loss
+    if pos is not None:
+        return original_loss[0, pos].item(), ablated_loss[0, pos].item(), indirect_effect_loss[0, pos].item(), total_mlp_effect_loss[0, pos].item(), direct_effect_loss[0, pos].item()
+    else:
+        return original_loss[0, :], ablated_loss[0, :], indirect_effect_loss[0, :], total_mlp_effect_loss[0, :], direct_effect_loss[0, :]
+    
+
 def get_patched_cache(prompt: str | list[str], model: HookedTransformer, context_ablation_hooks: list, context_activation_hooks: list, pos: int | None = -1,
                       deactivated_components=("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.4.hook_mlp_out"),
                       activated_components=("blocks.5.hook_mlp_out",)
