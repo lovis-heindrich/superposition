@@ -6,7 +6,7 @@ from torch import Tensor
 import einops
 from tqdm.auto import tqdm
 import torch
-from typing import List, Tuple
+from typing import List, Tuple, Literal
 import plotly.express as px
 import plotly.graph_objects as go
 import gc
@@ -1059,7 +1059,7 @@ def effect_of_context_and_mlp_4_on_neurons_vs_just_context(prompt: str, model:Ho
 
 def get_direct_effect(prompt: str | list[str], model: HookedTransformer, context_ablation_hooks: list, context_activation_hooks: list, pos: int | None = -1,
                       deactivated_components=("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.4.hook_mlp_out"),
-                      activated_components=("blocks.5.hook_mlp_out",)
+                      activated_components=("blocks.5.hook_mlp_out",), return_type: Literal['logits', 'logprobs', 'loss'] = 'loss'
 ):
     """ Direct MLP5 effect
 
@@ -1075,11 +1075,12 @@ def get_direct_effect(prompt: str | list[str], model: HookedTransformer, context
     Returns:
         _type_: _description_
     """
+    metric_return_type = 'loss' if return_type == 'loss' else 'logits'
     # 1. Deactivate context neuron, cache activations
     with model.hooks(fwd_hooks=context_activation_hooks):
-        original_loss = model(prompt, return_type="loss", loss_per_token=True)
+        original_metric = model(prompt, return_type=metric_return_type, loss_per_token=True)
     with model.hooks(fwd_hooks=context_ablation_hooks):
-        ablated_loss, ablated_cache = model.run_with_cache(prompt, return_type="loss", loss_per_token=True)
+        ablated_metric, ablated_cache = model.run_with_cache(prompt, return_type=metric_return_type, loss_per_token=True)
 
     # 2. Activate context neuron, ablate deactivated_components, cache activations    
     def deactivate_components_hook(value, hook: HookPoint):
@@ -1087,7 +1088,7 @@ def get_direct_effect(prompt: str | list[str], model: HookedTransformer, context
         return value             
     deactivate_components_hooks = [(freeze_act_name, deactivate_components_hook) for freeze_act_name in deactivated_components]
     with model.hooks(fwd_hooks=deactivate_components_hooks+context_activation_hooks):
-        context_and_activated_loss, context_and_activated_cache = model.run_with_cache(prompt, return_type="loss", loss_per_token=True)
+        context_and_activated_metric, context_and_activated_cache = model.run_with_cache(prompt, return_type=metric_return_type, loss_per_token=True)
 
     # 3. Deactivate context neuron, patch context neuron into activated_components, deactivate deactivated_components (doesn't matter when looking at MLP5)
     def activate_components_hook(value, hook: HookPoint):
@@ -1095,17 +1096,24 @@ def get_direct_effect(prompt: str | list[str], model: HookedTransformer, context
         return value         
     activate_components_hooks = [(freeze_act_name, activate_components_hook) for freeze_act_name in activated_components]
     with model.hooks(fwd_hooks=activate_components_hooks+context_ablation_hooks+deactivate_components_hooks):
-        only_activated_loss = model(prompt, return_type="loss", loss_per_token=True)
+        only_activated_metric = model(prompt, return_type=metric_return_type, loss_per_token=True)
 
-    if original_loss.shape[0] > 1:
+    # convert logits metric to logprobs metric
+    if return_type == 'logprobs':
+        original_metric = original_metric.log_softmax(-1)
+        ablated_metric = ablated_metric.log_softmax(-1)
+        context_and_activated_metric = context_and_activated_metric.log_softmax(-1)
+        only_activated_metric = only_activated_metric.log_softmax(-1)
+
+    if original_metric.shape[0] > 1:
         if pos is not None:
-            return original_loss[:, pos], ablated_loss[:, pos], context_and_activated_loss[:, pos], only_activated_loss[:, pos],
+            return original_metric[:, pos], ablated_metric[:, pos], context_and_activated_metric[:, pos], only_activated_metric[:, pos],
         else:
-            return original_loss, ablated_loss, context_and_activated_loss, only_activated_loss
+            return original_metric, ablated_metric, context_and_activated_metric, only_activated_metric
     if pos is not None:
-        return original_loss[0, pos].item(), ablated_loss[0, pos].item(), context_and_activated_loss[0, pos].item(), only_activated_loss[0, pos].item()
+        return original_metric[0, pos].item(), ablated_metric[0, pos].item(), context_and_activated_metric[0, pos].item(), only_activated_metric[0, pos].item()
     else:
-        return original_loss[0, :], ablated_loss[0, :], context_and_activated_loss[0, :], only_activated_loss[0, :]
+        return original_metric[0, :], ablated_metric[0, :], context_and_activated_metric[0, :], only_activated_metric[0, :]
 
 
 def relevant_names_filter(name: str):
