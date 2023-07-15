@@ -1275,14 +1275,41 @@ def clean_print_strings_as_html(strings: list[str], color_values: list[float], m
 
         #visible_string = re.sub(r'\s+', '&nbsp;', strings[i])
         visible_string = re.sub(r'\s+', '_', strings[i])
-        visible_string = re.sub(r"[\n\t\s]*", "", visible_string)
+        # visible_string = re.sub(r"[\n\t\s\r]*", "", visible_string)
         
         html += f'<span style="background-color: rgb({red}, {green}, {blue}); color: {text_color}; padding: 2px;" '
         html += f'title="Difference: {color_values[i]:.4f}' 
         if additional_measure_names is not None:
             for j in range(len(additional_measure_names)):
                 html += f', {additional_measure_names[j]}: {additional_measures[j][i]:.4f}'
-        html += f'"> {visible_string} </span> </div>'
+        html += f'">{visible_string}</span>'
+    html += '</div>'
 
     # Print the HTML in Jupyter Notebook
     display(HTML(html))
+
+
+def get_average_loss_plot_method(activate_context_fwd_hooks, deactivate_context_fwd_hooks, activated_component_name="MLP5",
+                                deactivated_components = ("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.4.hook_mlp_out"),
+                                activated_components = ("blocks.5.hook_mlp_out", ),):
+    """Factory method that predefines the average_loss_plot variables which are constant within each notebook"""
+    def average_loss_plot(prompts: list[str], model: HookedTransformer, token="", plot=True):
+
+        original_losses, ablated_losses, context_and_activated_losses, only_activated_losses = [], [], [], []
+        names = ["Original", "Ablated", f"Context + {activated_component_name} active", f"{activated_component_name} active"]
+        for prompt in prompts:
+            original_loss, ablated_loss, context_and_activated_loss, only_activated_loss = \
+                get_direct_effect(prompt, model, pos=-1, 
+                                    context_ablation_hooks=deactivate_context_fwd_hooks, 
+                                    context_activation_hooks=activate_context_fwd_hooks,
+                                    deactivated_components=deactivated_components,
+                                    activated_components=activated_components)
+            original_losses.append(original_loss)
+            ablated_losses.append(ablated_loss)
+            context_and_activated_losses.append(context_and_activated_loss)
+            only_activated_losses.append(only_activated_loss)
+        if plot:
+            plot_barplot([original_losses, ablated_losses, context_and_activated_losses, only_activated_losses], names, ylabel="Loss", title=f"Average loss '{token}'")
+        else:
+            return original_losses, ablated_losses, context_and_activated_losses, only_activated_losses
+    return average_loss_plot
