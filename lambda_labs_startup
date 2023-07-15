@@ -2,9 +2,9 @@ sudo apt-get update
 sudo apt install -y build-essential libffi-dev git libssl-dev zlib1g-dev liblzma-dev libbz2-dev libreadline-dev libsqlite3-dev
 curl https://pyenv.run | bash
 
-export PATH="$HOME/.pyenv/bin:$PATH"
-eval "$(pyenv init --path)"
-eval "$(pyenv virtualenv-init -)"
+export PATH="$HOME/.pyenv/bin:$PATH" > ~/.bashrc
+eval "$(pyenv init --path)" > ~/.bashrc
+eval "$(pyenv virtualenv-init -)" > ~/.bashrc
 
 source ~/.bashrc
 
@@ -16,14 +16,11 @@ source .venv/bin/activate
 
 pip install jupyter ipykernel
 
+git config --global user.name "Lucia Quirke"
+git config --global user.email "luciarosequirke@gmail.com”
+
 # git clone https://$GITHUB_USER:$GITHUB_PAT@github.com/lovis-heindrich/superposition.git Documents
 
 # pip install tqdm einops seaborn plotly-express fancy-einsum scikit-learn
 # pip install git+https://github.com/neelnanda-io/TransformerLens
 # curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -; sudo apt-get install -y nodejs
-# pip install git+https://github.com/neelnanda-io/PySvelte.git
-
-
-# ACDC
-# sudo apt-get install graphviz-dev
-# pip install git+https://github.com/ArthurConmy/Automatic-Circuit-Discovery.git@9d5844a
