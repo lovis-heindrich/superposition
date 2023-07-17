@@ -293,6 +293,7 @@ def line(x, xlabel="", ylabel="", title="", xticks=None, width=800, hover_data=N
             tickmode = 'array',
             tickvals = [i for i in range(len(xticks))],
             ticktext = xticks,
+            range=[-0.2, len(xticks)-0.8] 
             ),
         )
     

@@ -237,6 +237,7 @@ def get_top_difference_neurons(baseline_logprobs, ablated_logprops, positive=Tru
     top_logprob_difference, top_neurons = haystack_utils.top_k_with_exclude(neuron_logprob_difference, min(non_zero_count, k), all_ignore, largest=positive)
     return top_logprob_difference, top_neurons
 
+# %%
 summed_neuron_logprob_boosts = {}
 # Compute summed neuron boosts / deboosts
 for option in options: 
@@ -297,4 +298,66 @@ for option in options:
 
 with open('data/verify_bigrams/summed_neuron_boosts.json', 'w') as f:
     json.dump(summed_neuron_logprob_boosts, f)
+# %%
+# Compute individual neuron logprob boosts / deboosts
+
+individual_neuron_logprob_boosts = {}
+for option in options: 
+    individual_neuron_logprob_boosts[option] = {}
+    prompts = generate_random_prompts(option, n=200, length=20)
+
+    diffs = individual_neuron_loss_diffs[option]
+    sorted_means, indices = torch.sort(torch.tensor(diffs))
+    sorted_means = sorted_means.tolist()
+
+    for neuron_pos in tqdm(range(0, 25)):
+        
+        individual_neuron_logprob_boosts[option][neuron_pos] = {}
+        individual_neuron_logprob_boosts[option][neuron_pos]["Top"] = {}
+        individual_neuron_logprob_boosts[option][neuron_pos]["Bottom"] = {}
+
+        top_neurons = indices[-(neuron_pos+1)]
+        bottom_neurons = indices[neuron_pos]
+
+        with model.hooks(deactivate_neurons_fwd_hooks):
+            ablated_logits, ablated_cache = model.run_with_cache(prompts)
+
+        ablate_top_neurons_hook = get_ablate_neurons_hook([top_neurons], ablated_cache)
+        ablate_bottom_neurons_hook = get_ablate_neurons_hook([bottom_neurons], ablated_cache)
+
+        original_logits, ablated_logprobs, _, all_MLP5_logprobs = haystack_utils.get_direct_effect(prompts, model, pos=-2, context_ablation_hooks=deactivate_neurons_fwd_hooks, context_activation_hooks=activate_neurons_fwd_hooks, return_type='logprobs')
+        _, _, _, top_MLP5_ablated_logprobs = haystack_utils.get_direct_effect(prompts, model, pos=-2, context_ablation_hooks=deactivate_neurons_fwd_hooks, context_activation_hooks=activate_neurons_fwd_hooks+ablate_top_neurons_hook, return_type='logprobs')
+        _, _, _, bottom_MLP5_ablated_logprobs = haystack_utils.get_direct_effect(prompts, model, pos=-2, context_ablation_hooks=deactivate_neurons_fwd_hooks, context_activation_hooks=activate_neurons_fwd_hooks+ablate_bottom_neurons_hook, return_type='logprobs')
+            
+        # Boosted tokens
+        bottom_neuron_pos_difference_logprobs, bottom_pos_indices = get_top_difference_neurons(all_MLP5_logprobs, bottom_MLP5_ablated_logprobs, positive=True)
+        top_neuron_pos_difference_logprobs, top_pos_indices = get_top_difference_neurons(all_MLP5_logprobs, top_MLP5_ablated_logprobs, positive=True)
+        # Deboosted tokens
+        bottom_neuron_neg_difference_logprobs, bottom_neg_indices = get_top_difference_neurons(all_MLP5_logprobs, bottom_MLP5_ablated_logprobs, positive=False)
+        top_neuron_neg_difference_logprobs, top_neg_indices = get_top_difference_neurons(all_MLP5_logprobs, top_MLP5_ablated_logprobs, positive=False)
+
+        bottom_pos_tokens = [model.to_str_tokens([i])[0] for i in bottom_pos_indices]
+        top_pos_tokens = [model.to_str_tokens([i])[0] for i in top_pos_indices]
+        bottom_neg_tokens = [model.to_str_tokens([i])[0] for i in bottom_neg_indices]
+        top_neg_tokens = [model.to_str_tokens([i])[0] for i in top_neg_indices]
+
+        individual_neuron_logprob_boosts[option][neuron_pos]["Top"]["Boosted"] = {
+            "Tokens": top_pos_tokens,
+            "Logprob difference": top_neuron_pos_difference_logprobs.tolist()
+        }
+        individual_neuron_logprob_boosts[option][neuron_pos]["Top"]["Deboosted"] = {
+            "Tokens": top_neg_tokens,
+            "Logprob difference": top_neuron_neg_difference_logprobs.tolist()
+        }
+        individual_neuron_logprob_boosts[option][neuron_pos]["Bottom"]["Boosted"] = {
+            "Tokens": bottom_pos_tokens,
+            "Logprob difference": bottom_neuron_pos_difference_logprobs.tolist()
+        }
+        individual_neuron_logprob_boosts[option][neuron_pos]["Bottom"]["Deboosted"] = {
+            "Tokens": bottom_neg_tokens,
+            "Logprob difference": bottom_neuron_neg_difference_logprobs.tolist()
+        }
+
+with open('data/verify_bigrams/individual_neuron_boosts.json', 'w') as f:
+    json.dump(individual_neuron_logprob_boosts, f)
 # %%
