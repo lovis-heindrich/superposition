@@ -23,6 +23,9 @@ all_loss_data, neuron_loss_diffs, neuron_loss_data, summed_neuron_boosts, indivi
 
 tokens = list(all_loss_data.keys())
 
+option = st.selectbox(
+    'Select the N-Gram to analyze',
+    tokens, index=0)
 
 st.markdown("""
             ## Position-wise loss analysis
@@ -38,10 +41,6 @@ st.markdown("""
             """)
 
 # %%
-
-option = st.sidebar.selectbox(
-    'Select the N-Gram to analyze',
-    tokens, index=0)
 
 replacable_tokens = list(all_loss_data[option].keys())[1:]
 print(replacable_tokens)
@@ -119,8 +118,10 @@ top_neurons_checkbox = st.checkbox("Top neurons", value=True)
 
 if top_neurons_checkbox:
     top_select_str = "Top"
+    title_append = f" from top {top_neurons_count_logprob} neurons"
 else:
     top_select_str = "Bottom"
+    title_append = f" from bottom {top_neurons_count_logprob} neurons"
 
 summed_neuron_boosted = summed_neuron_boosts[option][str(top_neurons_count_logprob)][top_select_str]["Boosted"]
 summed_neuron_deboosted = summed_neuron_boosts[option][str(top_neurons_count_logprob)][top_select_str]["Deboosted"]
@@ -137,9 +138,9 @@ with col1:
     xticks = summed_neuron_boosted_tokens
     xlabel = ""
     ylabel = "Logprob difference"
-    title = "Boosted tokens"
+    title = "Boosted tokens" + title_append
     plot = haystack_utils.line(summed_neuron_boosted_values, 
-                               width=300, plot=False,
+                               width=320, plot=False,
                                xlabel=xlabel, ylabel=ylabel, title=title, xticks=xticks, show_legend=False)
     st.plotly_chart(plot)
 
@@ -148,9 +149,9 @@ with col2:
     print(xticks)
     ylabel = ""
     xlabel = ""
-    title = "Deboosted tokens"
+    title = "Deboosted tokens" + title_append
     plot = haystack_utils.line(summed_neuron_deboosted_values, 
-                               width=300, plot=False,
+                               width=320, plot=False,
                                xlabel=xlabel, ylabel=ylabel, title=title, xticks=xticks, show_legend=False)
     st.plotly_chart(plot)
 
@@ -164,12 +165,16 @@ st.markdown("""
 top_neuron_selector = st.slider("Top / bottom neuron", 1, 25, 1, 1)
 top_individual_neuron_checkbox = st.checkbox("Top neuron", value=True)
 
+bottom_neuron = individual_neuron_boosts[option][str(top_neuron_selector-1)][top_select_str]["Neuron"]
+
 if top_individual_neuron_checkbox:
     top_select_str = "Top"
-    title_append = f" removing top {top_neuron_selector} neuron"
+    top_neuron = individual_neuron_boosts[option][str(top_neuron_selector-1)][top_select_str]["Neuron"]
+    title_append = f" from neuron {top_neuron}"
 else:
     top_select_str = "Bottom"
-    title_append = f" removing bottom {top_neuron_selector} neuron"
+    bottom_neuron = individual_neuron_boosts[option][str(top_neuron_selector-1)][top_select_str]["Neuron"]
+    title_append = f" from neuron {bottom_neuron}"
 
 individual_neuron_boosted = individual_neuron_boosts[option][str(top_neuron_selector-1)][top_select_str]["Boosted"]
 individual_neuron_deboosted = individual_neuron_boosts[option][str(top_neuron_selector-1)][top_select_str]["Deboosted"]
@@ -188,7 +193,7 @@ with col1:
     ylabel = "Logprob difference"
     title = "Boosted tokens" + title_append
     plot = haystack_utils.line(individual_neuron_boosted_values, 
-                               width=300, plot=False,
+                               width=320, plot=False,
                                xlabel=xlabel, ylabel=ylabel, title=title, xticks=xticks, show_legend=False)
     st.plotly_chart(plot)
 
@@ -199,6 +204,6 @@ with col2:
     xlabel = ""
     title = "Deboosted tokens" + title_append
     plot = haystack_utils.line(individual_neuron_deboosted_values, 
-                               width=300, plot=False,
+                               width=320, plot=False,
                                xlabel=xlabel, ylabel=ylabel, title=title, xticks=xticks, show_legend=False)
     st.plotly_chart(plot)

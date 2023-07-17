@@ -313,11 +313,12 @@ for option in options:
     for neuron_pos in tqdm(range(0, 25)):
         
         individual_neuron_logprob_boosts[option][neuron_pos] = {}
-        individual_neuron_logprob_boosts[option][neuron_pos]["Top"] = {}
-        individual_neuron_logprob_boosts[option][neuron_pos]["Bottom"] = {}
 
         top_neurons = indices[-(neuron_pos+1)]
         bottom_neurons = indices[neuron_pos]
+
+        individual_neuron_logprob_boosts[option][neuron_pos]["Top"] = {"Neuron": top_neurons.item()}
+        individual_neuron_logprob_boosts[option][neuron_pos]["Bottom"] = {"Neuron": bottom_neurons.item()}
 
         with model.hooks(deactivate_neurons_fwd_hooks):
             ablated_logits, ablated_cache = model.run_with_cache(prompts)
