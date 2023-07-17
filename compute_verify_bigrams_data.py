@@ -72,15 +72,15 @@ print(model.to_str_tokens(top_tokens[:100]))
 # %%
 
 def get_random_selection(tensor, n=12):
-    # Hacky replacement for np.random.choice
-    return tensor[torch.randperm(len(tensor))[:n]]
+    indices = torch.randint(0, len(tensor), (n,))
+    return tensor[indices]
 
 def generate_random_prompts(end_string, n=50, length=12):
     # Generate a batch of random prompts ending with a specific ngram
     end_tokens = model.to_tokens(end_string).flatten()[1:]
     prompts = []
     for i in range(n):
-        prompt = get_random_selection(top_tokens[:max(50, length)], n=length).cuda()
+        prompt = get_random_selection(top_tokens[:50], n=length).cuda()
         prompt = torch.cat([prompt, end_tokens])
         prompts.append(prompt)
     prompts = torch.stack(prompts)
@@ -119,6 +119,7 @@ def loss_analysis_random_prompts(end_string, n=50, length=12, replace_columns: l
 options = [" Vorschlägen", " häufig", " schließt", " beweglich"] 
 option_lengths = [len(model.to_tokens(option, prepend_bos=False)[0]) for option in options]
 
+
 # %%
 
 all_loss_data = {}
@@ -148,3 +149,90 @@ for option in options:
 with open('data/verify_bigrams/pos_loss_data.json', 'w') as f:
     json.dump(all_loss_data, f)
 # %%
+# %% 
+
+individual_neuron_loss_diffs = {}
+
+for option in options:
+
+    prompts = generate_random_prompts(option, n=100, length=20)
+
+    with model.hooks(deactivate_neurons_fwd_hooks):
+        _, ablated_cache = model.run_with_cache(prompts)
+
+    def get_ablate_neurons_hook(neuron: int | list[int], ablated_cache, layer=5):
+        def ablate_neurons_hook(value, hook):
+            value[:, :, neuron] = ablated_cache[f'blocks.{layer}.mlp.hook_post'][:, :, neuron]
+            return value
+        return [(f'blocks.{layer}.mlp.hook_post', ablate_neurons_hook)]
+
+    diffs = torch.zeros(2048, prompts.shape[0])
+    # Loss with path patched MLP5 neurons
+    _, _, _, baseline_loss = haystack_utils.get_direct_effect(prompts, model, pos=-1, context_ablation_hooks=deactivate_neurons_fwd_hooks, context_activation_hooks=activate_neurons_fwd_hooks)
+    for neuron in tqdm(range(2048)):
+        ablate_single_neuron_hook = get_ablate_neurons_hook(neuron, ablated_cache)
+        # Loss with path patched MLP5 neurons but a single neuron changed back to original ablated value
+        _, _, _, only_activated_loss = haystack_utils.get_direct_effect(prompts, model, pos=-1, context_ablation_hooks=deactivate_neurons_fwd_hooks, context_activation_hooks=activate_neurons_fwd_hooks+ablate_single_neuron_hook)
+        diffs[neuron] = only_activated_loss - baseline_loss
+
+    individual_neuron_loss_diffs[option] = diffs.mean(1).tolist()
+    # sorted_means, indices = torch.sort(diffs.mean(1))
+    # sorted_means = sorted_means.tolist()
+    # haystack_utils.line(sorted_means, xlabel="Sorted neurons", ylabel="Loss change", title="Loss change from ablating MLP5 neuron") # xticks=indices
+# %%
+with open('data/verify_bigrams/neuron_loss_diffs.json', 'w') as f:
+    json.dump(individual_neuron_loss_diffs, f)
+
+# %%
+
+top_bottom_neuron_losses = {}
+
+for option in tqdm(options):
+    prompts = generate_random_prompts(option, n=200, length=20)
+
+    diffs = individual_neuron_loss_diffs[option]
+    sorted_means, indices = torch.sort(torch.tensor(diffs))
+    sorted_means = sorted_means.tolist()
+
+    top_bottom_neuron_losses[option] = {}
+
+    for num_neurons in range(1, 26):
+        # Check loss change when ablating top / bottom neurons
+        top_neurons_count = num_neurons
+        top_neurons = indices[-top_neurons_count:]
+        bottom_neurons = indices[:top_neurons_count]
+
+        with model.hooks(deactivate_neurons_fwd_hooks):
+            ablated_loss, ablated_cache = model.run_with_cache(prompts, return_type="loss")
+
+        ablate_top_neurons_hook = get_ablate_neurons_hook(top_neurons, ablated_cache)
+        ablate_bottom_neurons_hook = get_ablate_neurons_hook(bottom_neurons, ablated_cache)
+
+        original_loss, ablated_loss, _, all_MLP5_loss = haystack_utils.get_direct_effect(prompts, model, pos=-1, context_ablation_hooks=deactivate_neurons_fwd_hooks, context_activation_hooks=activate_neurons_fwd_hooks)
+        _, _, _, top_MLP5_ablated_loss = haystack_utils.get_direct_effect(prompts, model, pos=-1, context_ablation_hooks=deactivate_neurons_fwd_hooks, context_activation_hooks=activate_neurons_fwd_hooks+ablate_top_neurons_hook)
+        _, _, _, bottom_MLP5_ablated_loss = haystack_utils.get_direct_effect(prompts, model, pos=-1, context_ablation_hooks=deactivate_neurons_fwd_hooks, context_activation_hooks=activate_neurons_fwd_hooks+ablate_bottom_neurons_hook)
+
+        names = ["Original", "Ablated", "MLP5 path patched", f"MLP5 path patched + Top {top_neurons_count} MLP5 neurons ablated", f"MLP5 path patched + Bottom {top_neurons_count} MLP5 neurons ablated"]
+        short_names = ["Original", "Ablated", "MLP5 path patched", f"Top MLP5 removed", f"Bottom MLP5 removed"]
+
+        top_bottom_neuron_losses[option][num_neurons] = {
+            "Original": original_loss.tolist(),
+            "Ablated": ablated_loss.tolist(),
+            "MLP5 path patched": all_MLP5_loss.tolist(),
+            f"Top MLP5 removed": top_MLP5_ablated_loss.tolist(),
+            f"Bottom MLP5 removed": bottom_MLP5_ablated_loss.tolist()
+        }
+
+# %%
+with open('data/verify_bigrams/neuron_loss_data.json', 'w') as f:
+    json.dump(top_bottom_neuron_losses, f)
+# %%
+
+for option in options: 
+
+    prompts = generate_random_prompts(option, n=200, length=20)
+    diffs = individual_neuron_loss_diffs[option]
+    sorted_means, indices = torch.sort(torch.tensor(diffs))
+    sorted_means = sorted_means.tolist()
+
+    

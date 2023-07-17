@@ -284,9 +284,9 @@ def imshow(tensor, xaxis="", yaxis="", title="", **kwargs):
     px.imshow(tensor, **plot_kwargs, title=title).show()
 
 
-def line(x, xlabel="", ylabel="", title="", xticks=None, width=800, hover_data=None, show_legend=True):
+def line(x, xlabel="", ylabel="", title="", xticks=None, width=800, hover_data=None, show_legend=True, plot=True):
     fig = px.line(x, title=title)
-    fig.update_layout(xaxis_title=xlabel, yaxis_title=ylabel, width=width)
+    fig.update_layout(xaxis_title=xlabel, yaxis_title=ylabel, width=width, showlegend=show_legend)
     if xticks != None:
         fig.update_layout(
             xaxis = dict(
@@ -294,12 +294,15 @@ def line(x, xlabel="", ylabel="", title="", xticks=None, width=800, hover_data=N
             tickvals = [i for i in range(len(xticks))],
             ticktext = xticks,
             ),
-            showlegend=show_legend
         )
+    
     #fig.update_yaxes(range=[3.45, 3.85])
     if hover_data != None:
         fig.update(data=[{'customdata': hover_data, 'hovertemplate': "Loss: %{y:.4f} (+%{customdata:.2f}%)"}])
-    fig.show()
+    if plot:
+        fig.show()
+    else:
+        return fig
 
 
 def clean_cache():
@@ -796,7 +799,7 @@ def split_effects(
 def plot_barplot(data: list[list[float]], names: list[str], short_names = None, xlabel="", ylabel="", title="", width=1000, show=True, legend=True):
     means = np.mean(data, axis=1)
     stds = np.std(data, axis=1)
-    
+
     fig = go.Figure()
     if short_names is None:
         short_names = names
