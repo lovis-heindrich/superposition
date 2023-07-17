@@ -1,7 +1,7 @@
 # %%
 import streamlit as st
 import json
-import haystack_utils
+import plotting_utils
 
 st.title("MLP5 N-Gram Analysis")
 
@@ -15,11 +15,13 @@ def load_data():
         neuron_loss_data = json.load(f)
     with open('data/verify_bigrams/summed_neuron_boosts.json', 'r') as f:
         summed_neuron_boosts = json.load(f)
+    with open('data/verify_bigrams/summed_split_neuron_boosts.json', 'r') as f:
+        summed_individual_neuron_boosts = json.load(f)
     with open('data/verify_bigrams/individual_neuron_boosts.json', 'r') as f:
         individual_neuron_boosts = json.load(f)
-    return all_loss_data, neuron_loss_diffs, neuron_loss_data, summed_neuron_boosts, individual_neuron_boosts
+    return all_loss_data, neuron_loss_diffs, neuron_loss_data, summed_neuron_boosts, summed_individual_neuron_boosts, individual_neuron_boosts
 
-all_loss_data, neuron_loss_diffs, neuron_loss_data, summed_neuron_boosts, individual_neuron_boosts = load_data()
+all_loss_data, neuron_loss_diffs, neuron_loss_data, summed_neuron_boosts, summed_individual_neuron_boosts, individual_neuron_boosts = load_data()
 
 tokens = list(all_loss_data.keys())
 
@@ -43,7 +45,6 @@ st.markdown("""
 # %%
 
 replacable_tokens = list(all_loss_data[option].keys())[1:]
-print(replacable_tokens)
 replace_column = st.selectbox(
     'Select the token to replace with random tokens',
     replacable_tokens, index=0)
@@ -58,14 +59,14 @@ short_names = ["Original", "Ablated", "MLP5"]
 with col1:
     title = f"Last token loss on full prompt"
     original_loss, ablated_loss, only_activated_loss = all_loss_data[option]["None"].values()
-    plot = haystack_utils.plot_barplot([original_loss, ablated_loss, only_activated_loss], 
+    plot = plotting_utils.plot_barplot([original_loss, ablated_loss, only_activated_loss], 
                                        names, legend=False, width=300, short_names=short_names, ylabel="Loss", title=title, show=False)
     st.plotly_chart(plot)
 
 with col2:
     title = f"Last token loss when replacing '{replace_column}' token"
     original_loss, ablated_loss, only_activated_loss = all_loss_data[option][replace_column].values()
-    plot = haystack_utils.plot_barplot([original_loss, ablated_loss, only_activated_loss], 
+    plot = plotting_utils.plot_barplot([original_loss, ablated_loss, only_activated_loss], 
                                        names, legend=False, width=300, short_names=short_names, ylabel="Loss", title=title, show=False)
     st.plotly_chart(plot) 
 
@@ -84,7 +85,7 @@ sort = st.checkbox("Sort by difference", value=True)
 if sort:
     neuron_loss_diffs.sort()
 
-plot = haystack_utils.line(neuron_loss_diffs, width=650, xlabel="Neuron", ylabel="Loss change", title="Loss change from ablating individual MLP5 neurons", show_legend=False, plot=False)
+plot = plotting_utils.line(neuron_loss_diffs, width=650, xlabel="Neuron", ylabel="Loss change", title="Loss change from ablating individual MLP5 neurons", show_legend=False, plot=False)
 st.plotly_chart(plot)
 
 st.markdown("""
@@ -99,7 +100,7 @@ short_names = ["Original", "Ablated", "MLP5 path patched", f"Top MLP5 removed", 
 loss_data = neuron_loss_data[option][str(top_neurons_count)]
 values = list(loss_data.values())
 #values = [original_loss.tolist(), ablated_loss.tolist(), all_MLP5_loss.tolist(), top_MLP5_ablated_loss.tolist(), bottom_MLP5_ablated_loss.tolist()]
-plot = haystack_utils.plot_barplot(values, names, short_names=short_names, 
+plot = plotting_utils.plot_barplot(values, names, short_names=short_names, 
                                    width=650, show=False, ylabel="Loss", 
                                    title=f"Average last token loss when removing top / bottom neurons from path patching")
 st.plotly_chart(plot)
@@ -110,11 +111,14 @@ st.markdown("""
 
             We compute the difference in logprobs when removing the top / bottom top neurons from the set of path patched MLP5 neurons.
 
+            To isolate positive / negative effects, the analysis is also run on each neuron individually, with their individual positive / negative effects summed afterwards. This (hopefully) allows to see effects that are cancelled out (through destructive interference) when summing the logprobs directly.
+
             Only tokens with a logprob greater than -7 are shown.
             """)
 
 top_neurons_count_logprob = st.slider("Number of neurons", 1, 25, 10, 1)
 top_neurons_checkbox = st.checkbox("Top neurons", value=True)
+isolate_effects = st.checkbox("Sum individual neuron effects", value=False)
 
 if top_neurons_checkbox:
     top_select_str = "Top"
@@ -123,8 +127,12 @@ else:
     top_select_str = "Bottom"
     title_append = f" from bottom {top_neurons_count_logprob} neurons"
 
-summed_neuron_boosted = summed_neuron_boosts[option][str(top_neurons_count_logprob)][top_select_str]["Boosted"]
-summed_neuron_deboosted = summed_neuron_boosts[option][str(top_neurons_count_logprob)][top_select_str]["Deboosted"]
+if isolate_effects:
+    summed_neuron_boosted = summed_individual_neuron_boosts[option][str(top_neurons_count_logprob)][top_select_str]["Boosted"]
+    summed_neuron_deboosted = summed_individual_neuron_boosts[option][str(top_neurons_count_logprob)][top_select_str]["Deboosted"]
+else:
+    summed_neuron_boosted = summed_neuron_boosts[option][str(top_neurons_count_logprob)][top_select_str]["Boosted"]
+    summed_neuron_deboosted = summed_neuron_boosts[option][str(top_neurons_count_logprob)][top_select_str]["Deboosted"]
 
 summed_neuron_boosted_values = summed_neuron_boosted["Logprob difference"]
 summed_neuron_boosted_tokens = summed_neuron_boosted["Tokens"]
@@ -139,18 +147,17 @@ with col1:
     xlabel = ""
     ylabel = "Logprob difference"
     title = "Boosted tokens" + title_append
-    plot = haystack_utils.line(summed_neuron_boosted_values, 
+    plot = plotting_utils.line(summed_neuron_boosted_values, 
                                width=320, plot=False,
                                xlabel=xlabel, ylabel=ylabel, title=title, xticks=xticks, show_legend=False)
     st.plotly_chart(plot)
 
 with col2:
     xticks = [x[0] for x in summed_neuron_deboosted_tokens]
-    print(xticks)
     ylabel = ""
     xlabel = ""
     title = "Deboosted tokens" + title_append
-    plot = haystack_utils.line(summed_neuron_deboosted_values, 
+    plot = plotting_utils.line(summed_neuron_deboosted_values, 
                                width=320, plot=False,
                                xlabel=xlabel, ylabel=ylabel, title=title, xticks=xticks, show_legend=False)
     st.plotly_chart(plot)
@@ -192,18 +199,17 @@ with col1:
     xlabel = ""
     ylabel = "Logprob difference"
     title = "Boosted tokens" + title_append
-    plot = haystack_utils.line(individual_neuron_boosted_values, 
+    plot = plotting_utils.line(individual_neuron_boosted_values, 
                                width=320, plot=False,
                                xlabel=xlabel, ylabel=ylabel, title=title, xticks=xticks, show_legend=False)
     st.plotly_chart(plot)
 
 with col2:
     xticks = [x[0] for x in individual_neuron_deboosted_tokens]
-    print(xticks)
     ylabel = ""
     xlabel = ""
     title = "Deboosted tokens" + title_append
-    plot = haystack_utils.line(individual_neuron_deboosted_values, 
+    plot = plotting_utils.line(individual_neuron_deboosted_values, 
                                width=320, plot=False,
                                xlabel=xlabel, ylabel=ylabel, title=title, xticks=xticks, show_legend=False)
     st.plotly_chart(plot)

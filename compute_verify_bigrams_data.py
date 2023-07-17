@@ -361,4 +361,88 @@ for option in options:
 
 with open('data/verify_bigrams/individual_neuron_boosts.json', 'w') as f:
     json.dump(individual_neuron_logprob_boosts, f)
+
+# %%
+def get_individual_neuron_logprob_effect(sorted_indices, ablated_cache, neuron_pos=0, top=True, positive=True):
+    if top:
+        neurons = sorted_indices[-(neuron_pos+1)]
+    else:
+        neurons = sorted_indices[neuron_pos]
+    neurons_hook = get_ablate_neurons_hook([neurons], ablated_cache)
+
+    original_logits, ablated_logprobs, _, all_MLP5_logprobs = haystack_utils.get_direct_effect(prompts, model, pos=-2, context_ablation_hooks=deactivate_neurons_fwd_hooks, context_activation_hooks=activate_neurons_fwd_hooks, return_type='logprobs')
+    _, _, _, neuron_ablated_logprobs = haystack_utils.get_direct_effect(prompts, model, pos=-2, context_ablation_hooks=deactivate_neurons_fwd_hooks, context_activation_hooks=activate_neurons_fwd_hooks+neurons_hook, return_type='logprobs')
+    neuron_difference_logprobs, difference_indices = \
+        get_top_difference_neurons(all_MLP5_logprobs, neuron_ablated_logprobs, positive=positive)
+    
+    return neuron_difference_logprobs, difference_indices
+
+# Sum individual weighted positive / negative effects
+def summed_neuron_differences(ablated_cache, num_neurons=10, top=True, positive=True, k=50):
+    summed_neuron_diffs = torch.zeros(model.cfg.d_vocab).cuda()
+    for neuron_pos in range(num_neurons):
+        # It would probably be more principle to do our filtering on the summed diffs instead of per neuron
+        neuron_diff, token_indices = get_individual_neuron_logprob_effect(indices, ablated_cache, neuron_pos=neuron_pos, top=top, positive=positive)
+        summed_neuron_diffs[token_indices] += neuron_diff
+    if positive:
+        non_zero_count = (summed_neuron_diffs > 0).sum()
+    else:
+        non_zero_count = (summed_neuron_diffs < 0).sum()
+    top_logprob_difference, top_tokens = haystack_utils.top_k_with_exclude(summed_neuron_diffs, min(non_zero_count, k), all_ignore, largest=positive)
+    return top_logprob_difference, top_tokens
+# %%
+
+# Compute summed positive / negative boosts
+
+summed_split_neuron_logprob_boosts = {}
+for option in options: 
+    summed_split_neuron_logprob_boosts[option] = {}
+    prompts = generate_random_prompts(option, n=200, length=20)
+
+    diffs = individual_neuron_loss_diffs[option]
+    sorted_means, indices = torch.sort(torch.tensor(diffs))
+    sorted_means = sorted_means.tolist()
+
+    # Horribly inefficient implementation, previous neurons can be reused
+    for num_neurons in tqdm(range(1, 26)):
+        summed_split_neuron_logprob_boosts[option][num_neurons] = {}
+        summed_split_neuron_logprob_boosts[option][num_neurons]["Top"] = {}
+        summed_split_neuron_logprob_boosts[option][num_neurons]["Bottom"] = {}
+
+        top_neurons = indices[-num_neurons:]
+        bottom_neurons = indices[:num_neurons]
+
+        with model.hooks(deactivate_neurons_fwd_hooks):
+            ablated_logits, ablated_cache = model.run_with_cache(prompts)
+
+        pos_top_logprob_differences, top_pos_indices = summed_neuron_differences(ablated_cache, num_neurons, top=True, positive=True, k=15)
+        neg_top_logprob_differences, top_neg_indices = summed_neuron_differences(ablated_cache, num_neurons, top=True, positive=False, k=15)
+
+        pos_bottom_logprob_differences, bottom_pos_indices = summed_neuron_differences(ablated_cache, num_neurons, top=False, positive=True, k=15)
+        neg_bottom_logprob_differences, bottom_neg_indices = summed_neuron_differences(ablated_cache, num_neurons, top=False, positive=False, k=15)
+
+        bottom_pos_tokens = [model.to_str_tokens([i])[0] for i in bottom_pos_indices]
+        top_pos_tokens = [model.to_str_tokens([i])[0] for i in top_pos_indices]
+        bottom_neg_tokens = [model.to_str_tokens([i])[0] for i in bottom_neg_indices]
+        top_neg_tokens = [model.to_str_tokens([i])[0] for i in top_neg_indices]
+
+        summed_split_neuron_logprob_boosts[option][num_neurons]["Top"]["Boosted"] = {
+            "Tokens": top_pos_tokens,
+            "Logprob difference": pos_top_logprob_differences.tolist()
+        }
+        summed_split_neuron_logprob_boosts[option][num_neurons]["Top"]["Deboosted"] = {
+            "Tokens": top_neg_tokens,
+            "Logprob difference": neg_top_logprob_differences.tolist()
+        }
+        summed_split_neuron_logprob_boosts[option][num_neurons]["Bottom"]["Boosted"] = {
+            "Tokens": bottom_pos_tokens,
+            "Logprob difference": pos_bottom_logprob_differences.tolist()
+        }
+        summed_split_neuron_logprob_boosts[option][num_neurons]["Bottom"]["Deboosted"] = {
+            "Tokens": bottom_neg_tokens,
+            "Logprob difference": neg_bottom_logprob_differences.tolist()
+        }
+    
+with open('data/verify_bigrams/summed_split_neuron_boosts.json', 'w') as f:
+    json.dump(summed_split_neuron_logprob_boosts, f)
 # %%

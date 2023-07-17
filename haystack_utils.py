@@ -285,7 +285,13 @@ def imshow(tensor, xaxis="", yaxis="", title="", **kwargs):
 
 
 def line(x, xlabel="", ylabel="", title="", xticks=None, width=800, hover_data=None, show_legend=True, plot=True):
-    fig = px.line(x, title=title)
+    
+    # Avoid empty plot when x contains a single element
+    if len(x) > 1:
+        fig = px.line(x, title=title)
+    else:
+        fig = px.scatter(x, title=title)
+
     fig.update_layout(xaxis_title=xlabel, yaxis_title=ylabel, width=width, showlegend=show_legend)
     if xticks != None:
         fig.update_layout(
