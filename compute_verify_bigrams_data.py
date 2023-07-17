@@ -134,7 +134,7 @@ for option in options:
     }
 
     for replace_pos in range(-len(option_tokens), -1, 1):
-        replaced_token = model.to_str_tokens(option_tokens[replace_pos])
+        replaced_token = model.to_str_tokens(option_tokens[replace_pos])[0]
         original_loss, ablated_loss, only_activated_loss = loss_analysis_random_prompts(option, n=100, length=20, replace_columns=[replace_pos])
         option_loss_data[f"{replaced_token}"] = {
             "Original": original_loss,
