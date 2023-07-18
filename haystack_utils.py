@@ -44,7 +44,8 @@ def get_mlp_activations(
     context_crop_start=10,
     context_crop_end=400,
     mean=True,
-    hook_pre = False
+    hook_pre = False,
+    pos=None
 ) -> Float[Tensor, "num_activations d_mlp"]:
     """Runs the model through a list of prompts and stores the mlp activations for a given layer. Might be slow for large batches as examples are run one by one.
 
@@ -70,6 +71,8 @@ def get_mlp_activations(
         tokens = model.to_tokens(prompts[i])
         _, cache = model.run_with_cache(tokens)
         act = cache[act_label][:, context_crop_start:context_crop_end, :]
+        if pos is not None:
+            act = act[:, pos, :].unsqueeze(1)
         act = einops.rearrange(act, "batch pos d_mlp -> (batch pos) d_mlp")
         acts.append(act)
     acts = torch.concat(acts, dim=0)
