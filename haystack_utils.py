@@ -1327,3 +1327,35 @@ def get_average_loss_plot_method(activate_context_fwd_hooks, deactivate_context_
         else:
             return original_losses, ablated_losses, context_and_activated_losses, only_activated_losses
     return average_loss_plot
+
+def get_common_tokens(data, model, ignore_tokens, k=100):
+    # Get top common german tokens excluding punctuation
+    token_counts = torch.zeros(model.cfg.d_vocab).cuda()
+    for example in tqdm(data):
+        tokens = model.to_tokens(example)
+        for token in tokens[0]:
+            token_counts[token.item()] += 1
+
+    punctuation = ["\n", ".", ",", "!", "?", ";", ":", "-", "(", ")", "[", "]", "{", "}", "<", ">", "/", "\\", "\"", "'"]
+    leading_space_punctuation = [" " + char for char in punctuation]
+    punctuation_tokens = model.to_tokens(punctuation + leading_space_punctuation + [' –', " ", '  ', "<|endoftext|>"])[:, 1].flatten()
+    token_counts[punctuation_tokens] = 0
+    token_counts[ignore_tokens] = 0
+
+    top_counts, top_tokens = torch.topk(token_counts, k)
+    return top_tokens
+
+def generate_random_prompts(end_string, model, random_tokens, n=50, length=12):
+    # Generate a batch of random prompts ending with a specific ngram
+    def get_random_selection(tensor, n):
+        indices = torch.randint(0, len(tensor), (n,))
+        return tensor[indices]
+    
+    end_tokens = model.to_tokens(end_string).flatten()[1:]
+    prompts = []
+    for i in range(n):
+        prompt = get_random_selection(random_tokens, n=length).cuda()
+        prompt = torch.cat([prompt, end_tokens])
+        prompts.append(prompt)
+    prompts = torch.stack(prompts)
+    return prompts
