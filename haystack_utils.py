@@ -1231,8 +1231,6 @@ def get_patched_cache(prompt: str | list[str], model: HookedTransformer, context
         _type_: _description_
     """
     # 1. Deactivate context neuron, cache activations
-    with model.hooks(fwd_hooks=context_activation_hooks):
-        _ = model(prompt)
     with model.hooks(fwd_hooks=context_ablation_hooks):
         _, ablated_cache = model.run_with_cache(prompt)
 
