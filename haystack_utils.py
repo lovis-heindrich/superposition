@@ -1360,3 +1360,38 @@ def generate_random_prompts(end_string, model, random_tokens, n=50, length=12):
         prompts.append(prompt)
     prompts = torch.stack(prompts)
     return prompts
+
+def get_context_ablation_hooks(layer_to_ablate: int, neurons_to_ablate: list[int], model: HookedTransformer):
+    german_data = load_json_data("data/german_europarl.json")[:200]
+    english_data = load_json_data("data/english_europarl.json")[:200]
+
+    english_activations = {}
+    german_activations = {}
+    
+    english_activations[layer_to_ablate] = get_mlp_activations(english_data, layer_to_ablate, model, mean=False)
+    german_activations[layer_to_ablate] = get_mlp_activations(german_data, layer_to_ablate, model, mean=False)
+
+    MEAN_ACTIVATION_ACTIVE = german_activations[layer_to_ablate][:, neurons_to_ablate].mean()
+    MEAN_ACTIVATION_INACTIVE = english_activations[layer_to_ablate][:, neurons_to_ablate].mean()
+
+    def deactivate_neurons_hook(value, hook):
+        value[:, :, neurons_to_ablate] = MEAN_ACTIVATION_INACTIVE
+        return value
+    deactivate_neurons_fwd_hooks=[(f'blocks.{layer_to_ablate}.mlp.hook_post', deactivate_neurons_hook)]
+
+    def activate_neurons_hook(value, hook):
+        value[:, :, neurons_to_ablate] = MEAN_ACTIVATION_ACTIVE
+        return value
+    activate_neurons_fwd_hooks=[(f'blocks.{layer_to_ablate}.mlp.hook_post', activate_neurons_hook)]
+
+    return activate_neurons_fwd_hooks, deactivate_neurons_fwd_hooks
+
+def get_ablate_attention_hook(layer, head, mean_activation, pos: int | None=-2):
+    def ablate_attention_head(value, hook):
+        if pos is None:
+            value[:, :, head, :] = mean_activation[layer, head, :]
+        else:
+            value[:, pos, head, :] = mean_activation[layer, head, :]
+        return value
+
+    return (f'blocks.{layer}.attn.hook_z', ablate_attention_head)
