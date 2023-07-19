@@ -2,7 +2,7 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 
-def line(x, xlabel="", ylabel="", title="", xticks=None, width=800, hover_data=None, show_legend=True, plot=True):
+def line(x, xlabel="", ylabel="", title="", xticks=None, width=800, yaxis=None, hover_data=None, show_legend=True, plot=True):
     
     # Avoid empty plot when x contains a single element
     if len(x) > 1:
@@ -19,6 +19,7 @@ def line(x, xlabel="", ylabel="", title="", xticks=None, width=800, hover_data=N
             ticktext = xticks,
             range=[-0.2, len(xticks)-0.8] 
             ),
+            yaxis=yaxis,
         )
     
     #fig.update_yaxes(range=[3.45, 3.85])
@@ -30,7 +31,8 @@ def line(x, xlabel="", ylabel="", title="", xticks=None, width=800, hover_data=N
         return fig
     
 
-def plot_barplot(data: list[list[float]], names: list[str], short_names = None, xlabel="", ylabel="", title="", width=1000, show=True, legend=True):
+def plot_barplot(data: list[list[float]], names: list[str], short_names = None, xlabel="", ylabel="", title="", 
+                 width=1000, yaxis=None, show=True, legend=True):
     means = np.mean(data, axis=1)
     stds = np.std(data, axis=1)
 
@@ -53,6 +55,7 @@ def plot_barplot(data: list[list[float]], names: list[str], short_names = None, 
         title=title,
         xaxis_title=xlabel,
         yaxis_title=ylabel,
+        yaxis=yaxis,
         barmode='group',
         width=width,
         showlegend=legend
