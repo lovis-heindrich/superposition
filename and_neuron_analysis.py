@@ -249,13 +249,26 @@ df['Prev/Curr/Context'] = df.apply(lambda row: ("Y" if row['PrevTokenPresent'] e
 pivot_df = df.pivot(index='Neuron', columns='Prev/Curr/Context', values='Activation')
 pivot_df = pivot_df.round(2)
 pivot_df["AND"] = (pivot_df["YYY"]>0) & (pivot_df["YYN"]<0) & (pivot_df["YNY"]<0) & (pivot_df["NYY"]<0)
-pivot_df = pivot_df.sort_values(by="AND", ascending=False)
-pivot_df[:20]
+#pivot_df = pivot_df.sort_values(by="AND", ascending=False)
+# %%
+pivot_df["diff"] = pivot_df["YYY"] - pivot_df["NNN"]
+pivot_df = pivot_df.sort_values(["diff"], ascending=True)
+pivot_df.head()
 
+pivot_df[pivot_df.index.isin(neurons.tolist())]
 # %%
 
-neurons = torch.LongTensor(pivot_df[pivot_df["AND"]].index.tolist()).cuda()
-mean_activations = torch.Tensor(pivot_df[pivot_df["AND"]]["NNN"].tolist()).cuda()
+# High loss diff neurons
+neurons = torch.LongTensor([84, 178, 213, 255, 395, 905, 1250, 1510, 1709]).cuda()
+mean_activations = torch.Tensor(pivot_df[pivot_df.index.isin(neurons.tolist())]["NNN"].tolist()).cuda()
+
+#neurons = torch.LongTensor(pivot_df[:19].index.tolist()).cuda()
+#mean_activations = torch.Tensor(pivot_df[:19]["NNN"].tolist()).cuda()
+
+#neurons = torch.LongTensor(pivot_df[pivot_df["AND"]].index.tolist()).cuda()
+#mean_activations = torch.Tensor(pivot_df[pivot_df["AND"]]["NNN"].tolist()).cuda()
+print(neurons)
+print(neurons.shape, mean_activations.shape)
 # %%
 
 def ablate_mlp_5_hook(value, hook):
@@ -269,3 +282,6 @@ with model.hooks(fwd_hooks=[("blocks.5.mlp.hook_pre", ablate_mlp_5_hook)]):
 
 print(loss, ablated_loss)
 # %%
+
+# Check if high diff neurons are more important than AND neurons
+# Check if negative changes are also good
