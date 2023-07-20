@@ -1495,7 +1495,6 @@ def get_trigram_neuron_activations(prompt_tuple, model, deactivate_neurons_fwd_h
     # Pivot the dataframe
     df['Prev/Curr/Context'] = df.apply(lambda row: ("Y" if row['PrevTokenPresent'] else "N")+("Y"if row['CurrTokenPresent'] else "N")+("Y" if row['ContextPresent'] else "N"), axis=1)
     pivot_df = df.pivot(index='Neuron', columns='Prev/Curr/Context', values='Activation')
-    pivot_df["AND"] = (pivot_df["YYY"]>0) & (pivot_df["YYN"]<=0) & (pivot_df["YNY"]<=0) & (pivot_df["NYY"]<=0) & (pivot_df["YNN"]<=0) & (pivot_df["NNY"]<=0)& (pivot_df["NYN"]<=0)
     return pivot_df
 
 def union_where(tensors: list[Float[Tensor, "n"]], cutoff: float, greater: bool = True) -> Int[Tensor, "m"]:
