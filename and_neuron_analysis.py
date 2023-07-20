@@ -253,16 +253,19 @@ pivot_df = pivot_df.sort_values(by="AND", ascending=False)
 pivot_df[:20]
 
 # %%
-print(df.head())
-# %%
-pivot = pd.pivot_table(df, values='Activation', index=['PrevTokenPresent', 'CurrTokenPresent'], columns=['Neuron', 'ContextPresent'])
-pivot.head()
 
+neurons = torch.LongTensor(pivot_df[pivot_df["AND"]].index.tolist()).cuda()
+mean_activations = torch.Tensor(pivot_df[pivot_df["AND"]]["NNN"].tolist()).cuda()
 # %%
-pivot.style.background_gradient(cmap="RdBu", vmin=-3, vmax=3)
-pivot = pivot.round(2)
-pivot
-# %%
-from ipywidgets import interact
-interact(lambda: pivot.round(2).style.background_gradient(cmap="RdBu", vmin=-3, vmax=3))
+
+def ablate_mlp_5_hook(value, hook):
+    value[:, :, neurons] = mean_activations
+    return value
+
+loss = model(prompts, return_type="loss", loss_per_token=True)[:, -1].mean().item()
+
+with model.hooks(fwd_hooks=[("blocks.5.mlp.hook_pre", ablate_mlp_5_hook)]):
+    ablated_loss = model(prompts, return_type="loss", loss_per_token=True)[:, -1].mean().item()
+
+print(loss, ablated_loss)
 # %%
