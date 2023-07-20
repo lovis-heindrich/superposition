@@ -60,14 +60,14 @@ with col1:
     title = f"Last token loss on full prompt"
     original_loss, ablated_loss, only_activated_loss = all_loss_data[option]["None"].values()
     plot = plotting_utils.plot_barplot([original_loss, ablated_loss, only_activated_loss], 
-                                       names, legend=False, width=300, short_names=short_names, ylabel="Loss", title=title, show=False)
+                                       names, legend=False, width=300, yaxis=dict(range=[0, 15]), short_names=short_names, ylabel="Loss", title=title, show=False)
     st.plotly_chart(plot)
 
 with col2:
     title = f"Last token loss when replacing '{replace_column}' token"
     original_loss, ablated_loss, only_activated_loss = all_loss_data[option][replace_column].values()
     plot = plotting_utils.plot_barplot([original_loss, ablated_loss, only_activated_loss], 
-                                       names, legend=False, width=300, short_names=short_names, ylabel="Loss", title=title, show=False)
+                                       names, legend=False, width=300, yaxis=dict(range=[0, 15]), short_names=short_names, ylabel="Loss", title=title, show=False)
     st.plotly_chart(plot) 
 
 
@@ -101,7 +101,7 @@ loss_data = neuron_loss_data[option][str(top_neurons_count)]
 values = list(loss_data.values())
 #values = [original_loss.tolist(), ablated_loss.tolist(), all_MLP5_loss.tolist(), top_MLP5_ablated_loss.tolist(), bottom_MLP5_ablated_loss.tolist()]
 plot = plotting_utils.plot_barplot(values, names, short_names=short_names, 
-                                   width=650, show=False, ylabel="Loss", 
+                                   width=650, yaxis=dict(range=[0, 10]), show=False, ylabel="Loss", 
                                    title=f"Average last token loss when removing top / bottom neurons from path patching")
 st.plotly_chart(plot)
 
