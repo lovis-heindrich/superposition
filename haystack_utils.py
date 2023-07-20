@@ -1346,12 +1346,12 @@ def get_common_tokens(data, model, ignore_tokens, k=100):
     top_counts, top_tokens = torch.topk(token_counts, k)
     return top_tokens
 
-def generate_random_prompts(end_string, model, random_tokens, n=50, length=12):
-    # Generate a batch of random prompts ending with a specific ngram
-    def get_random_selection(tensor, n):
+def get_random_selection(tensor, n):
         indices = torch.randint(0, len(tensor), (n,))
         return tensor[indices]
-    
+
+def generate_random_prompts(end_string, model, random_tokens, n=50, length=12):
+    # Generate a batch of random prompts ending with a specific ngram
     end_tokens = model.to_tokens(end_string).flatten()[1:]
     prompts = []
     for i in range(n):
@@ -1360,6 +1360,13 @@ def generate_random_prompts(end_string, model, random_tokens, n=50, length=12):
         prompts.append(prompt)
     prompts = torch.stack(prompts)
     return prompts
+
+def replace_column(prompts: Int[Tensor, "n_prompts n_tokens"], token_index: int, replacement_tokens: Int[Tensor, "n_tokens"]):
+    # Replaces a specific token position in a batch of prompts with random common German tokens
+    new_prompts = prompts.clone()
+    random_tokens = get_random_selection(replacement_tokens, n=prompts.shape[0]).cuda()
+    new_prompts[:, token_index] = random_tokens
+    return new_prompts 
 
 def get_context_ablation_hooks(layer_to_ablate: int, neurons_to_ablate: list[int], model: HookedTransformer):
     german_data = load_json_data("data/german_europarl.json")[:200]
