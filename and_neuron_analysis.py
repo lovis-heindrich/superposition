@@ -55,57 +55,19 @@ print(model.to_str_tokens(continuation_tokens))
 # %%
 prompts = haystack_utils.generate_random_prompts(ngram, model, common_tokens, 200, length=20)
 
-# Create orsch-X prompts
-test_prompts = haystack_utils.replace_column(prompts, -2, continuation_tokens)
-print(model.to_str_tokens(test_prompts[0]))
-
-_, test_cache = model.run_with_cache(test_prompts)
-res_cache_prev = test_cache['blocks.4.hook_resid_post'][:, -2]
-
-# Create Y-X prompts
-random_prompts = haystack_utils.replace_column(test_prompts, -3, continuation_tokens)
-print(model.to_str_tokens(random_prompts[0]))
-
-_, random_cache = model.run_with_cache(random_prompts)
-res_cache_random = random_cache['blocks.4.hook_resid_post'][:, -2]
-
-# %%
-prev_token_direction = (res_cache_prev - res_cache_random).mean(0)
-print(prev_token_direction[:10])
-# %%
-
-# Create X-lä prompts
-test_prompts = haystack_utils.replace_column(prompts, -3, continuation_tokens)
-print(model.to_str_tokens(test_prompts[0]))
-
-_, test_cache = model.run_with_cache(test_prompts)
-res_cache_curr = test_cache['blocks.4.hook_resid_post'][:, -2]
-
-# Create X-Y prompts
-random_prompts = haystack_utils.replace_column(test_prompts, -2, continuation_tokens)
-print(model.to_str_tokens(random_prompts[0]))
-
-_, random_cache = model.run_with_cache(random_prompts)
-res_cache_random = random_cache['blocks.4.hook_resid_post'][:, -2]
-
-# %% 
-curr_token_direction = (res_cache_curr - res_cache_random).mean(0)
-print(curr_token_direction[:10])
+prompt_tuple = haystack_utils.get_trigram_prompts(prompts, continuation_tokens, continuation_tokens)
+prev_token_direction, curr_token_direction = haystack_utils.get_residual_trigram_directions(prompt_tuple, model, 4)
 # %%
 context_direction = model.W_out[3, 669, :]
 
 # %%
-context_direction.shape, prev_token_direction.shape, curr_token_direction.shape
-# %%
-cosine = torch.nn.CosineSimilarity(dim=1)
+def get_cosine_sim(direction: Float[Tensor, "d_res"], layer=5) -> Float[Tensor, "d_mlp"]:
+    cosine = torch.nn.CosineSimilarity(dim=1)
+    return cosine(model.W_in[layer].T, direction.unsqueeze(0))
 
-mlp_5 = model.W_in[5].T
-
-prev_token_sim = cosine(mlp_5, prev_token_direction.unsqueeze(0))
-curr_token_sim = cosine(mlp_5, curr_token_direction.unsqueeze(0))
-context_sim = cosine(mlp_5, context_direction.unsqueeze(0))
-print(prev_token_sim.shape, curr_token_sim.shape, context_sim.shape)
-
+prev_token_sim = get_cosine_sim(prev_token_direction, 5)
+curr_token_sim = get_cosine_sim(curr_token_direction, 5)
+context_sim = get_cosine_sim(context_direction, 5)
 # %%
 
 def plot_histogram(t1, t2, t3, name1, name2, name3):
@@ -127,161 +89,53 @@ def plot_histogram(t1, t2, t3, name1, name2, name3):
     
     fig.show()
 
-plot_histogram(prev_token_sim, curr_token_sim, context_sim, "Previous Token", "Current Token", "Context")
+#plot_histogram(prev_token_sim, curr_token_sim, context_sim, "Previous Token", "Current Token", "Context")
 # %%
 
-cutoff = 0.05
-prev_token_neurons = torch.where(prev_token_sim > cutoff)[0]
-curr_token_neurons = torch.where(curr_token_sim > cutoff)[0]
-context_neuron_neurons = torch.where(context_sim > cutoff)[0]
-print(prev_token_neurons.shape, curr_token_neurons.shape, context_neuron_neurons.shape)
-
-# %%
-prev_and_curr = np.intersect1d(prev_token_neurons.cpu().numpy(), curr_token_neurons.cpu().numpy())
-all = np.intersect1d(prev_and_curr, context_neuron_neurons.cpu().numpy())
-print(prev_and_curr.shape, all.shape)
+all = haystack_utils.union_where([prev_token_sim, curr_token_sim, context_sim], 0.05)
 print(all)
-# %%
 
 for neuron in all:
-    print(prev_token_sim[neuron].item(), curr_token_sim[neuron].item(), context_sim[neuron].item())
+    print(prev_token_sim[neuron], curr_token_sim[neuron], context_sim[neuron])
 # %%
 
-# Cache neuron activations for different settings
-# Context active / disabled
-# Prev token active / disabled
-# Current token active / disabled
-
-data = {
-    "Neuron": [], 
-    "PrevTokenPresent": [], 
-    "CurrTokenPresent": [],
-    "ContextPresent": [],
-    "Activation": [],
-    }
-
-prompts = haystack_utils.generate_random_prompts(ngram, model, common_tokens, 200, length=20)
-cache_name = "blocks.5.mlp.hook_pre"
-neurons = torch.LongTensor([i for i in range(2048)])#all
-neuron_list = neurons.tolist()
-
-def add_to_data(data: dict[str, list], cache_result: Tensor, neurons, prev_token: bool, curr_token: bool, context_neuron: bool):
-    data["Neuron"].extend(neuron_list)
-    data["PrevTokenPresent"].extend([prev_token] * len(neurons))
-    data["CurrTokenPresent"].extend([curr_token] * len(neurons))
-    data["ContextPresent"].extend([context_neuron] * len(neurons))
-    data["Activation"].extend(cache_result[neurons].tolist())
-    return data
-
-# Run on orsch-lä prompts
-print(model.to_str_tokens(prompts[0]))
-_, original_cache = model.run_with_cache(prompts)
-with model.hooks(fwd_hooks=deactivate_neurons_fwd_hooks):
-    _, original_cache_ablated = model.run_with_cache(prompts)
-res_cache_orig = original_cache[cache_name][:, -2].mean(0)
-res_cache_orig_ablated = original_cache_ablated[cache_name][:, -2].mean(0)
-data = add_to_data(data, res_cache_orig, neurons, prev_token=True, curr_token=True, context_neuron=True)
-data = add_to_data(data, res_cache_orig_ablated, neurons, prev_token=True, curr_token=True, context_neuron=False)
-
-# Create orsch-X prompts
-test_prompts = haystack_utils.replace_column(prompts, -2, continuation_tokens)
-print(model.to_str_tokens(test_prompts[0]))
-
-_, test_cache = model.run_with_cache(test_prompts)
-with model.hooks(fwd_hooks=deactivate_neurons_fwd_hooks):
-    _, test_cache_ablated = model.run_with_cache(test_prompts)
-res_cache_prev = test_cache[cache_name][:, -2].mean(0)
-res_cache_prev_ablated = test_cache_ablated[cache_name][:, -2].mean(0)
-data = add_to_data(data, res_cache_prev, neurons, prev_token=True, curr_token=False, context_neuron=True)
-data = add_to_data(data, res_cache_prev_ablated, neurons, prev_token=True, curr_token=False, context_neuron=False)
-
-# Create X-lä prompts
-test_prompts = haystack_utils.replace_column(prompts, -3, continuation_tokens)
-print(model.to_str_tokens(test_prompts[0]))
-
-_, test_cache = model.run_with_cache(test_prompts)
-with model.hooks(fwd_hooks=deactivate_neurons_fwd_hooks):
-    _, test_cache_ablated = model.run_with_cache(test_prompts)
-res_cache_curr = test_cache[cache_name][:, -2].mean(0)
-res_cache_curr_ablated = test_cache_ablated[cache_name][:, -2].mean(0)
-data = add_to_data(data, res_cache_curr, neurons, prev_token=False, curr_token=True, context_neuron=True)
-data = add_to_data(data, res_cache_curr_ablated, neurons, prev_token=False, curr_token=True, context_neuron=False)
-
-# Create Y-X prompts
-random_prompts = haystack_utils.replace_column(test_prompts, -3, continuation_tokens)
-random_prompts = haystack_utils.replace_column(random_prompts, -2, continuation_tokens)
-print(model.to_str_tokens(random_prompts[0]))
-
-_, random_cache = model.run_with_cache(random_prompts)
-with model.hooks(fwd_hooks=deactivate_neurons_fwd_hooks):
-    _, random_cache_ablated = model.run_with_cache(random_prompts)
-res_cache_random = random_cache[cache_name][:, -2].mean(0)
-res_cache_random_ablated = random_cache_ablated[cache_name][:, -2].mean(0)
-data = add_to_data(data, res_cache_random, neurons, prev_token=False, curr_token=False, context_neuron=True)
-data = add_to_data(data, res_cache_random_ablated, neurons, prev_token=False, curr_token=False, context_neuron=False)
-
-df = pd.DataFrame(data)
-
-# %%
-print("Original activation:", np.round(res_cache_orig[neurons].tolist(), 2))
-print("Prev token activation:", np.round(res_cache_prev[neurons].tolist(), 2))
-print("Curr token activation:", np.round(res_cache_curr[neurons].tolist(), 2))
-print("Random activation:", np.round(res_cache_random[neurons].tolist(), 2))
-
-print("Original ablated activation:", np.round(res_cache_orig_ablated[neurons].tolist(), 2))
-print("Prev token ablated activation:", np.round(res_cache_prev_ablated[neurons].tolist(), 2))
-print("Curr token ablated activation:", np.round(res_cache_curr_ablated[neurons].tolist(), 2))
-print("Random ablated activation:", np.round(res_cache_random_ablated[neurons].tolist(), 2))
+df = haystack_utils.get_trigram_neuron_activations(prompt_tuple, model, deactivate_neurons_fwd_hooks ,5)
 
 # %%
 
-# Save huge jsons
-# MLP5 caches
-# Neuron wise cosine sims for prev / current / context
-# Create heatmap vis
-len(df)
-print(df.head())
-# %%
-# Convert boolean values to string and combine them
-df['Prev/Curr/Context'] = df.apply(lambda row: ("Y" if row['PrevTokenPresent'] else "N")+("Y"if row['CurrTokenPresent'] else "N")+("Y" if row['ContextPresent'] else "N"), axis=1)
+df["PrevTokenSim"] = prev_token_sim.cpu().numpy()
+df["CurrTokenSim"] = curr_token_sim.cpu().numpy()
+df["ContextSim"] = context_sim.cpu().numpy()
+df["AllSim"] = df.index.isin(all.tolist())
 
-# Pivot the dataframe
-pivot_df = df.pivot(index='Neuron', columns='Prev/Curr/Context', values='Activation')
-pivot_df = pivot_df.round(2)
-pivot_df["AND"] = (pivot_df["YYY"]>0) & (pivot_df["YYN"]<0) & (pivot_df["YNY"]<0) & (pivot_df["NYY"]<0)
-#pivot_df = pivot_df.sort_values(by="AND", ascending=False)
 # %%
-pivot_df["diff"] = pivot_df["YYY"] - pivot_df["NNN"]
-pivot_df = pivot_df.sort_values(["diff"], ascending=True)
-pivot_df.head()
+df["diff"] = df["YYY"] - df["YYN"]
+df["ContextAnd"] = (df["NNY"] < 0) & (df["YYY"]>0)
 
-pivot_df[pivot_df.index.isin(neurons.tolist())]
+#pivot_df[pivot_df.index.isin(neurons.tolist())]
 # %%
 
+def compute_loss_increase(prompts, df, neurons, ablate_mode="NNN", layer=5):
+    
+    mean_activations = torch.Tensor(df[df.index.isin(neurons.tolist())][ablate_mode].tolist()).cuda()
+
+    def ablate_mlp_hook(value, hook):
+        value[:, :, neurons] = mean_activations
+        return value
+
+    loss = model(prompts, return_type="loss", loss_per_token=True)[:, -1].mean().item()
+    with model.hooks(fwd_hooks=[(f"blocks.{layer}.mlp.hook_pre", ablate_mlp_hook)]):
+        ablated_loss = model(prompts, return_type="loss", loss_per_token=True)[:, -1].mean().item()
+
+    return loss, ablated_loss
+# %%
 # High loss diff neurons
-neurons = torch.LongTensor([84, 178, 213, 255, 395, 905, 1250, 1510, 1709]).cuda()
-mean_activations = torch.Tensor(pivot_df[pivot_df.index.isin(neurons.tolist())]["NNN"].tolist()).cuda()
+high_loss_diff_neurons = torch.LongTensor([84, 178, 213, 255, 395, 905, 1250, 1510, 1709]).cuda()
 
-#neurons = torch.LongTensor(pivot_df[:19].index.tolist()).cuda()
-#mean_activations = torch.Tensor(pivot_df[:19]["NNN"].tolist()).cuda()
+#neurons = torch.LongTensor(df[:19].index.tolist()).cuda()
 
-#neurons = torch.LongTensor(pivot_df[pivot_df["AND"]].index.tolist()).cuda()
-#mean_activations = torch.Tensor(pivot_df[pivot_df["AND"]]["NNN"].tolist()).cuda()
-print(neurons)
-print(neurons.shape, mean_activations.shape)
+and_neurons = torch.LongTensor(df[df["AND"]].index.tolist()).cuda()
+
+print(compute_loss_increase(prompts, df, high_loss_diff_neurons, ablate_mode="NNN"))
+print(compute_loss_increase(prompts, df, and_neurons, ablate_mode="NNN"))
 # %%
-
-def ablate_mlp_5_hook(value, hook):
-    value[:, :, neurons] = mean_activations
-    return value
-
-loss = model(prompts, return_type="loss", loss_per_token=True)[:, -1].mean().item()
-
-with model.hooks(fwd_hooks=[("blocks.5.mlp.hook_pre", ablate_mlp_5_hook)]):
-    ablated_loss = model(prompts, return_type="loss", loss_per_token=True)[:, -1].mean().item()
-
-print(loss, ablated_loss)
-# %%
-
-# Check if high diff neurons are more important than AND neurons
-# Check if negative changes are also good

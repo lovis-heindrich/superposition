@@ -16,6 +16,7 @@ from IPython.display import display, HTML
 import re
 from pathlib import Path
 import json
+import pandas as pd
 
 
 def DLA(prompts: List[str], model: HookedTransformer):
@@ -1402,3 +1403,108 @@ def get_ablate_attention_hook(layer, head, mean_activation, pos: int | None=-2):
         return value
 
     return (f'blocks.{layer}.attn.hook_z', ablate_attention_head)
+
+def get_trigram_prompts(prompts, first_replacement_tokens, second_replacement_tokens):
+    # Create prev-random prompts
+    test_prompts_prev = replace_column(prompts, -2, second_replacement_tokens)
+    # Create random-random prompts matching random tokens from previous prompts
+    random_prompts_prev = replace_column(test_prompts_prev, -3, first_replacement_tokens)
+
+    # Create random-current prompts
+    test_prompts_curr = replace_column(prompts, -3, first_replacement_tokens)
+    # Create random-random prompts matching random tokens from previous prompts
+    random_prompts_curr = replace_column(test_prompts_curr, -2, second_replacement_tokens)
+    return prompts, test_prompts_prev, random_prompts_prev, test_prompts_curr, random_prompts_curr
+
+def get_residual_trigram_directions(prompt_tuple, model, layer, ):
+
+    _, test_prompts_prev, random_prompts_prev, test_prompts_curr, random_prompts_curr = prompt_tuple
+
+    _, test_cache_prev = model.run_with_cache(test_prompts_prev)
+    res_cache_prev = test_cache_prev[f'blocks.{layer}.hook_resid_post'][:, -2]
+    _, random_cache_prev = model.run_with_cache(random_prompts_prev)
+    res_cache_random_prev = random_cache_prev[f'blocks.{layer}.hook_resid_post'][:, -2]
+
+    _, test_cache_curr = model.run_with_cache(test_prompts_curr)
+    res_cache_curr = test_cache_curr[f'blocks.{layer}.hook_resid_post'][:, -2]
+    _, random_cache_curr = model.run_with_cache(random_prompts_curr)
+    res_cache_random_curr = random_cache_curr[f'blocks.{layer}.hook_resid_post'][:, -2]
+
+    prev_token_direction = (res_cache_prev - res_cache_random_prev).mean(0)
+    curr_token_direction = (res_cache_curr - res_cache_random_curr).mean(0)
+
+    return prev_token_direction, curr_token_direction
+
+def get_trigram_neuron_activations(prompt_tuple, model, deactivate_neurons_fwd_hooks, layer=5):
+
+    cache_name = F"blocks.{layer}.mlp.hook_pre"
+    neurons = torch.LongTensor([i for i in range(2048)])
+    neuron_list = neurons.tolist()
+
+    data = {
+        "Neuron": [], 
+        "PrevTokenPresent": [], 
+        "CurrTokenPresent": [],
+        "ContextPresent": [],
+        "Activation": [],
+        }
+
+    def add_to_data(data: dict[str, list], cache_result: Tensor, neurons, prev_token: bool, curr_token: bool, context_neuron: bool):
+        data["Neuron"].extend(neuron_list)
+        data["PrevTokenPresent"].extend([prev_token] * len(neurons))
+        data["CurrTokenPresent"].extend([curr_token] * len(neurons))
+        data["ContextPresent"].extend([context_neuron] * len(neurons))
+        data["Activation"].extend(cache_result[neurons].tolist())
+        return data
+
+    def get_mean_activations(prompts):
+        _, original_cache = model.run_with_cache(prompts)
+        with model.hooks(fwd_hooks=deactivate_neurons_fwd_hooks):
+            _, original_cache_ablated = model.run_with_cache(prompts)
+        act_original = original_cache[cache_name][:, -2].mean(0)
+        act_ablated = original_cache_ablated[cache_name][:, -2].mean(0)
+        return act_original, act_ablated
+
+    full_prompts, test_prompts_prev, random_prompts_prev, test_prompts_curr, random_prompts_curr = prompt_tuple
+
+    # Full prompt
+    act_original, act_ablated = get_mean_activations(full_prompts)
+    data = add_to_data(data, act_original, neurons, prev_token=True, curr_token=True, context_neuron=True)
+    data = add_to_data(data, act_ablated, neurons, prev_token=True, curr_token=True, context_neuron=False)
+
+    # 1st token present prompts
+    act_original, act_ablated = get_mean_activations(test_prompts_prev)
+    data = add_to_data(data, act_original, neurons, prev_token=True, curr_token=False, context_neuron=True)
+    data = add_to_data(data, act_ablated, neurons, prev_token=True, curr_token=False, context_neuron=False)
+
+    # 2nd token present prompts
+    act_original, act_ablated = get_mean_activations(test_prompts_curr)
+    data = add_to_data(data, act_original, neurons, prev_token=False, curr_token=True, context_neuron=True)
+    data = add_to_data(data, act_ablated, neurons, prev_token=False, curr_token=True, context_neuron=False)
+
+    # No token present 
+    act_original_1, act_ablated_1 = get_mean_activations(random_prompts_prev)
+    act_original_2, act_ablated_2 = get_mean_activations(random_prompts_curr)
+    act_original = (act_original_1 + act_original_2) / 2
+    act_ablated = (act_ablated_1 + act_ablated_2) / 2
+    data = add_to_data(data, act_original, neurons, prev_token=False, curr_token=False, context_neuron=True)
+    data = add_to_data(data, act_ablated, neurons, prev_token=False, curr_token=False, context_neuron=False)
+
+    df = pd.DataFrame(data)
+
+    # Pivot the dataframe
+    df['Prev/Curr/Context'] = df.apply(lambda row: ("Y" if row['PrevTokenPresent'] else "N")+("Y"if row['CurrTokenPresent'] else "N")+("Y" if row['ContextPresent'] else "N"), axis=1)
+    pivot_df = df.pivot(index='Neuron', columns='Prev/Curr/Context', values='Activation')
+    pivot_df["AND"] = (pivot_df["YYY"]>0) & (pivot_df["YYN"]<=0) & (pivot_df["YNY"]<=0) & (pivot_df["NYY"]<=0) & (pivot_df["YNN"]<=0) & (pivot_df["NNY"]<=0)& (pivot_df["NYN"]<=0)
+    return pivot_df
+
+def union_where(tensors: list[Float[Tensor, "n"]], cutoff: float, greater: bool = True) -> Int[Tensor, "m"]:
+    tensor_length = tensors[0].shape[0]
+    union = np.array(range(tensor_length))
+    for tensor in tensors:
+        if greater:
+            indices = torch.where(tensor > cutoff)[0]
+        else:
+            indices = torch.where(tensor < cutoff)[0]
+        union = np.intersect1d(union, indices.cpu().numpy())
+    return torch.LongTensor(union).cuda()
