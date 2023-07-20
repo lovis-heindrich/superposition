@@ -10,6 +10,7 @@ import ipywidgets as widgets
 from IPython.display import display, clear_output
 import plotly.graph_objects as go
 import numpy as np
+import pandas as pd
 
 
 pio.renderers.default = "notebook_connected"
@@ -129,7 +130,7 @@ def plot_histogram(t1, t2, t3, name1, name2, name3):
 plot_histogram(prev_token_sim, curr_token_sim, context_sim, "Previous Token", "Current Token", "Context")
 # %%
 
-cutoff = 0.03
+cutoff = 0.05
 prev_token_neurons = torch.where(prev_token_sim > cutoff)[0]
 curr_token_neurons = torch.where(curr_token_sim > cutoff)[0]
 context_neuron_neurons = torch.where(context_sim > cutoff)[0]
@@ -151,8 +152,26 @@ for neuron in all:
 # Prev token active / disabled
 # Current token active / disabled
 
+data = {
+    "Neuron": [], 
+    "PrevTokenPresent": [], 
+    "CurrTokenPresent": [],
+    "ContextPresent": [],
+    "Activation": [],
+    }
+
 prompts = haystack_utils.generate_random_prompts(ngram, model, common_tokens, 200, length=20)
 cache_name = "blocks.5.mlp.hook_pre"
+neurons = torch.LongTensor([i for i in range(2048)])#all
+neuron_list = neurons.tolist()
+
+def add_to_data(data: dict[str, list], cache_result: Tensor, neurons, prev_token: bool, curr_token: bool, context_neuron: bool):
+    data["Neuron"].extend(neuron_list)
+    data["PrevTokenPresent"].extend([prev_token] * len(neurons))
+    data["CurrTokenPresent"].extend([curr_token] * len(neurons))
+    data["ContextPresent"].extend([context_neuron] * len(neurons))
+    data["Activation"].extend(cache_result[neurons].tolist())
+    return data
 
 # Run on orsch-lä prompts
 print(model.to_str_tokens(prompts[0]))
@@ -161,6 +180,8 @@ with model.hooks(fwd_hooks=deactivate_neurons_fwd_hooks):
     _, original_cache_ablated = model.run_with_cache(prompts)
 res_cache_orig = original_cache[cache_name][:, -2].mean(0)
 res_cache_orig_ablated = original_cache_ablated[cache_name][:, -2].mean(0)
+data = add_to_data(data, res_cache_orig, neurons, prev_token=True, curr_token=True, context_neuron=True)
+data = add_to_data(data, res_cache_orig_ablated, neurons, prev_token=True, curr_token=True, context_neuron=False)
 
 # Create orsch-X prompts
 test_prompts = haystack_utils.replace_column(prompts, -2, continuation_tokens)
@@ -171,6 +192,8 @@ with model.hooks(fwd_hooks=deactivate_neurons_fwd_hooks):
     _, test_cache_ablated = model.run_with_cache(test_prompts)
 res_cache_prev = test_cache[cache_name][:, -2].mean(0)
 res_cache_prev_ablated = test_cache_ablated[cache_name][:, -2].mean(0)
+data = add_to_data(data, res_cache_prev, neurons, prev_token=True, curr_token=False, context_neuron=True)
+data = add_to_data(data, res_cache_prev_ablated, neurons, prev_token=True, curr_token=False, context_neuron=False)
 
 # Create X-lä prompts
 test_prompts = haystack_utils.replace_column(prompts, -3, continuation_tokens)
@@ -181,6 +204,8 @@ with model.hooks(fwd_hooks=deactivate_neurons_fwd_hooks):
     _, test_cache_ablated = model.run_with_cache(test_prompts)
 res_cache_curr = test_cache[cache_name][:, -2].mean(0)
 res_cache_curr_ablated = test_cache_ablated[cache_name][:, -2].mean(0)
+data = add_to_data(data, res_cache_curr, neurons, prev_token=False, curr_token=True, context_neuron=True)
+data = add_to_data(data, res_cache_curr_ablated, neurons, prev_token=False, curr_token=True, context_neuron=False)
 
 # Create Y-X prompts
 random_prompts = haystack_utils.replace_column(test_prompts, -3, continuation_tokens)
@@ -192,16 +217,21 @@ with model.hooks(fwd_hooks=deactivate_neurons_fwd_hooks):
     _, random_cache_ablated = model.run_with_cache(random_prompts)
 res_cache_random = random_cache[cache_name][:, -2].mean(0)
 res_cache_random_ablated = random_cache_ablated[cache_name][:, -2].mean(0)
-# %%
-print("Original activation:", np.round(res_cache_orig[all].tolist(), 2))
-print("Prev token activation:", np.round(res_cache_prev[all].tolist(), 2))
-print("Curr token activation:", np.round(res_cache_curr[all].tolist(), 2))
-print("Random activation:", np.round(res_cache_random[all].tolist(), 2))
+data = add_to_data(data, res_cache_random, neurons, prev_token=False, curr_token=False, context_neuron=True)
+data = add_to_data(data, res_cache_random_ablated, neurons, prev_token=False, curr_token=False, context_neuron=False)
 
-print("Original ablated activation:", np.round(res_cache_orig_ablated[all].tolist(), 2))
-print("Prev token ablated activation:", np.round(res_cache_prev_ablated[all].tolist(), 2))
-print("Curr token ablated activation:", np.round(res_cache_curr_ablated[all].tolist(), 2))
-print("Random ablated activation:", np.round(res_cache_random_ablated[all].tolist(), 2))
+df = pd.DataFrame(data)
+
+# %%
+print("Original activation:", np.round(res_cache_orig[neurons].tolist(), 2))
+print("Prev token activation:", np.round(res_cache_prev[neurons].tolist(), 2))
+print("Curr token activation:", np.round(res_cache_curr[neurons].tolist(), 2))
+print("Random activation:", np.round(res_cache_random[neurons].tolist(), 2))
+
+print("Original ablated activation:", np.round(res_cache_orig_ablated[neurons].tolist(), 2))
+print("Prev token ablated activation:", np.round(res_cache_prev_ablated[neurons].tolist(), 2))
+print("Curr token ablated activation:", np.round(res_cache_curr_ablated[neurons].tolist(), 2))
+print("Random ablated activation:", np.round(res_cache_random_ablated[neurons].tolist(), 2))
 
 # %%
 
@@ -209,4 +239,30 @@ print("Random ablated activation:", np.round(res_cache_random_ablated[all].tolis
 # MLP5 caches
 # Neuron wise cosine sims for prev / current / context
 # Create heatmap vis
+len(df)
+print(df.head())
+# %%
+# Convert boolean values to string and combine them
+df['Prev/Curr/Context'] = df.apply(lambda row: ("Y" if row['PrevTokenPresent'] else "N")+("Y"if row['CurrTokenPresent'] else "N")+("Y" if row['ContextPresent'] else "N"), axis=1)
 
+# Pivot the dataframe
+pivot_df = df.pivot(index='Neuron', columns='Prev/Curr/Context', values='Activation')
+pivot_df = pivot_df.round(2)
+pivot_df["AND"] = (pivot_df["YYY"]>0) & (pivot_df["YYN"]<0) & (pivot_df["YNY"]<0) & (pivot_df["NYY"]<0)
+pivot_df = pivot_df.sort_values(by="AND", ascending=False)
+pivot_df[:20]
+
+# %%
+print(df.head())
+# %%
+pivot = pd.pivot_table(df, values='Activation', index=['PrevTokenPresent', 'CurrTokenPresent'], columns=['Neuron', 'ContextPresent'])
+pivot.head()
+
+# %%
+pivot.style.background_gradient(cmap="RdBu", vmin=-3, vmax=3)
+pivot = pivot.round(2)
+pivot
+# %%
+from ipywidgets import interact
+interact(lambda: pivot.round(2).style.background_gradient(cmap="RdBu", vmin=-3, vmax=3))
+# %%
