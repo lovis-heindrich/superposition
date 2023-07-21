@@ -183,11 +183,12 @@ for option, df in tqdm(zip(options, option_dfs)):
         if ablation_mode == "YYN":
             high_loss_neurons = df.sort_values("ContextAblationLossIncrease", ascending=False)[:10].index.tolist()
             print(high_loss_neurons)
-            print(df.loc[high_loss_neurons]["ContextAblationLossIncrease"])
+            #print(df.loc[high_loss_neurons]["ContextAblationLossIncrease"])
         else:
             high_loss_neurons = df.sort_values("FullAblationLossIncrease", ascending=False)[:10].index.tolist()
         top_neuron_loss = compute_mlp_loss(prompts, df, torch.LongTensor(high_loss_neurons).cuda(), ablate_mode=ablation_mode)
         print(top_neuron_loss)
+        print(model.to_str_tokens(prompts[0]))
         all_losses[option][ablation_mode]["Original"] = original_loss
         all_losses[option][ablation_mode]["Ablated"] = ablated_loss
         all_losses[option][ablation_mode]["TopNeurons"] = top_neuron_loss
@@ -217,7 +218,9 @@ for option, df in tqdm(zip(options, option_dfs)):
 # %%
 
 option = "orschlägen"
-ablation_mode = "NNN"
+ablation_mode = "YYN"
+prompts = haystack_utils.generate_random_prompts(option, model, common_tokens, 1000, length=20)
+
 names = list(all_losses[option][ablation_mode].keys())
 losses = [[all_losses[option][ablation_mode][name]] for name in names]
 
@@ -234,4 +237,16 @@ haystack_utils.plot_barplot(losses, names)
 # %% 
 df["ContextAblationLossIncrease"].mean()
 
+# %%
+
+weird_neurons = [84, 905, 1709, 1747, 1510, 1765, 1868, 627, 297, 1232]
+#weird_neurons = [297, 627, 905,  1709,  1747, 84, 1765, 1868, 1232,1510] # 
+compute_mlp_loss(prompts, df, torch.LongTensor(weird_neurons).cuda(), ablate_mode="YYN")
+
+original_loss, ablated_loss = compute_mlp_loss(prompts, df, torch.LongTensor([i for i in range(model.cfg.d_mlp)]).cuda(), compute_original_loss=True, ablate_mode="YYN")
+print(original_loss, ablated_loss)
+# %%
+
+prompts.shape
+model.to_str_tokens(prompts[0])
 # %%
