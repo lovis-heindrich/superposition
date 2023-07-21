@@ -39,17 +39,25 @@ def plot_barplot(data: list[list[float]], names: list[str], short_names = None, 
     fig = go.Figure()
     if short_names is None:
         short_names = names
-    for i in range(len(names)):
-        fig.add_trace(go.Bar(
-            x=[short_names[i]],
-            y=[means[i]],
-            error_y=dict(
-                type='data',
-                array=[stds[i]],
-                visible=True
-            ),
-            name=names[i]
-        ))
+    if len(data[0]) > 1:
+        for i in range(len(names)):
+            fig.add_trace(go.Bar(
+                x=[short_names[i]],
+                y=[means[i]],
+                error_y=dict(
+                    type='data',
+                    array=[stds[i]],
+                    visible=True
+                ),
+                name=names[i]
+            ))
+    else:
+        for i in range(len(names)):
+            fig.add_trace(go.Bar(
+                x=[short_names[i]],
+                y=[means[i]],
+                name=names[i]
+            ))
     
     fig.update_layout(
         title=title,

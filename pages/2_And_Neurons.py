@@ -2,13 +2,15 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from pathlib import Path
+import json
+import plotting_utils
 
 st.set_page_config(page_title="AND-Neurons", page_icon="📊")
 st.sidebar.success("Select an analysis above.")
 
 st.title("MLP5 AND-Neurons Analysis")
 
-tokens = ["orschlägen", "häufig", "beweglich"]
+tokens = ["orschlägen", " häufig", " beweglich"]
 
 option = st.selectbox(
     'Select the trigram to analyze',
@@ -16,11 +18,22 @@ option = st.selectbox(
 
 #@st.cache_data
 def load_data(tokens):
-    path = Path(__file__).parent / f"../data/and_neurons/df_{tokens}.pkl"
-    df = pd.read_pickle(path)
-    return df
+    path = Path(__file__).parent / f"../data/and_neurons/"
+    df = pd.read_pickle(path / f"df_{tokens.strip()}.pkl")
+    with open(path / "set_losses.json", "r") as f:
+        set_losses = json.load(f)
+    return df, set_losses
 
-df = load_data(option)
+df, set_losses = load_data(option)
+
+# Look for neurons that consistently respond to all 3 directions
+df["Boosted"] = (df["YNN"]>df["NNN"])&(df["NYN"]>df["NNN"])&(df["NNY"]>df["NNN"])&\
+                (df["YYY"]>df["YNN"])&(df["YYY"]>df["NYN"])&(df["YYY"]>df["NNY"])&\
+                (df["YYY"]>0) # Negative boosts don't matter
+
+df["Deboosted"] = (df["YNN"]<df["NNN"])&(df["NYN"]<df["NNN"])&(df["NNY"]<df["NNN"])&\
+                (df["YYY"]<df["YNN"])&(df["YYY"]<df["NYN"])&(df["YYY"]<df["NNY"])&\
+                (df["NNN"]>0) # Deboosting negative things doesn't matter
 
 
 st.markdown("""
@@ -44,7 +57,7 @@ display_df = df.copy()
 if not show_losses:
     display_df = display_df.drop(columns=["FullAblationLossIncrease", "ContextAblationLossIncrease"])
 if not show_cosine_sims:
-    display_df = display_df.drop(columns=["PrevTokenSim", "CurrTokenSim", "ContextSim", "AllSim"])
+    display_df = display_df.drop(columns=["PrevTokenSim", "CurrTokenSim", "ContextSim", "PosSim", "NegSim"])
 display_df = display_df.drop(columns=["AblationDiff"])
 
 st.dataframe(display_df.round(2))
@@ -58,17 +71,17 @@ st.dataframe(display_df.round(2))
 # loss increase - Is And
 # loss increase - clean increase pattern / decrease pattern
 st.markdown("""
-            ### Comparing ablation loss increase
+            ### Comparing neuron-wise ablation loss increase
 
             """)
 
 df["AndName"] = "None"
-df["AndName"][df["And"]] = "Positive"
-df["AndName"][df["NegAnd"]] = "Negative"
+df.loc[df["And"], "AndName"] = "Positive"
+df.loc[df["NegAnd"], "AndName"] = "Negative"
 
 df["BoostName"] = "Inconsistent"
-df["BoostName"][df["Boosted"]] = "Boost"
-df["BoostName"][df["Deboosted"]] = "Deboost"
+df.loc[df["Boosted"], "BoostName"] = "Boost"
+df.loc[df["Deboosted"], "BoostName"] = "Deboost"
 
 ablation_mode = st.selectbox(label="Select the ablation mode", 
              options=["Ablate context neuron", "Ablate context neuron and replace both current and previous token with random tokens"], index=0)
@@ -100,3 +113,26 @@ st.plotly_chart(plot)
 
 
 # Ablation change for pos, neg, and strongly activating neurons
+
+st.markdown("""
+            ### Comparing ablation loss increase for groups of neurons
+
+            """)
+
+if ablation_mode == "Ablate context neuron":
+    ablation_key = "YYN"
+else:
+    ablation_key = "NNN"
+
+num_neurons = set_losses[option]["NumNeurons"]
+
+losses = set_losses[option][ablation_key]
+short_names = list(losses.keys())
+print(list[num_neurons.keys()], short_names)
+names = [f"{short_names[i]} (N={num_neurons[short_names[i]]})" for i in range(len(short_names))]
+loss_values = [[losses[name]] for name in short_names]
+plot = plotting_utils.plot_barplot(loss_values, names,
+                            short_names=short_names, ylabel="Last token loss",
+                            title=f"Loss increase when patching groups of neurons (ablation mode: {ablation_key})",
+                            width=750, show=False)
+st.plotly_chart(plot)
