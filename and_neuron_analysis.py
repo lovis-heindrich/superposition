@@ -92,8 +92,8 @@ def compute_mlp_loss(prompts, df, neurons, ablate_mode="NNN", layer=5, compute_o
     return ablated_loss
 # %%
 
-def process_data_frame(ngram:str):
-    prompts = haystack_utils.generate_random_prompts(ngram, model, common_tokens, 400, length=20)
+def process_data_frame(ngram:str, batch=100):
+    prompts = haystack_utils.generate_random_prompts(ngram, model, common_tokens, batch, length=20)
     if ngram.startswith(" "):
         prompt_tuple = haystack_utils.get_trigram_prompts(prompts, new_word_tokens, continuation_tokens)
     else:
@@ -104,19 +104,29 @@ def process_data_frame(ngram:str):
     curr_token_sim = get_cosine_sim(curr_token_direction, 5)
     context_sim = get_cosine_sim(context_direction, 5)
 
-    all = haystack_utils.union_where([prev_token_sim, curr_token_sim, context_sim], 0.05)
+    pos_sim = haystack_utils.union_where([prev_token_sim, curr_token_sim, context_sim], 0.02)
+    neg_sim = haystack_utils.union_where([prev_token_sim, curr_token_sim, context_sim], 0.02, greater=False)
 
     df = haystack_utils.get_trigram_neuron_activations(prompt_tuple, model, deactivate_neurons_fwd_hooks ,5)
 
     df["PrevTokenSim"] = prev_token_sim.cpu().numpy()
     df["CurrTokenSim"] = curr_token_sim.cpu().numpy()
     df["ContextSim"] = context_sim.cpu().numpy()
-    df["AllSim"] = df.index.isin(all.tolist())
+    df["PosSim"] = df.index.isin(pos_sim.tolist())
+    df["NegSim"] = df.index.isin(neg_sim.tolist())
 
     df["AblationDiff"] = df["YYY"] - df["YYN"]
     df["And"] = (df["YYY"]>0) & (df["YYN"]<=0) & (df["YNY"]<=0) & (df["NYY"]<=0) & (df["YNN"]<=0) & (df["NNY"]<=0)& (df["NYN"]<=0)
     df["NegAnd"] = (df["YYY"]<=0) & (df["YYN"]>0) & (df["YNY"]>0) & (df["NYY"]>0) & (df["YNN"]>0) & (df["NNY"]>0)& (df["NYN"]>0)
 
+    # Look for neurons that consistently respond to all 3 directions
+    df["Boosted"] = (df["YNN"]>df["NNN"])&(df["NYN"]>df["NNN"])&(df["NNY"]>df["NNN"])&\
+                    (df["YYY"]>df["YNN"])&(df["YYY"]>df["NYN"])&(df["YYY"]>df["NNY"])&\
+                    (df["YYY"]>0) # Negative boosts don't matter
+
+    df["Deboosted"] = (df["YNN"]<df["NNN"])&(df["NYN"]<df["NNN"])&(df["NNY"]<df["NNN"])&\
+                    (df["YYY"]<df["YNN"])&(df["YYY"]<df["NYN"])&(df["YYY"]<df["NNY"])&\
+                    (df["NNN"]>0) # Deboosting negative things doesn't matter
 
     original_loss, ablated_loss = compute_mlp_loss(prompts, df, torch.LongTensor([i for i in range(model.cfg.d_mlp)]).cuda(), compute_original_loss=True)
     print(original_loss, ablated_loss)
@@ -174,5 +184,69 @@ prompts = haystack_utils.generate_random_prompts(ngram, model, common_tokens, 20
 #print(compute_mlp_loss(prompts, df, high_loss_diff_neurons, ablate_mode="NNN"))
 print(compute_mlp_loss(prompts, df, and_neurons, ablate_mode="YYN", compute_original_loss=True))
 # %%
-len(common_tokens)
+
+# Add loss increases for various sets of neurons
+
+# Patching context / all ablated
+# Then select between:
+# All positive / all negative sims
+# AND neurons pos / neg / both
+# Consistent neurons boost / deboost / both
+# High loss diff neurons
+
+all_losses = {}
+for option, df in zip(options, option_dfs):
+    all_losses[option] = {}
+    prompts = haystack_utils.generate_random_prompts(option, model, common_tokens, 1000, length=20)
+
+    for ablation_mode in ["YYN", "NNN"]:
+        all_losses[option][ablation_mode] = {}
+        original_loss, ablated_loss = compute_mlp_loss(prompts, df, torch.LongTensor([i for i in range(model.cfg.d_mlp)]).cuda(), compute_original_loss=True, ablate_mode=ablation_mode)
+
+        if ablation_mode == "YYN":
+            high_loss_neurons = df.sort_values("ContextAblationLossIncrease", ascending=False)[:10].index.tolist()
+        else:
+            high_loss_neurons = df.sort_values("FullAblationLossIncrease", ascending=False)[:10].index.tolist()
+        top_neuron_loss = compute_mlp_loss(prompts, df, torch.LongTensor(high_loss_neurons).cuda(), ablate_mode=ablation_mode)
+
+        all_losses[option][ablation_mode]["Original"] = original_loss
+        all_losses[option][ablation_mode]["Ablated"] = ablated_loss
+        all_losses[option][ablation_mode]["TopNeurons"] = top_neuron_loss
+
+        pos_and_neurons = torch.LongTensor(df[df["And"]].index.tolist()).cuda()
+        neg_and_neurons = torch.LongTensor(df[df["NegAnd"]].index.tolist()).cuda()
+        both_and_neurons = torch.LongTensor(df[df["And"] | df["NegAnd"]].index.tolist()).cuda()
+        
+        pos_boost_neurons = torch.LongTensor(df[df["Boosted"]].index.tolist()).cuda()
+        neg_boost_neurons = torch.LongTensor(df[df["Deboosted"]].index.tolist()).cuda()
+        both_boost_neurons = torch.LongTensor(df[df["Boosted"] | df["Deboosted"]].index.tolist()).cuda()
+        
+        pos_sim_neurons = torch.LongTensor(df[df["PosSim"]].index.tolist()).cuda()
+        neg_sim_neurons = torch.LongTensor(df[df["NegSim"]].index.tolist()).cuda()
+        both_sim_neurons = torch.LongTensor(df[df["PosSim"] | df["NegSim"]].index.tolist()).cuda()
+
+        neuron_sets = [pos_and_neurons, neg_and_neurons, both_and_neurons, 
+                       pos_boost_neurons, neg_boost_neurons, both_boost_neurons, 
+                       pos_sim_neurons, neg_sim_neurons, both_sim_neurons]
+        
+        neuron_set_names = ["PositiveAND", "NegativeAND", "BothAND",
+                            "PositiveBoost", "NegativeBoost", "BothBoost",
+                            "PositiveSim", "NegativeSim", "BothSim"]
+        
+        for name, neurons in zip(neuron_set_names, neuron_sets):
+            all_losses[option][ablation_mode][name] = compute_mlp_loss(prompts, df, neurons, ablate_mode=ablation_mode)
+
 # %%
+
+option = "orschlägen"
+ablation_mode = "YYN"
+names = all_losses[option][ablation_mode].keys()
+losses = [all_losses[option][ablation_mode][name] for name in names]
+
+haystack_utils.plot_barplot(losses, names)
+
+# %%
+
+# Next steps
+# Check if there are neurons with high similarity for the token directions in earlier layers
+# Check if ablating them increases loss

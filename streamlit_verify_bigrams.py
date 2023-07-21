@@ -3,6 +3,9 @@ import streamlit as st
 import json
 import plotting_utils
 
+st.set_page_config(page_title="Ablation analysis", page_icon="📊",)
+st.sidebar.success("Select an analysis above.")
+
 st.title("MLP5 N-Gram Analysis")
 
 @st.cache_data
