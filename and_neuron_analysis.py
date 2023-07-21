@@ -78,7 +78,6 @@ def plot_histogram(t1, t2, t3, name1, name2, name3):
 def compute_mlp_loss(prompts, df, neurons, ablate_mode="NNN", layer=5, compute_original_loss=False):
 
     mean_activations = torch.Tensor(df[df.index.isin(neurons.tolist())][ablate_mode].tolist()).cuda()
-
     def ablate_mlp_hook(value, hook):
         value[:, :, neurons] = mean_activations
         return value
@@ -170,32 +169,10 @@ df = option_dfs[index]
 df[df["And"]]
 
 # %%
-# Compute losses for sets of neurons
-
-# # High loss diff neurons
-# high_loss_diff_neurons = torch.LongTensor([84, 178, 213, 255, 395, 905, 1250, 1510, 1709]).cuda()
-
-# #neurons = torch.LongTensor(df[:19].index.tolist()).cuda()
-
-and_neurons = torch.LongTensor(df[df["And"]].index.tolist()).cuda()
-
-prompts = haystack_utils.generate_random_prompts(ngram, model, common_tokens, 2000, length=20)
-
-#print(compute_mlp_loss(prompts, df, high_loss_diff_neurons, ablate_mode="NNN"))
-print(compute_mlp_loss(prompts, df, and_neurons, ablate_mode="YYN", compute_original_loss=True))
-# %%
-
 # Add loss increases for various sets of neurons
 
-# Patching context / all ablated
-# Then select between:
-# All positive / all negative sims
-# AND neurons pos / neg / both
-# Consistent neurons boost / deboost / both
-# High loss diff neurons
-
 all_losses = {}
-for option, df in zip(options, option_dfs):
+for option, df in tqdm(zip(options, option_dfs)):
     all_losses[option] = {}
     prompts = haystack_utils.generate_random_prompts(option, model, common_tokens, 1000, length=20)
 
@@ -205,10 +182,12 @@ for option, df in zip(options, option_dfs):
 
         if ablation_mode == "YYN":
             high_loss_neurons = df.sort_values("ContextAblationLossIncrease", ascending=False)[:10].index.tolist()
+            print(high_loss_neurons)
+            print(df.loc[high_loss_neurons]["ContextAblationLossIncrease"])
         else:
             high_loss_neurons = df.sort_values("FullAblationLossIncrease", ascending=False)[:10].index.tolist()
         top_neuron_loss = compute_mlp_loss(prompts, df, torch.LongTensor(high_loss_neurons).cuda(), ablate_mode=ablation_mode)
-
+        print(top_neuron_loss)
         all_losses[option][ablation_mode]["Original"] = original_loss
         all_losses[option][ablation_mode]["Ablated"] = ablated_loss
         all_losses[option][ablation_mode]["TopNeurons"] = top_neuron_loss
@@ -235,14 +214,15 @@ for option, df in zip(options, option_dfs):
         
         for name, neurons in zip(neuron_set_names, neuron_sets):
             all_losses[option][ablation_mode][name] = compute_mlp_loss(prompts, df, neurons, ablate_mode=ablation_mode)
-
 # %%
 
 option = "orschlägen"
-ablation_mode = "YYN"
-names = all_losses[option][ablation_mode].keys()
-losses = [all_losses[option][ablation_mode][name] for name in names]
+ablation_mode = "NNN"
+names = list(all_losses[option][ablation_mode].keys())
+losses = [[all_losses[option][ablation_mode][name]] for name in names]
 
+print(len(names), len(losses))
+print([len(x) for x in losses])
 haystack_utils.plot_barplot(losses, names)
 
 # %%
@@ -250,3 +230,8 @@ haystack_utils.plot_barplot(losses, names)
 # Next steps
 # Check if there are neurons with high similarity for the token directions in earlier layers
 # Check if ablating them increases loss
+
+# %% 
+df["ContextAblationLossIncrease"].mean()
+
+# %%
