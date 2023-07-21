@@ -2,6 +2,7 @@
 import streamlit as st
 import json
 import plotting_utils
+from pathlib import Path
 
 st.set_page_config(page_title="Ablation analysis", page_icon="📊",)
 st.sidebar.success("Select an analysis above.")
@@ -10,17 +11,18 @@ st.title("MLP5 N-Gram Analysis")
 
 @st.cache_data
 def load_data():
-    with open('data/verify_bigrams/pos_loss_data.json', 'r') as f:
+    path = Path(__file__).parent
+    with open(path / '../data/verify_bigrams/pos_loss_data.json', 'r') as f:
         all_loss_data = json.load(f)
-    with open('data/verify_bigrams/neuron_loss_diffs.json', 'r') as f:
+    with open(path / '../data/verify_bigrams/neuron_loss_diffs.json', 'r') as f:
         neuron_loss_diffs = json.load(f)
-    with open('data/verify_bigrams/neuron_loss_data.json', 'r') as f:
+    with open(path / '../data/verify_bigrams/neuron_loss_data.json', 'r') as f:
         neuron_loss_data = json.load(f)
-    with open('data/verify_bigrams/summed_neuron_boosts.json', 'r') as f:
+    with open(path / '../data/verify_bigrams/summed_neuron_boosts.json', 'r') as f:
         summed_neuron_boosts = json.load(f)
-    with open('data/verify_bigrams/summed_split_neuron_boosts.json', 'r') as f:
+    with open(path / '../data/verify_bigrams/summed_split_neuron_boosts.json', 'r') as f:
         summed_individual_neuron_boosts = json.load(f)
-    with open('data/verify_bigrams/individual_neuron_boosts.json', 'r') as f:
+    with open(path / '../data/verify_bigrams/individual_neuron_boosts.json', 'r') as f:
         individual_neuron_boosts = json.load(f)
     return all_loss_data, neuron_loss_diffs, neuron_loss_data, summed_neuron_boosts, summed_individual_neuron_boosts, individual_neuron_boosts
 
