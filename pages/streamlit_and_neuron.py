@@ -1,8 +1,10 @@
 import streamlit as st
-import json
-import plotting_utils
 import pandas as pd
 import plotly.express as px
+from pathlib import Path
+
+st.set_page_config(page_title="AND-Neurons", page_icon="📊")
+st.sidebar.success("Select an analysis above.")
 
 st.title("MLP5 AND-Neurons Analysis")
 
@@ -14,19 +16,11 @@ option = st.selectbox(
 
 #@st.cache_data
 def load_data(tokens):
-    df = pd.read_pickle(f"data/and_neurons/df_{tokens}.pkl")
+    path = Path(__file__).parent / f"../data/and_neurons/df_{tokens}.pkl"
+    df = pd.read_pickle(path)
     return df
 
 df = load_data(option)
-
-# Look for neurons that consistently respond to all 3 directions
-df["Boosted"] = (df["YNN"]>df["NNN"])&(df["NYN"]>df["NNN"])&(df["NNY"]>df["NNN"])&\
-                (df["YYY"]>df["YNN"])&(df["YYY"]>df["NYN"])&(df["YYY"]>df["NNY"])&\
-                (df["YYY"]>0) # Negative boosts don't matter
-
-df["Deboosted"] = (df["YNN"]<df["NNN"])&(df["NYN"]<df["NNN"])&(df["NNY"]<df["NNN"])&\
-                (df["YYY"]<df["YNN"])&(df["YYY"]<df["NYN"])&(df["YYY"]<df["NNY"])&\
-                (df["NNN"]>0) # Deboosting negative things doesn't matter
 
 
 st.markdown("""
