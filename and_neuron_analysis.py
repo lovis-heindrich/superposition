@@ -11,7 +11,7 @@ from IPython.display import display, clear_output
 import plotly.graph_objects as go
 import numpy as np
 import pandas as pd
-
+import json
 
 pio.renderers.default = "notebook_connected"
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -91,7 +91,7 @@ def compute_mlp_loss(prompts, df, neurons, ablate_mode="NNN", layer=5, compute_o
     return ablated_loss
 # %%
 
-def process_data_frame(ngram:str, batch=100):
+def process_data_frame(ngram:str, batch=400):
     prompts = haystack_utils.generate_random_prompts(ngram, model, common_tokens, batch, length=20)
     if ngram.startswith(" "):
         prompt_tuple = haystack_utils.get_trigram_prompts(prompts, new_word_tokens, continuation_tokens)
@@ -213,8 +213,20 @@ for option, df in tqdm(zip(options, option_dfs)):
                             "PositiveBoost", "NegativeBoost", "BothBoost",
                             "PositiveSim", "NegativeSim", "BothSim"]
         
+        if "NumNeurons" not in all_losses[option].keys():
+            all_losses[option]["NumNeurons"] = {
+                "Original": 0,
+                "Ablated": model.cfg.d_mlp,
+                "TopNeurons": len(high_loss_neurons),
+            }
+            for i in range(len(neuron_sets)):
+                all_losses[option]["NumNeurons"][neuron_set_names[i]] = len(neuron_sets[i])
         for name, neurons in zip(neuron_set_names, neuron_sets):
             all_losses[option][ablation_mode][name] = compute_mlp_loss(prompts, df, neurons, ablate_mode=ablation_mode)
+# %%
+with open("data/and_neurons/set_losses.json", "w") as f:
+    json.dump(all_losses, f)
+
 # %%
 
 option = "orschlägen"
@@ -245,6 +257,22 @@ compute_mlp_loss(prompts, df, torch.LongTensor(weird_neurons).cuda(), ablate_mod
 
 original_loss, ablated_loss = compute_mlp_loss(prompts, df, torch.LongTensor([i for i in range(model.cfg.d_mlp)]).cuda(), compute_original_loss=True, ablate_mode="YYN")
 print(original_loss, ablated_loss)
+
+# %%
+
+with model.hooks(fwd_hooks=deactivate_neurons_fwd_hooks):
+    ablated_loss, ablated_cache = model.run_with_cache(prompts, return_type="loss", loss_per_token=True)[:, -1].mean().item()
+    print("Context ablated", ablated_loss)
+
+def deactivate_neurons_hook(value, hook):
+        value[:, :, weird_neurons] = ablated_cache[hook.name][:, :, weird_neurons].mean((0, 1))
+        return value
+
+deactivate_weird_neurons_hook = [("blocks.5.mlp.hook_post", deactivate_neurons_hook)]
+
+with model.hooks(fwd_hooks=deactivate_neurons_fwd_hooks+deactivate_weird_neurons_hook):
+    ablated_loss, ablated_cache = model.run_with_cache(prompts, return_type="loss", loss_per_token=True)[:, -1].mean().item()
+    print("Ablated + Patched", ablated_loss)
 # %%
 
 prompts.shape
