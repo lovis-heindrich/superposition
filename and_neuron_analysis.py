@@ -228,6 +228,46 @@ with open("data/and_neurons/set_losses.json", "w") as f:
     json.dump(all_losses, f)
 
 # %%
+#with open("data/and_neurons/set_losses.json", "r") as f:
+
+# %%
+# Loss change for different AND thresholds
+option = "orschlägen"
+df = pd.read_pickle(f"data/and_neurons/df_{option}.pkl")   
+prompts = haystack_utils.generate_random_prompts(option, model, common_tokens, 2000, length=20)
+ablation_mode = "YYN"
+thresholds = [i for i in np.arange(-0.5, 1.5, 0.1)]
+original_loss, ablated_loss = compute_mlp_loss(prompts, df, torch.LongTensor([i for i in range(model.cfg.d_mlp)]).cuda(), compute_original_loss=True, ablate_mode=ablation_mode)
+losses = [original_loss, ablated_loss]
+num_neurons = [0, model.cfg.d_mlp]
+for and_threshold in thresholds:
+    df_tmp = df.copy()
+    df_tmp["And"] = (df["YYY"]>and_threshold) & \
+        (df["YYN"]<=and_threshold) & (df["YNY"]<=and_threshold) & \
+        (df["NYY"]<=and_threshold) & (df["YNN"]<=and_threshold) & \
+        (df["NNY"]<=and_threshold) & (df["NYN"]<=and_threshold)
+    df_tmp["NegAnd"] = (df["YYY"]<=and_threshold) & \
+        (df["YYN"]>and_threshold) & (df["YNY"]>and_threshold) & \
+        (df["NYY"]>and_threshold) & (df["YNN"]>and_threshold) & \
+        (df["NNY"]>and_threshold)& (df["NYN"]>and_threshold)
+
+    pos_and_neurons = torch.LongTensor(df_tmp[df_tmp["And"]].index.tolist()).cuda()
+    neg_and_neurons = torch.LongTensor(df_tmp[df_tmp["NegAnd"]].index.tolist()).cuda()
+    loss = compute_mlp_loss(prompts, df, pos_and_neurons, ablate_mode=ablation_mode)
+    losses.append(loss)
+    num_neurons.append(len(pos_and_neurons))
+    print(loss)
+
+names = ["Original", "Ablated"]
+names += [f"AND >{i:.1f}" for i in thresholds]
+
+# %%
+
+long_names = [name + f" (N={num_neurons[i]})" for i, name in enumerate(names)]
+import plotting_utils
+plotting_utils.plot_barplot([[x] for x in losses], long_names, short_names=names)
+
+# %%
 
 option = "orschlägen"
 ablation_mode = "YYN"
@@ -246,35 +286,144 @@ haystack_utils.plot_barplot(losses, names)
 # Check if there are neurons with high similarity for the token directions in earlier layers
 # Check if ablating them increases loss
 
-# %% 
-df["ContextAblationLossIncrease"].mean()
 
 # %%
+haystack_utils.clean_cache()
 
-weird_neurons = [84, 905, 1709, 1747, 1510, 1765, 1868, 627, 297, 1232]
-#weird_neurons = [297, 627, 905,  1709,  1747, 84, 1765, 1868, 1232,1510] # 
-compute_mlp_loss(prompts, df, torch.LongTensor(weird_neurons).cuda(), ablate_mode="YYN")
+layer = 2
+ngram = "orschlägen"
+prompts = haystack_utils.generate_random_prompts(ngram, model, common_tokens, 500, length=20)
 
-original_loss, ablated_loss = compute_mlp_loss(prompts, df, torch.LongTensor([i for i in range(model.cfg.d_mlp)]).cuda(), compute_original_loss=True, ablate_mode="YYN")
-print(original_loss, ablated_loss)
+if ngram.startswith(" "):
+    prompt_tuple = haystack_utils.get_trigram_prompts(prompts, new_word_tokens, continuation_tokens)
+else:
+    prompt_tuple = haystack_utils.get_trigram_prompts(prompts, continuation_tokens, continuation_tokens)
+prev_token_direction, curr_token_direction = haystack_utils.get_residual_trigram_directions(prompt_tuple, model, layer-1)
 
+prev_token_sim = get_cosine_sim(prev_token_direction, layer)
+curr_token_sim = get_cosine_sim(curr_token_direction, layer)
+context_sim = get_cosine_sim(context_direction, layer)
+
+plot_histogram(prev_token_sim, curr_token_sim, context_sim, "Prev Token", "Curr Token", "Context")
+# %%
+prev_sim_neurons = torch.argwhere(prev_token_sim>0.05)
+curr_sim_neurons = torch.argwhere(curr_token_sim>0.03)
+
+print(len(prev_sim_neurons), len(curr_sim_neurons))
+union = haystack_utils.union_where([prev_token_sim, curr_token_sim], 0.07)
+print(union)
 # %%
 
-with model.hooks(fwd_hooks=deactivate_neurons_fwd_hooks):
-    ablated_loss, ablated_cache = model.run_with_cache(prompts, return_type="loss", loss_per_token=True)[:, -1].mean().item()
-    print("Context ablated", ablated_loss)
+# Get random mean cache
+random_prompts = haystack_utils.generate_random_prompts(ngram, model, common_tokens, 500, length=20)[:, :-3]
+_, random_cache = model.run_with_cache(random_prompts)
 
-def deactivate_neurons_hook(value, hook):
-        value[:, :, weird_neurons] = ablated_cache[hook.name][:, :, weird_neurons].mean((0, 1))
+
+# %%
+# Define ablate neuron hook
+
+# Layer 1
+# orschlägen: tensor([  61,  188, 1011], device='cuda:0')
+# häufig: 268 (almost doubles loss)
+# beweglich: neurons decrease loss - maybe they boost alternative completion
+
+def get_ablate_neurons_hook(neurons, layer):
+    print(neurons)
+    def ablate_neurons_hook(value, hook):
+        value[:, :, neurons] = random_cache[f'blocks.{layer}.mlp.hook_post'][:, :, neurons].mean((0, 1))
         return value
+    return [(f'blocks.{layer}.mlp.hook_post', ablate_neurons_hook)]
 
-deactivate_weird_neurons_hook = [("blocks.5.mlp.hook_post", deactivate_neurons_hook)]
+# Check loss increase
+original_loss, original_ablated_loss = compute_mlp_loss(prompts, df, torch.LongTensor([i for i in range(model.cfg.d_mlp)]).cuda(), compute_original_loss=True)
 
-with model.hooks(fwd_hooks=deactivate_neurons_fwd_hooks+deactivate_weird_neurons_hook):
-    ablated_loss, ablated_cache = model.run_with_cache(prompts, return_type="loss", loss_per_token=True)[:, -1].mean().item()
-    print("Ablated + Patched", ablated_loss)
+with model.hooks(fwd_hooks=get_ablate_neurons_hook([1789], layer)):
+    ablated_loss = model(prompts, return_type="loss", loss_per_token=True)[:, -1].mean().item()
+
+print(original_loss, original_ablated_loss, ablated_loss)
 # %%
 
-prompts.shape
-model.to_str_tokens(prompts[0])
+# 1011 increases loss on both "gen" and "ge"
+# Either it boosts both completions (trigram table)
+# Or it combines "orsch" and "lä" into a single representation that later components use
+
+# Check if trigram table by looking at the direct effect
+# Total effect of L1N1011
+with model.hooks(fwd_hooks=get_ablate_neurons_hook([1406], layer)):
+    _, ablated_cache = model.run_with_cache(prompts)
+
+def ablate_component_hook(value, hook):
+    value = ablated_cache[hook.name]
+    return value
+
+components = [f"blocks.{layer}.mlp.hook_post" for layer in range(3, 6)] + [f"blocks.{layer}.attn.hook_z" for layer in range(3, 6)]
+hooks = [(component, ablate_component_hook) for component in components]
+
+with model.hooks(fwd_hooks=hooks):
+    ablated_logits = model(prompts, return_type="logits", loss_per_token=True)[:, -2].log_softmax(-1).mean(0)
+
+original_logits = model(prompts, return_type="logits", loss_per_token=True)[:, -2].log_softmax(-1).mean(0)
+
+print(ablated_logits.shape, original_logits.shape)
+
+prob_diff = original_logits - ablated_logits
+prob_diff[all_ignore] = 0
+prob_diff[original_logits < -7] = 0
+diffs, tokens = torch.topk(prob_diff, 20)
+print(diffs)
+print(tokens)
+print(model.to_str_tokens(tokens))
+
+# %% 
+# Direct effect
+_, original_cache = model.run_with_cache(prompts)
+
+def activate_component_hook(value, hook):
+    value = original_cache[hook.name]
+    return value
+
+activate_hooks = [(component, activate_component_hook) for component in components]
+
+with model.hooks(fwd_hooks=activate_hooks + get_ablate_neurons_hook([1406], layer)):
+    activated_logits = model(prompts, return_type="logits", loss_per_token=True)[:, -2].log_softmax(-1).mean(0)
+
+prob_diff = original_logits - activated_logits
+prob_diff[all_ignore] = 0
+prob_diff[original_logits < -7] = 0
+diffs, tokens = torch.topk(prob_diff, 20)
+print(diffs)
+print(tokens)
+print(model.to_str_tokens(tokens))
+
+# Check later components + context neuron effects of 1011
+# %%
+
+#output_direction = model.W_out[1, 1011]
+output_direction = model.W_out[2, 1406]
+context_direction = model.W_out[3, 669]
+
+output_sims = get_cosine_sim(output_direction, 5)
+context_sims = get_cosine_sim(context_direction, 5)
+
+plot_histogram(output_sims, context_sims, torch.zeros_like(output_sims), "Output", "Context", "Zero")
+# %%
+union = haystack_utils.union_where([output_sims, context_sims], 0.05)
+len(union)
+# %%
+ngram = "orschlägen"
+prompts = haystack_utils.generate_random_prompts(ngram, model, common_tokens, 1000, length=20)
+
+original_loss, original_ablated_loss = compute_mlp_loss(prompts, df, torch.LongTensor([i for i in range(model.cfg.d_mlp)]).cuda(), compute_original_loss=True)
+
+with model.hooks(fwd_hooks=get_ablate_neurons_hook(union, 5)): #712, 394, 287
+    ablated_loss = model(prompts, return_type="loss", loss_per_token=True)[:, -1].mean().item()
+
+print(original_loss, original_ablated_loss, ablated_loss)
+# %%
+ngram = " meine Vorschläge"
+prompts = haystack_utils.generate_random_prompts(ngram, model, common_tokens, 1000, length=20)
+original_loss, original_ablated_loss = compute_mlp_loss(prompts, df, torch.LongTensor([i for i in range(model.cfg.d_mlp)]).cuda(), compute_original_loss=True)
+print(original_loss, original_ablated_loss)
+# %%
+model.to_str_tokens(model.to_tokens(" deinen Vorschläge", prepend_bos=False))
 # %%

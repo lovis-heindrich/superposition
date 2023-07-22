@@ -26,14 +26,14 @@ def load_data(tokens):
 
 df, set_losses = load_data(option)
 
-# Look for neurons that consistently respond to all 3 directions
-df["Boosted"] = (df["YNN"]>df["NNN"])&(df["NYN"]>df["NNN"])&(df["NNY"]>df["NNN"])&\
-                (df["YYY"]>df["YNN"])&(df["YYY"]>df["NYN"])&(df["YYY"]>df["NNY"])&\
-                (df["YYY"]>0) # Negative boosts don't matter
+# # Look for neurons that consistently respond to all 3 directions
+# df["Boosted"] = (df["YNN"]>df["NNN"])&(df["NYN"]>df["NNN"])&(df["NNY"]>df["NNN"])&\
+#                 (df["YYY"]>df["YNN"])&(df["YYY"]>df["NYN"])&(df["YYY"]>df["NNY"])&\
+#                 (df["YYY"]>0) # Negative boosts don't matter
 
-df["Deboosted"] = (df["YNN"]<df["NNN"])&(df["NYN"]<df["NNN"])&(df["NNY"]<df["NNN"])&\
-                (df["YYY"]<df["YNN"])&(df["YYY"]<df["NYN"])&(df["YYY"]<df["NNY"])&\
-                (df["NNN"]>0) # Deboosting negative things doesn't matter
+# df["Deboosted"] = (df["YNN"]<df["NNN"])&(df["NYN"]<df["NNN"])&(df["NNY"]<df["NNN"])&\
+#                 (df["YYY"]<df["YNN"])&(df["YYY"]<df["NYN"])&(df["YYY"]<df["NNY"])&\
+#                 (df["NNN"]>0) # Deboosting negative things doesn't matter
 
 
 st.markdown("""
@@ -128,7 +128,6 @@ num_neurons = set_losses[option]["NumNeurons"]
 
 losses = set_losses[option][ablation_key]
 short_names = list(losses.keys())
-print(list[num_neurons.keys()], short_names)
 names = [f"{short_names[i]} (N={num_neurons[short_names[i]]})" for i in range(len(short_names))]
 loss_values = [[losses[name]] for name in short_names]
 plot = plotting_utils.plot_barplot(loss_values, names,

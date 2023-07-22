@@ -116,7 +116,7 @@ def loss_analysis_random_prompts(end_string, n=50, length=12, replace_columns: l
     
     return loss_analysis(prompts, title=title)
 # %%
-options = [" Vorschlägen", " häufig", " schließt", " beweglich"] 
+options = [" Vorschlägen", " häufig", " schließt", " beweglich", " deine Vorschläge", " deinen Vorschlägen", " deinen Vorschläge", " deine Vorschlägen"] 
 option_lengths = [len(model.to_tokens(option, prepend_bos=False)[0]) for option in options]
 
 

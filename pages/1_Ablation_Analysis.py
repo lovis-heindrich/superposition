@@ -9,7 +9,7 @@ st.sidebar.success("Select an analysis above.")
 
 st.title("MLP5 N-Gram Analysis")
 
-@st.cache_data
+#@st.cache_data
 def load_data():
     path = Path(__file__).parent
     with open(path / '../data/verify_bigrams/pos_loss_data.json', 'r') as f:
