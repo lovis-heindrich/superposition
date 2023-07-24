@@ -1507,3 +1507,30 @@ def union_where(tensors: list[Float[Tensor, "n"]], cutoff: float, greater: bool 
             indices = torch.where(tensor < cutoff)[0]
         union = np.intersect1d(union, indices.cpu().numpy())
     return torch.LongTensor(union).cuda()
+
+
+def get_boosted_tokens(prompts, model, ablation_hooks: list, all_ignore: Float[Tensor, "n"], logit_pos=-2, threshold=-7, deboost=False, log=True):
+    original_logprobs = model(prompts, return_type="logits", loss_per_token=True).log_softmax(-1)[:, logit_pos]
+    with model.hooks(fwd_hooks=ablation_hooks):
+        deactivated_logprobs = model(prompts, return_type="logits", loss_per_token=True).log_softmax(-1)[:, logit_pos]
+    
+    if deboost:
+        logprob_diffs = (deactivated_logprobs - original_logprobs).mean(0)
+    else: 
+        logprob_diffs = (original_logprobs - deactivated_logprobs).mean(0)
+
+    logprob_diffs[original_logprobs.mean(0) < threshold] = 0
+    logprob_diffs[all_ignore] = 0
+
+    top_diffs, top_tokens = torch.topk(logprob_diffs, model.cfg.d_vocab)
+    num_meaningful_diffs = (top_diffs > 0).sum().item()
+
+    boost_amounts = top_diffs[:num_meaningful_diffs]
+    boosted_tokens = model.to_str_tokens(top_tokens[:num_meaningful_diffs])
+    if log:
+        boost_str = "Boosted" if not deboost else "Deboosted"
+        sign = "+" if not deboost else "-"
+        token_str = [f"{token} ({sign}{boost:.2f})" for token, boost in zip(boosted_tokens, boost_amounts)]
+        print(f"{boost_str} tokens: " + ", ".join(token_str))
+    else:
+        return top_diffs[:num_meaningful_diffs], top_tokens[:num_meaningful_diffs]
