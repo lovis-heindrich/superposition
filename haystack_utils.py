@@ -1534,3 +1534,15 @@ def get_boosted_tokens(prompts, model, ablation_hooks: list, all_ignore: Float[T
         print(f"{boost_str} tokens: " + ", ".join(token_str))
     else:
         return top_diffs[:num_meaningful_diffs], top_tokens[:num_meaningful_diffs]
+    
+def left_pad(prompts, model):
+    tokens = model.to_tokens(prompts)
+    target_length = tokens.shape[1]
+
+    results = []
+    for prompt in prompts:
+        tokens = model.to_tokens(prompt)[0]
+        padded_tokens = torch.cat([torch.zeros((target_length - tokens.shape[0],), dtype=int).cuda(), tokens])
+        results.append(padded_tokens)
+
+    return torch.stack(results)
