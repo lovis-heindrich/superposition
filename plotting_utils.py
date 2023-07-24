@@ -32,7 +32,7 @@ def line(x, xlabel="", ylabel="", title="", xticks=None, width=800, yaxis=None, 
     
 
 def plot_barplot(data: list[list[float]], names: list[str], short_names = None, xlabel="", ylabel="", title="", 
-                 width=1000, yaxis=None, show=True, legend=True):
+                 width=1000, yaxis=None, show=True, legend=True, yrange=None):
     means = np.mean(data, axis=1)
     stds = np.std(data, axis=1)
 
@@ -68,6 +68,9 @@ def plot_barplot(data: list[list[float]], names: list[str], short_names = None, 
         width=width,
         showlegend=legend
     )
+
+    if yrange is not None:
+        fig.update_yaxes(range=yrange)
     
     if show:
         fig.show()
