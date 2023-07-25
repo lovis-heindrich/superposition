@@ -25,7 +25,6 @@ import haystack_utils
 %autoreload 2
 
 # %%
-ngram = "orschlägen"
 model = HookedTransformer.from_pretrained("EleutherAI/pythia-70m",
     center_unembed=True,
     center_writing_weights=True,
@@ -153,7 +152,7 @@ def process_data_frame(ngram:str, batch=400):
 
 # %%
 
-options = ["orschlägen", " häufig", " beweglich"]
+options = [" seinen Vorschlägen"]#["orschlägen", " häufig", " beweglich"]
 option_dfs = []
 for ngram in options:
     option_dfs.append(process_data_frame(ngram))
