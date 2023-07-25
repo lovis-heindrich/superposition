@@ -1117,11 +1117,16 @@ def get_direct_effect(prompt: str | list[str], model: HookedTransformer, context
         only_activated_metric = model(prompt, return_type=metric_return_type, loss_per_token=True)
 
     # convert logits metric to logprobs metric
+    # buggy - prefer converting from logits outside the method
     if return_type == 'logprobs':
         original_metric = original_metric.log_softmax(-1)
         ablated_metric = ablated_metric.log_softmax(-1)
         context_and_activated_metric = context_and_activated_metric.log_softmax(-1)
         only_activated_metric = only_activated_metric.log_softmax(-1)
+
+    # fix bug while maintaining backwards compatibility
+    if (return_type == 'logprobs' or return_type == 'logits') and pos is not None:
+        return original_metric[0, pos], ablated_metric[0, pos], context_and_activated_metric[0, pos], only_activated_metric[0, pos]
 
     if original_metric.shape[0] > 1:
         if pos is not None:
