@@ -1119,15 +1119,15 @@ def get_direct_effect(prompt: str | list[str], model: HookedTransformer, context
 
     # convert logits metric to logprobs metric
     # buggy - prefer converting from logits outside the method
-    if return_type == 'logprobs':
-        original_metric = original_metric.log_softmax(-1)
-        ablated_metric = ablated_metric.log_softmax(-1)
-        context_and_activated_metric = context_and_activated_metric.log_softmax(-1)
-        only_activated_metric = only_activated_metric.log_softmax(-1)
+    # if return_type == 'logprobs':
+    #     original_metric = original_metric.log_softmax(-1)
+    #     ablated_metric = ablated_metric.log_softmax(-1)
+    #     context_and_activated_metric = context_and_activated_metric.log_softmax(-1)
+    #     only_activated_metric = only_activated_metric.log_softmax(-1)
 
     # fix bug while maintaining backwards compatibility
     if (return_type == 'logprobs' or return_type == 'logits') and pos is not None:
-        return original_metric[0, pos], ablated_metric[0, pos], context_and_activated_metric[0, pos], only_activated_metric[0, pos]
+        return original_metric[:, pos], ablated_metric[:, pos], context_and_activated_metric[:, pos], only_activated_metric[:, pos]
 
     if original_metric.shape[0] > 1:
         if pos is not None:
@@ -1313,19 +1313,25 @@ def clean_print_strings_as_html(strings: list[str], color_values: list[float], m
 
 def get_average_loss_plot_method(activate_context_fwd_hooks, deactivate_context_fwd_hooks, activated_component_name="MLP5",
                                 deactivated_components = ("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.4.hook_mlp_out"),
-                                activated_components = ("blocks.5.hook_mlp_out", ), plot=True):
+                                activated_components = ("blocks.5.hook_mlp_out", ), plot=True, return_type="loss", answer_token=None):
     """Factory method that predefines the average_loss_plot variables which are constant within each notebook"""
     def average_loss_plot(prompts: list[str], model: HookedTransformer, token="", plot=plot):
 
         original_losses, ablated_losses, context_and_activated_losses, only_activated_losses = [], [], [], []
         names = ["Original", "Ablated", f"Context + {activated_component_name} active", f"{activated_component_name} active"]
         for prompt in prompts:
+            pos = -1 if return_type == "loss" else -2
             original_loss, ablated_loss, context_and_activated_loss, only_activated_loss = \
-                get_direct_effect(prompt, model, pos=-1, 
+                get_direct_effect(prompt, model, pos=pos, 
                                     context_ablation_hooks=deactivate_context_fwd_hooks, 
                                     context_activation_hooks=activate_context_fwd_hooks,
                                     deactivated_components=deactivated_components,
-                                    activated_components=activated_components)
+                                    activated_components=activated_components, return_type=return_type)
+            if return_type=="logits":
+                original_loss = original_loss[answer_token].item()
+                ablated_loss = ablated_loss[answer_token].item()
+                context_and_activated_loss = context_and_activated_loss[answer_token].item()
+                only_activated_loss = only_activated_loss[answer_token].item()
             original_losses.append(original_loss)
             ablated_losses.append(ablated_loss)
             context_and_activated_losses.append(context_and_activated_loss)
