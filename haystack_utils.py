@@ -1307,9 +1307,9 @@ def clean_print_strings_as_html(strings: list[str], color_values: list[float], m
 
 def get_average_loss_plot_method(activate_context_fwd_hooks, deactivate_context_fwd_hooks, activated_component_name="MLP5",
                                 deactivated_components = ("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.4.hook_mlp_out"),
-                                activated_components = ("blocks.5.hook_mlp_out", ),):
+                                activated_components = ("blocks.5.hook_mlp_out", ), plot=True):
     """Factory method that predefines the average_loss_plot variables which are constant within each notebook"""
-    def average_loss_plot(prompts: list[str], model: HookedTransformer, token="", plot=True):
+    def average_loss_plot(prompts: list[str], model: HookedTransformer, token="", plot=plot):
 
         original_losses, ablated_losses, context_and_activated_losses, only_activated_losses = [], [], [], []
         names = ["Original", "Ablated", f"Context + {activated_component_name} active", f"{activated_component_name} active"]
