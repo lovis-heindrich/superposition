@@ -1094,7 +1094,8 @@ def get_direct_effect(prompt: str | list[str], model: HookedTransformer, context
         _type_: _description_
     """
     metric_return_type = 'loss' if return_type == 'loss' else 'logits'
-    # 1. Deactivate context neuron, cache activations
+    
+    # 1. Cache activations and ablated activations
     with model.hooks(fwd_hooks=context_activation_hooks):
         original_metric = model(prompt, return_type=metric_return_type, loss_per_token=True)
     with model.hooks(fwd_hooks=context_ablation_hooks):
