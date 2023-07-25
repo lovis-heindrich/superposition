@@ -139,14 +139,13 @@ def print_prompt(prompt: str):
     haystack_utils.clean_print_strings_as_html(str_token_prompt[1:], pos_wise_diff, max_value=5, additional_measures=loss_list, additional_measure_names=loss_names)
 
 # %% 
-
-for i, measure in sorted_measure[10:20]:
+for i, measure in sorted_measure[25:30]:
     print_prompt(DATA[i])
 
 
 # %%
 
-ngram = " diese Ansicht"
+ngram = " statt"
 ngram_str_tokens = model.to_str_tokens(model.to_tokens(ngram, prepend_bos=False))
 prompts = haystack_utils.generate_random_prompts(ngram, model, common_tokens, 100)
 
@@ -180,4 +179,42 @@ context_only_loss_plot = haystack_utils.get_average_loss_plot_method(
     activated_components = ())
 
 context_only_loss_plot(prompts, model, token=ngram_str_tokens, plot=True)
+# %%
+
+answer_token = model.to_single_token(ngram_str_tokens[-1])
+print(answer_token)
+
+# %%
+average_loss_plot = haystack_utils.get_average_loss_plot_method(
+    activate_neurons_fwd_hooks, deactivate_neurons_fwd_hooks, "MLP5", return_type="logits", answer_token=answer_token)
+
+average_loss_plot(prompts, model, token=ngram_str_tokens, plot=True)
+
+# %%
+
+mlp4_loss_plot = haystack_utils.get_average_loss_plot_method(
+    activate_neurons_fwd_hooks, deactivate_neurons_fwd_hooks, "MLP4",
+    deactivated_components = ("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.5.hook_mlp_out", ),
+    activated_components = ("blocks.4.hook_mlp_out",  ), return_type="logits", answer_token=answer_token)
+
+mlp4_loss_plot(prompts, model, token=ngram_str_tokens, plot=True)
+# %%
+mlp4_mlp5_loss_plot = haystack_utils.get_average_loss_plot_method(
+    activate_neurons_fwd_hooks, deactivate_neurons_fwd_hooks, "MLP4 + MLP5",
+    deactivated_components = ("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", ),
+    activated_components = ("blocks.4.hook_mlp_out", "blocks.5.hook_mlp_out"), return_type="logits", answer_token=answer_token)
+
+mlp4_mlp5_loss_plot(prompts, model, token=ngram_str_tokens, plot=True)
+# %%
+
+context_only_loss_plot = haystack_utils.get_average_loss_plot_method(
+    activate_neurons_fwd_hooks, deactivate_neurons_fwd_hooks, "None",
+    deactivated_components = ("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.4.hook_mlp_out", "blocks.5.hook_mlp_out"),
+    activated_components = (), return_type="logits", answer_token=answer_token)
+
+context_only_loss_plot(prompts, model, token=ngram_str_tokens, plot=True)
+
+# %%
+with model.hooks(fwd_hooks=deactivate_neurons_fwd_hooks):
+    utils.test_prompt(" diese Ans", "icht", model, prepend_space_to_answer=False)
 # %%
