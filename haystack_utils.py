@@ -1554,3 +1554,23 @@ def create_ablation_prompts(prompts, ablation_mode, common_tokens):
     if ablation_mode[1] == "N":
         prompts = replace_column(prompts, -2, common_tokens)
     return prompts
+
+def compute_mlp_loss(prompts, model, df, neurons, ablate_mode="NNN", layer=5, compute_original_loss=False):
+
+    mean_activations = torch.Tensor(df[df.index.isin(neurons.tolist())][ablate_mode].tolist()).cuda()
+    def ablate_mlp_hook(value, hook):
+        value[:, :, neurons] = mean_activations
+        return value
+
+    with model.hooks(fwd_hooks=[(f"blocks.{layer}.mlp.hook_pre", ablate_mlp_hook)]):
+        ablated_loss = model(prompts, return_type="loss", loss_per_token=True)[:, -1].mean().item()
+
+    if compute_original_loss:
+        loss = model(prompts, return_type="loss", loss_per_token=True)[:, -1].mean().item()
+        return loss, ablated_loss
+    return ablated_loss
+
+def get_top_k_neurons(df, condition, sortby, k=10):
+    tmp_df = df[condition].copy()
+    tmp_df = tmp_df.sort_values(by=sortby, ascending=False)
+    return tmp_df["Neuron"][:k]

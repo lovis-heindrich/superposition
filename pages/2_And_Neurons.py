@@ -20,13 +20,13 @@ option = st.selectbox(
 def load_data(tokens):
     path = Path(__file__).parent / f"../data/and_neurons/"
     df = pd.read_pickle(path / f"df_{tokens.strip()}.pkl")
-    with open(path / "set_losses.json", "r") as f:
-        set_losses = json.load(f)
+    with open(path / "ablation_losses.json", "r") as f:
+        ablation_losses = json.load(f)
     with open(path / "and_conditions.json", "r") as f:
         and_conditions = json.load(f)
-    return df, set_losses, and_conditions
+    return df, ablation_losses, and_conditions
 
-df, set_losses, and_conditions = load_data(option)
+df, ablation_losses, and_conditions = load_data(option)
 
 # # Look for neurons that consistently respond to all 3 directions
 # df["Boosted"] = (df["YNN"]>df["NNN"])&(df["NYN"]>df["NNN"])&(df["NNY"]>df["NNN"])&\
@@ -117,34 +117,21 @@ st.markdown("""
 
             """)
 
-df["AndName"] = "None"
-df.loc[df["And"], "AndName"] = "Positive"
-df.loc[df["NegAnd"], "AndName"] = "Negative"
-
-df["BoostName"] = "Inconsistent"
-df.loc[df["Boosted"], "BoostName"] = "Boost"
-df.loc[df["Deboosted"], "BoostName"] = "Deboost"
-
 ablation_mode = st.selectbox(label="Select the ablation mode", 
              options=["Ablate context neuron", "Ablate context neuron and replace both current and previous token with random tokens"], index=0)
 
-highlight_mode = st.selectbox(label="Select the highlighted neurons",
-                              options=["AND neurons", "Consistent boost / deboost neurons"], index=0)
+highlight_mode = st.selectbox(label="Select the type of AND neurons to highlight",
+                              options=["Two Features", "Single Features", "Current Token", "Grouped Tokens"], index=0)
 
 if ablation_mode == "Ablate context neuron":
     ablation_column = "ContextAblationLossIncrease"
 else:
     ablation_column = "FullAblationLossIncrease"
 
-if highlight_mode == "AND neurons":
-    highlight_name = "AndName"
-    labels={"AndName": "AND neuron type"}
-else:
-    highlight_name = "BoostName"
-    labels={"BoostName": "Boosted neuron type"}
 
-plot = px.scatter(df, y=ablation_column, color=highlight_name, 
-                  color_discrete_sequence=["grey", "red", "blue"], labels=labels)
+
+plot = px.scatter(df, y=ablation_column, color=highlight_mode + " (AND)", hover_name="Neuron", hover_data=["Neuron", ablation_column],
+                  color_discrete_sequence=["grey", "red", "blue"], labels=highlight_mode)
 
 plot.update_layout(
     title="Loss increase when patching individual MLP5 neurons",
@@ -159,19 +146,15 @@ st.markdown("""
 
             """)
 
-if ablation_mode == "Ablate context neuron":
-    ablation_key = "YYN"
-else:
-    ablation_key = "NNN"
+select_mode = st.selectbox(label="Select whether to use all AND neurons or only the neurons where (YYY>others)",
+                              options=["All", "Greater", "Top 50 (All)", "Top 50 (Greater)"], index=0)
 
-num_neurons = set_losses[option]["NumNeurons"]
 
-losses = set_losses[option][ablation_key]
-short_names = list(losses.keys())
-names = [f"{short_names[i]} (N={num_neurons[short_names[i]]})" for i in range(len(short_names))]
-loss_values = [[losses[name]] for name in short_names]
+names = list(ablation_losses[option][select_mode].keys())
+short_names = [name.split(" ")[0] for name in names]
+loss_values = [[ablation_losses[option][select_mode][name]] for name in names]
 plot = plotting_utils.plot_barplot(loss_values, names,
                             short_names=short_names, ylabel="Last token loss",
-                            title=f"Loss increase when patching groups of neurons (ablation mode: {ablation_key})",
+                            title=f"Loss increase when patching groups of neurons (ablation mode: YYN)",
                             width=750, show=False)
 st.plotly_chart(plot)

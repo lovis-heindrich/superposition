@@ -1,0 +1,104 @@
+{
+    "orschl\u00e4gen": {
+        "All": {
+            "Original": 1.3695091009140015,
+            "All Ablated": 5.624358654022217,
+            "Two Features (N=297)": 3.755704164505005,
+            "Single Features (N=291)": 3.9427521228790283,
+            "Current Token (N=228)": 2.0541226863861084,
+            "Grouped Tokens (N=230)": 3.1282119750976562
+        },
+        "Greater": {
+            "Original": 1.3695091009140015,
+            "All Ablated": 5.624358654022217,
+            "Two Features (N=156)": 2.1906898021698,
+            "Single Features (N=152)": 2.2723872661590576,
+            "Current Token (N=88)": 1.858601689338684,
+            "Grouped Tokens (N=105)": 2.1713054180145264
+        },
+        "Top 50 (All)": {
+            "Original": 1.3695091009140015,
+            "All Ablated": 5.624358654022217,
+            "Two Features (N=50)": 2.7951083183288574,
+            "Single Features (N=50)": 5.681267261505127,
+            "Current Token (N=50)": 1.4181948900222778,
+            "Grouped Tokens (N=50)": 2.8924503326416016
+        },
+        "Top 50 (Greater)": {
+            "Original": 1.3695091009140015,
+            "All Ablated": 5.624358654022217,
+            "Two Features (N=50)": 2.0159857273101807,
+            "Single Features (N=50)": 1.5838288068771362,
+            "Current Token (N=50)": 0.9511478543281555,
+            "Grouped Tokens (N=50)": 2.742893695831299
+        }
+    },
+    " h\u00e4ufig": {
+        "All": {
+            "Original": 0.09573502093553543,
+            "All Ablated": 0.8285045623779297,
+            "Two Features (N=371)": 0.3183892071247101,
+            "Single Features (N=382)": 0.3772067427635193,
+            "Current Token (N=229)": 0.11737369000911713,
+            "Grouped Tokens (N=239)": 0.043308474123477936
+        },
+        "Greater": {
+            "Original": 0.09573502093553543,
+            "All Ablated": 0.8285045623779297,
+            "Two Features (N=207)": 0.2594512104988098,
+            "Single Features (N=211)": 0.28664326667785645,
+            "Current Token (N=111)": 0.10554282367229462,
+            "Grouped Tokens (N=129)": 0.080364890396595
+        },
+        "Top 50 (All)": {
+            "Original": 0.09573502093553543,
+            "All Ablated": 0.8285045623779297,
+            "Two Features (N=50)": 0.2896864712238312,
+            "Single Features (N=50)": 0.18543189764022827,
+            "Current Token (N=50)": 4.126840114593506,
+            "Grouped Tokens (N=50)": 0.2321087121963501
+        },
+        "Top 50 (Greater)": {
+            "Original": 0.09573502093553543,
+            "All Ablated": 0.8285045623779297,
+            "Two Features (N=50)": 0.06850496679544449,
+            "Single Features (N=50)": 0.31342652440071106,
+            "Current Token (N=50)": 0.20157672464847565,
+            "Grouped Tokens (N=50)": 0.15448065102100372
+        }
+    },
+    " beweglich": {
+        "All": {
+            "Original": 4.78847599029541,
+            "All Ablated": 8.332780838012695,
+            "Two Features (N=325)": 6.926860809326172,
+            "Single Features (N=324)": 6.420761585235596,
+            "Current Token (N=300)": 6.879034519195557,
+            "Grouped Tokens (N=270)": 7.0875325202941895
+        },
+        "Greater": {
+            "Original": 4.78847599029541,
+            "All Ablated": 8.332780838012695,
+            "Two Features (N=174)": 5.980196475982666,
+            "Single Features (N=173)": 5.58088493347168,
+            "Current Token (N=160)": 6.481370449066162,
+            "Grouped Tokens (N=149)": 6.091451644897461
+        },
+        "Top 50 (All)": {
+            "Original": 4.78847599029541,
+            "All Ablated": 8.332780838012695,
+            "Two Features (N=50)": 5.512300968170166,
+            "Single Features (N=50)": 6.2191362380981445,
+            "Current Token (N=50)": 6.152164459228516,
+            "Grouped Tokens (N=50)": 4.595025539398193
+        },
+        "Top 50 (Greater)": {
+            "Original": 4.78847599029541,
+            "All Ablated": 8.332780838012695,
+            "Two Features (N=50)": 4.555680751800537,
+            "Single Features (N=50)": 4.4796953201293945,
+            "Current Token (N=50)": 4.550513744354248,
+            "Grouped Tokens (N=50)": 4.477807998657227
+        }
+    }
+}
