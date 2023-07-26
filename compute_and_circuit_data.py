@@ -136,8 +136,11 @@ options = ["orschlägen", " häufig", " beweglich"]
 all_res = {}
 for option in options:
     all_res[option] = {}
-    for type in ["loss", "logit"]:
+    for type in ["loss", "logits"]:
         result = compute_and_conditions(option, type)
         all_res[option][type] = result
         
+# %%
+with open("data/and_neurons/and_conditions.json", "w") as f:
+    json.dump(all_res, f, indent=4)
 # %%
