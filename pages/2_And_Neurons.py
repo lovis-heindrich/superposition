@@ -22,9 +22,11 @@ def load_data(tokens):
     df = pd.read_pickle(path / f"df_{tokens.strip()}.pkl")
     with open(path / "set_losses.json", "r") as f:
         set_losses = json.load(f)
-    return df, set_losses
+    with open(path / "and_conditions.json", "r") as f:
+        and_conditions = json.load(f)
+    return df, set_losses, and_conditions
 
-df, set_losses = load_data(option)
+df, set_losses, and_conditions = load_data(option)
 
 # # Look for neurons that consistently respond to all 3 directions
 # df["Boosted"] = (df["YNN"]>df["NNN"])&(df["NYN"]>df["NNN"])&(df["NNY"]>df["NNN"])&\
@@ -62,6 +64,46 @@ display_df = display_df.drop(columns=["AblationDiff"])
 
 st.dataframe(display_df.round(2))
 
+st.markdown("""
+            ### Looking for non-linearities
+
+            """)
+
+data_select = st.selectbox(label="Select which value to compare", 
+             options=["Change in loss", "Change in correct token logit"], index=1)
+data_select_index = "loss" if data_select == "Change in loss" else "logits"
+
+st.markdown("""Current token: the current token is always present""")
+if data_select == "Change in loss":
+    st.latex(r'''(NYN-YYY)-((NYN-YYN)+(NYN-NYY))''')
+else:
+    st.latex(r'''(YYY-NYN)-((YYN-NYN)+(NYY-NYN))''')
+
+st.markdown("""Grouped tokens: current and previous token are grouped together""")
+if data_select == "Change in loss":
+    st.latex(r'''(NNN-YYY)-((NNN-YYN)+(NNN-NNY))''')
+else:
+    st.latex(r'''(YYY-NNN)-((YYN-NNN)+(NNY-NNN))''')
+
+st.markdown("""Single features: all three input features appear individually""")
+if data_select == "Change in loss":
+    st.latex(r'''(NNN-YYY)-((NNN-YNN)+(NNN-NYN)+(NNN-NNY))''')
+else:
+    st.latex(r'''(YYY-NNN)-((YNN-NNN)+(NYN-NNN)+(NNY-NNN))''')
+
+st.markdown("""Two features: two input features appear together""")
+if data_select == "Change in loss":
+    st.latex(r'''(NNN-YYY)-((NNN-YYN)+(NNN-YNY)+(NNN-NYY))/2''')
+else:
+    st.latex(r'''(YYY-NNN)-((YYN-NNN)+(YNY-NNN)+(NYY-NNN))/2''')
+
+
+and_condition_data = and_conditions[option][data_select_index]
+data_indices = ["current_token_diffs", "grouped_token_diffs", "individiual_features_diffs", "two_features_diffs"]
+plot_names = ["Current token", "Grouped tokens", "Single features", "Two features"]
+plot_data = [[and_condition_data[index]] for index in data_indices]
+plot = plotting_utils.plot_barplot(plot_data, plot_names, ylabel=data_select,show=False, legend=False, width=600)
+st.plotly_chart(plot)
 
 # Useful visualizations
 
@@ -108,9 +150,7 @@ plot.update_layout(
     title="Loss increase when patching individual MLP5 neurons",
     yaxis_title="Ablation loss increase"
 )
-
 st.plotly_chart(plot)
-
 
 # Ablation change for pos, neg, and strongly activating neurons
 
