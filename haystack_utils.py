@@ -1546,3 +1546,11 @@ def get_boosted_tokens(prompts, model, ablation_hooks: list, all_ignore: Float[T
         print(f"{boost_str} tokens: " + ", ".join(token_str))
     else:
         return top_diffs[:num_meaningful_diffs], top_tokens[:num_meaningful_diffs]
+
+def create_ablation_prompts(prompts, ablation_mode, common_tokens):
+    # Simplifies column replacement by applying it to different ablation modes
+    if ablation_mode[0] == "N":
+        prompts = replace_column(prompts, -3, common_tokens)
+    if ablation_mode[1] == "N":
+        prompts = replace_column(prompts, -2, common_tokens)
+    return prompts
