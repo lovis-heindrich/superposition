@@ -144,3 +144,26 @@ for option in options:
 with open("data/and_neurons/and_conditions.json", "w") as f:
     json.dump(all_res, f, indent=4)
 # %%
+
+# COMPUTE DF VALUES
+
+# Remove old values
+for option in options:
+    df = pd.read_pickle(f"data/and_neurons/backup/df_{option.strip()}.pkl")
+    df = df.drop(columns=["PosSim", "NegSim", "AblationDiff", "And", "NegAnd", "Boosted", "Deboosted"])
+    df.to_pickle(f"data/and_neurons/df_{option.strip()}.pkl")
+# %%
+
+for option in options:
+    df = pd.read_pickle(f"data/and_neurons/df_{option.strip()}.pkl")
+    df["Two Features (diff)"] = (df["YYY"] - df["NNN"]) - ((df["YNY"] - df["NNN"]) + (df["NYY"] - df["NNN"]) + (df["YYN"] - df["NNN"]))/2
+    df["Single Features (diff)"] = (df["YYY"] - df["NNN"]) - ((df["YNN"] - df["NNN"]) + (df["NYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))
+    df["Current Token (diff)"] = ((df["YYY"] - df["NYN"]) - ((df["YYN"] - df["NYN"]) + (df["NYY"] - df["NYN"])))
+    df["Grouped Tokens (diff)"] = ((df["YYY"] - df["NNN"]) - ((df["YYN"] - df["NNN"]) + (df["NNY"] - df["NNN"])))
+    df["Two Features (AND)"] = ((df["YYY"] - df["NNN"]) > ((df["YNY"] - df["NNN"]) + (df["NYY"] - df["NNN"]) + (df["YYN"] - df["NNN"]))/2) & (df["YYY"]>0)
+    df["Single Features (AND)"] = ((df["YYY"] - df["NNN"]) > ((df["YNN"] - df["NNN"]) + (df["NYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))) & (df["YYY"]>0)
+    df["Current Token (AND)"] = ((df["YYY"] - df["NYN"]) > ((df["YYN"] - df["NYN"]) + (df["NYY"] - df["NYN"]))) & (df["YYY"]>0)
+    df["Grouped Tokens (AND)"] = ((df["YYY"] - df["NNN"]) > ((df["YYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))) & (df["YYY"]>0)
+    df.to_pickle(f"data/and_neurons/df_{option.strip()}.pkl")
+
+# %%

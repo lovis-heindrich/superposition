@@ -59,8 +59,8 @@ display_df = df.copy()
 if not show_losses:
     display_df = display_df.drop(columns=["FullAblationLossIncrease", "ContextAblationLossIncrease"])
 if not show_cosine_sims:
-    display_df = display_df.drop(columns=["PrevTokenSim", "CurrTokenSim", "ContextSim", "PosSim", "NegSim"])
-display_df = display_df.drop(columns=["AblationDiff"])
+    display_df = display_df.drop(columns=["PrevTokenSim", "CurrTokenSim", "ContextSim"])
+
 
 st.dataframe(display_df.round(2))
 
