@@ -46,11 +46,17 @@ st.markdown("""
             2. The second trigram token is present (Y), or replaced with random tokens (N)
             3. The context token activates normally (Y), or the context neuron is ablated (N)
 
-            Positive AND neurons are neurons that only fire (activation>0) when all three input components are present (the context neuron, the previous token, the current token).
-            Negative AND neurons are neurons that always fire unless all three input components are present.
-            
-            Boosted / deboosted columns show whether the neuron has a consistent boost / deboost effect across prompt types. Boosts / deboosts without a post-gelu effect are ignored.
+            We compute 4 different AND conditions in which we compare the neuron's activation with all features being present (YYY) to different combinations of features being absent:
+            - Current token: the current token is always present
+            - Grouped tokens: current and previous token are grouped together
+            - Single features: all three input features appear individually
+            - Two features: two input features appear together
             """)
+
+st.latex(r'''\text{Current token: }(YYY-NYN)-((YYN-NYN)+(NYY-NYN))''')
+st.latex(r'''\text{Current tokens: }(YYY-NNN)-((YYN-NNN)+(NNY-NNN))''')
+st.latex(r'''\text{Single features: }(YYY-NNN)-((YNN-NNN)+(NYN-NNN)+(NNY-NNN))''')
+st.latex(r'''\text{Two features: }(YYY-NNN)-((YYN-NNN)+(YNY-NNN)+(NYY-NNN))/2''')
 
 show_losses = st.checkbox("Show ablation loss changes", value=False)
 show_cosine_sims = st.checkbox("Show cosine similarities with token / context directions", value=False)
@@ -67,35 +73,32 @@ st.dataframe(display_df.round(2))
 st.markdown("""
             ### Looking for non-linearities
 
+            We check if the whole model computes a non-linear function by comparing the correct token's logit or the loss with and without all features being active.
             """)
 
 data_select = st.selectbox(label="Select which value to compare", 
              options=["Change in loss", "Change in correct token logit"], index=1)
 data_select_index = "loss" if data_select == "Change in loss" else "logits"
 
-st.markdown("""Current token: the current token is always present""")
 if data_select == "Change in loss":
-    st.latex(r'''(NYN-YYY)-((NYN-YYN)+(NYN-NYY))''')
+    st.latex(r'''\text{Current token: }(NYN-YYY)-((NYN-YYN)+(NYN-NYY))''')
 else:
-    st.latex(r'''(YYY-NYN)-((YYN-NYN)+(NYY-NYN))''')
+    st.latex(r'''\text{Current token: }(YYY-NYN)-((YYN-NYN)+(NYY-NYN))''')
 
-st.markdown("""Grouped tokens: current and previous token are grouped together""")
 if data_select == "Change in loss":
-    st.latex(r'''(NNN-YYY)-((NNN-YYN)+(NNN-NNY))''')
+    st.latex(r'''\text{Grouped tokens: }(NNN-YYY)-((NNN-YYN)+(NNN-NNY))''')
 else:
-    st.latex(r'''(YYY-NNN)-((YYN-NNN)+(NNY-NNN))''')
+    st.latex(r'''\text{Current tokens: }(YYY-NNN)-((YYN-NNN)+(NNY-NNN))''')
 
-st.markdown("""Single features: all three input features appear individually""")
 if data_select == "Change in loss":
-    st.latex(r'''(NNN-YYY)-((NNN-YNN)+(NNN-NYN)+(NNN-NNY))''')
+    st.latex(r'''\text{Single features: }(NNN-YYY)-((NNN-YNN)+(NNN-NYN)+(NNN-NNY))''')
 else:
-    st.latex(r'''(YYY-NNN)-((YNN-NNN)+(NYN-NNN)+(NNY-NNN))''')
+    st.latex(r'''\text{Single features: }(YYY-NNN)-((YNN-NNN)+(NYN-NNN)+(NNY-NNN))''')
 
-st.markdown("""Two features: two input features appear together""")
 if data_select == "Change in loss":
-    st.latex(r'''(NNN-YYY)-((NNN-YYN)+(NNN-YNY)+(NNN-NYY))/2''')
+    st.latex(r'''\text{Two features: }(NNN-YYY)-((NNN-YYN)+(NNN-YNY)+(NNN-NYY))/2''')
 else:
-    st.latex(r'''(YYY-NNN)-((YYN-NNN)+(YNY-NNN)+(NYY-NNN))/2''')
+    st.latex(r'''\text{Two features: }(YYY-NNN)-((YYN-NNN)+(YNY-NNN)+(NYY-NNN))/2''')
 
 
 and_condition_data = and_conditions[option][data_select_index]
@@ -115,6 +118,7 @@ st.plotly_chart(plot)
 st.markdown("""
             ### Comparing neuron-wise ablation loss increase
 
+            The AND features are used to highlight neurons in a scatter plot displaying their loss increase.
             """)
 
 ablation_mode = st.selectbox(label="Select the ablation mode", 
@@ -144,6 +148,7 @@ st.plotly_chart(plot)
 st.markdown("""
             ### Comparing ablation loss increase for groups of neurons
 
+            Uses AND features to select sets of neurons and compares their loss increase.
             """)
 
 select_mode = st.selectbox(label="Select whether to use all AND neurons or only the neurons where (YYY>others)",
