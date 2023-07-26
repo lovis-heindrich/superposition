@@ -31,6 +31,7 @@ import haystack_utils
 %reload_ext autoreload
 %autoreload 2
 
+haystack_utils.clean_cache()
 #%%
 
 model = HookedTransformer.from_pretrained("EleutherAI/pythia-70m",
@@ -133,6 +134,7 @@ def compute_and_conditions(option, type: Literal["logits", "loss"]):
 
 # %%
 options = ["orschlägen", " häufig", " beweglich"]
+#%%
 all_res = {}
 for option in options:
     all_res[option] = {}
@@ -160,10 +162,45 @@ for option in options:
     df["Single Features (diff)"] = (df["YYY"] - df["NNN"]) - ((df["YNN"] - df["NNN"]) + (df["NYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))
     df["Current Token (diff)"] = ((df["YYY"] - df["NYN"]) - ((df["YYN"] - df["NYN"]) + (df["NYY"] - df["NYN"])))
     df["Grouped Tokens (diff)"] = ((df["YYY"] - df["NNN"]) - ((df["YYN"] - df["NNN"]) + (df["NNY"] - df["NNN"])))
+    df["Neuron"] = df.index
+    df["Greater Than All"] = (df["YYY"] > df["NNN"]) & (df["YYY"] > df["YNN"]) & (df["YYY"] > df["NYN"]) & (df["YYY"] > df["NNY"]) & (df["YYY"] > df["YYN"]) & (df["YYY"] > df["NYY"]) & (df["YYY"] > df["YNY"])
     df["Two Features (AND)"] = ((df["YYY"] - df["NNN"]) > ((df["YNY"] - df["NNN"]) + (df["NYY"] - df["NNN"]) + (df["YYN"] - df["NNN"]))/2) & (df["YYY"]>0)
     df["Single Features (AND)"] = ((df["YYY"] - df["NNN"]) > ((df["YNN"] - df["NNN"]) + (df["NYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))) & (df["YYY"]>0)
     df["Current Token (AND)"] = ((df["YYY"] - df["NYN"]) > ((df["YYN"] - df["NYN"]) + (df["NYY"] - df["NYN"]))) & (df["YYY"]>0)
     df["Grouped Tokens (AND)"] = ((df["YYY"] - df["NNN"]) > ((df["YYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))) & (df["YYY"]>0)
+    
     df.to_pickle(f"data/and_neurons/df_{option.strip()}.pkl")
 
+# %%
+
+# Ablation losses
+all_losses = {}
+for option in options:
+    df = pd.read_pickle(f"data/and_neurons/df_{option.strip()}.pkl")
+    prompts = haystack_utils.generate_random_prompts(option, model, common_tokens, 1000, length=20)
+    all_losses[option] = {}
+    for include_mode in ["All", "Greater", "Top 50 (All)", "Top 50 (Greater)"]:
+        original_loss, all_ablated_loss = haystack_utils.compute_mlp_loss(prompts, model, df, torch.LongTensor([i for i in range(model.cfg.d_mlp)]), ablate_mode="YYN", compute_original_loss=True)
+        all_losses[option][include_mode] = {
+            "Original": original_loss,
+            "All Ablated": all_ablated_loss,
+        }
+        for feature_mode in ["Two Features", "Single Features", "Current Token", "Grouped Tokens"]:
+            if include_mode == "Greater":
+                neurons = df[df[feature_mode + " (AND)"] & df["Greater Than All"]]["Neuron"]
+            elif include_mode == "All":
+                neurons = df[df[feature_mode + " (AND)"]]["Neuron"]
+            elif include_mode == "Top 50 (Greater)":
+                neurons = haystack_utils.get_top_k_neurons(df, (df["YYY"]>0)&(df["Greater Than All"]), feature_mode + " (diff)", 50)
+            else:
+                neurons = haystack_utils.get_top_k_neurons(df, (df["YYY"]>0), feature_mode + " (diff)", 50)
+
+            neurons = torch.LongTensor(neurons.tolist())
+
+            ablated_loss = haystack_utils.compute_mlp_loss(prompts, model, df, neurons, ablate_mode="YYN")
+            all_losses[option][include_mode][feature_mode+f" (N={neurons.shape[0]})"] = ablated_loss
+
+# %%
+with open("data/and_neurons/ablation_losses.json", "w") as f:
+    json.dump(all_losses, f, indent=4)
 # %%
