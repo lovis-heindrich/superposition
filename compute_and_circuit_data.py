@@ -151,21 +151,24 @@ with open("data/and_neurons/and_conditions.json", "w") as f:
 
 
 # %%
-all_prompts = {}
-for option in tqdm(options):
-    # Create global prompts
-    option_prompts = haystack_utils.generate_random_prompts(option, model, common_tokens, 5000, length=20).cpu()
-    all_prompts[option] = option_prompts
+# all_prompts = {}
+# for option in tqdm(options):
+#     # Create global prompts
+#     option_prompts = haystack_utils.generate_random_prompts(option, model, common_tokens, 5000, length=20).cpu()
+#     all_prompts[option] = option_prompts
 
-with open("data/prompts.pkl", "wb") as f:
-    pickle.dump(all_prompts, f)
+# Only overwrite if really needed!
+# with open("data/prompts.pkl", "wb") as f:
+#     pickle.dump(all_prompts, f)
+
+with open("data/prompts.pkl", "rb") as f:
+    all_prompts = pickle.load(f)
 
 # %% 
 
 # SCALING
 
 # Get average activation for each neuron on random German prompts
-
 pre_act = haystack_utils.get_mlp_activations(german_data, 5, model, 200, hook_pre=True, mean=False)
 post_act = haystack_utils.get_mlp_activations(german_data, 5, model, 200, hook_pre=False, mean=False)
 
@@ -184,6 +187,7 @@ for option in tqdm(options):
     dfs[option] = {}
     prompts = all_prompts[option][:2000]
     for hook_name in ["hook_pre", "hook_post"]:
+        dfs[option][hook_name] = {}
         for scale in [True, False]:
             df = haystack_utils.activation_data_frame(option, prompts, model, common_tokens, deactivate_neurons_fwd_hooks, mlp_hook=hook_name)
             if scale:
@@ -197,22 +201,22 @@ with open("data/and_neurons/activation_dfs.pkl", "wb") as f:
 
 for option in options:
     for hook_name in ["hook_pre", "hook_post"]:
-        df = dfs[option][hook_name]
-        df["Two Features (diff)"] = (df["YYY"] - df["NNN"]) - ((df["YNY"] - df["NNN"]) + (df["NYY"] - df["NNN"]) + (df["YYN"] - df["NNN"]))/2
-        df["Single Features (diff)"] = (df["YYY"] - df["NNN"]) - ((df["YNN"] - df["NNN"]) + (df["NYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))
-        df["Current Token (diff)"] = ((df["YYY"] - df["NYN"]) - ((df["YYN"] - df["NYN"]) + (df["NYY"] - df["NYN"])))
-        df["Grouped Tokens (diff)"] = ((df["YYY"] - df["NNN"]) - ((df["YYN"] - df["NNN"]) + (df["NNY"] - df["NNN"])))
-        df["Two Features (AND)"] = ((df["YYY"] - df["NNN"]) > ((df["YNY"] - df["NNN"]) + (df["NYY"] - df["NNN"]) + (df["YYN"] - df["NNN"]))/2) & (df["YYY"]>0)
-        df["Single Features (AND)"] = ((df["YYY"] - df["NNN"]) > ((df["YNN"] - df["NNN"]) + (df["NYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))) & (df["YYY"]>0)
-        df["Current Token (AND)"] = ((df["YYY"] - df["NYN"]) > ((df["YYN"] - df["NYN"]) + (df["NYY"] - df["NYN"]))) & (df["YYY"]>0)
-        df["Grouped Tokens (AND)"] = ((df["YYY"] - df["NNN"]) > ((df["YYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))) & (df["YYY"]>0)
-        df["Two Features (NEG AND)"] = ((df["YYY"] - df["NNN"]) < ((df["YNY"] - df["NNN"]) + (df["NYY"] - df["NNN"]) + (df["YYN"] - df["NNN"]))/2) & (df["NNN"]>0)
-        df["Single Features (NEG AND)"] = ((df["YYY"] - df["NNN"]) < ((df["YNN"] - df["NNN"]) + (df["NYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))) & (df["NNN"]>0)
-        df["Current Token (NEG AND)"] = ((df["YYY"] - df["NYN"]) < ((df["YYN"] - df["NYN"]) + (df["NYY"] - df["NYN"]))) & (df["NNN"]>0)
-        df["Grouped Tokens (NEG AND)"] = ((df["YYY"] - df["NNN"]) < ((df["YYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))) & (df["NNN"]>0)
-        df["Greater Than All"] = (df["YYY"] > df["NNN"]) & (df["YYY"] > df["YNN"]) & (df["YYY"] > df["NYN"]) & (df["YYY"] > df["NNY"]) & (df["YYY"] > df["YYN"]) & (df["YYY"] > df["NYY"]) & (df["YYY"] > df["YNY"])
-        df["Smaller Than All"] = (df["YYY"] < df["NNN"]) & (df["YYY"] < df["YNN"]) & (df["YYY"] < df["NYN"]) & (df["YYY"] < df["NNY"]) & (df["YYY"] < df["YYN"]) & (df["YYY"] < df["NYY"]) & (df["YYY"] < df["YNY"])
-        dfs[option][hook_name] = df
+            df = dfs[option][hook_name]["Scaled" if scale else "Unscaled"]
+            df["Two Features (diff)"] = (df["YYY"] - df["NNN"]) - ((df["YNY"] - df["NNN"]) + (df["NYY"] - df["NNN"]) + (df["YYN"] - df["NNN"]))/2
+            df["Single Features (diff)"] = (df["YYY"] - df["NNN"]) - ((df["YNN"] - df["NNN"]) + (df["NYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))
+            df["Current Token (diff)"] = ((df["YYY"] - df["NYN"]) - ((df["YYN"] - df["NYN"]) + (df["NYY"] - df["NYN"])))
+            df["Grouped Tokens (diff)"] = ((df["YYY"] - df["NNN"]) - ((df["YYN"] - df["NNN"]) + (df["NNY"] - df["NNN"])))
+            df["Two Features (AND)"] = ((df["YYY"] - df["NNN"]) > ((df["YNY"] - df["NNN"]) + (df["NYY"] - df["NNN"]) + (df["YYN"] - df["NNN"]))/2) & (df["YYY"]>0)
+            df["Single Features (AND)"] = ((df["YYY"] - df["NNN"]) > ((df["YNN"] - df["NNN"]) + (df["NYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))) & (df["YYY"]>0)
+            df["Current Token (AND)"] = ((df["YYY"] - df["NYN"]) > ((df["YYN"] - df["NYN"]) + (df["NYY"] - df["NYN"]))) & (df["YYY"]>0)
+            df["Grouped Tokens (AND)"] = ((df["YYY"] - df["NNN"]) > ((df["YYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))) & (df["YYY"]>0)
+            df["Two Features (NEG AND)"] = ((df["YYY"] - df["NNN"]) < ((df["YNY"] - df["NNN"]) + (df["NYY"] - df["NNN"]) + (df["YYN"] - df["NNN"]))/2) & (df["NNN"]>0)
+            df["Single Features (NEG AND)"] = ((df["YYY"] - df["NNN"]) < ((df["YNN"] - df["NNN"]) + (df["NYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))) & (df["NNN"]>0)
+            df["Current Token (NEG AND)"] = ((df["YYY"] - df["NYN"]) < ((df["YYN"] - df["NYN"]) + (df["NYY"] - df["NYN"]))) & (df["NNN"]>0)
+            df["Grouped Tokens (NEG AND)"] = ((df["YYY"] - df["NNN"]) < ((df["YYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))) & (df["NNN"]>0)
+            df["Greater Than All"] = (df["YYY"] > df["NNN"]) & (df["YYY"] > df["YNN"]) & (df["YYY"] > df["NYN"]) & (df["YYY"] > df["NNY"]) & (df["YYY"] > df["YYN"]) & (df["YYY"] > df["NYY"]) & (df["YYY"] > df["YNY"])
+            df["Smaller Than All"] = (df["YYY"] < df["NNN"]) & (df["YYY"] < df["YNN"]) & (df["YYY"] < df["NYN"]) & (df["YYY"] < df["NNY"]) & (df["YYY"] < df["YYN"]) & (df["YYY"] < df["NYY"]) & (df["YYY"] < df["YNY"])
+            dfs[option][hook_name]["Scaled" if scale else "Unscaled"] = df
 
 with open("data/and_neurons/activation_dfs.pkl", "wb") as f:
     pickle.dump(dfs, f)
@@ -221,20 +225,24 @@ with open("data/and_neurons/activation_dfs.pkl", "wb") as f:
 for option in tqdm(options):
     prompts = all_prompts[option][:1000]
 
+    # Ablation loss should be identical for all settings
+    df = dfs[option]["hook_post"]["Unscaled"]
+
+    original_loss, ablated_loss = haystack_utils.compute_mlp_loss(prompts, model, df, torch.LongTensor([i for i in range(model.cfg.d_mlp)]).cuda(), compute_original_loss=True, ablate_mode="YYN")
+    print(original_loss, ablated_loss)
+
+    ablated_losses = []
+    for neuron in tqdm(range(model.cfg.d_mlp)):
+        ablated_loss = haystack_utils.compute_mlp_loss(prompts, model, df, torch.LongTensor([neuron]).cuda(), ablate_mode="YYN")
+        ablated_losses.append(ablated_loss)
+
+    ablation_loss_increase = np.array(ablated_losses) - original_loss
+
     for hook_name in ["hook_pre", "hook_post"]:
-        df = dfs[option][hook_name]
-
-        original_loss, ablated_loss = haystack_utils.compute_mlp_loss(prompts, model, df, torch.LongTensor([i for i in range(model.cfg.d_mlp)]).cuda(), compute_original_loss=True, ablate_mode="YYN")
-        print(original_loss, ablated_loss)
-
-        ablated_losses = []
-        for neuron in tqdm(range(model.cfg.d_mlp)):
-            ablated_loss = haystack_utils.compute_mlp_loss(prompts, model, df, torch.LongTensor([neuron]).cuda(), ablate_mode="YYN")
-            ablated_losses.append(ablated_loss)
-
-        df["AblationLossIncrease"] = ablated_losses
-        df["AblationLossIncrease"] -= original_loss
-        dfs[option][hook_name] = df
+        for scale in [True, False]:
+            df = dfs[option][hook_name]["Scaled" if scale else "Unscaled"]
+            df["AblationLossIncrease"] = ablation_loss_increase
+            dfs[option][hook_name]["Scaled" if scale else "Unscaled"] = df
 
 with open("data/and_neurons/activation_dfs.pkl", "wb") as f:
     pickle.dump(dfs, f)
@@ -247,40 +255,42 @@ for option in tqdm(options):
     prompts = all_prompts[option][:1000]
     for hook_name in ["hook_pre", "hook_post"]:
         all_losses[option][hook_name] = {}
-        df = dfs[option][hook_name]
-        for include_mode in ["All Positive", "Greater Positive", "All Positive (Top 50)", "Greater Positive (Top 50)", "All Negative", "Smaller Negative", "All Negative (Top 50)", "Smaller Negative (Top 50)", "Positive and Negative (Top 25)"]:
-            original_loss, all_ablated_loss = haystack_utils.compute_mlp_loss(prompts, model, df, torch.LongTensor([i for i in range(model.cfg.d_mlp)]), ablate_mode="YYN", compute_original_loss=True)
-            all_losses[option][hook_name][include_mode] = {
-                "Original": original_loss,
-                "All Ablated": all_ablated_loss,
-            }
-            for feature_mode in ["Two Features", "Single Features", "Current Token", "Grouped Tokens"]:
-                if include_mode == "Greater Positive":
-                    neurons = df[df[feature_mode + " (AND)"] & df["Greater Than All"]].index
-                elif include_mode == "All Positive":
-                    neurons = df[df[feature_mode + " (AND)"]].index
-                elif include_mode == "Greater Positive (Top 50)":
-                    neurons = haystack_utils.get_top_k_neurons(df, (df["YYY"]>0)&(df["Greater Than All"]), feature_mode + " (diff)", 50)
-                elif include_mode == "All Positive (Top 50)":
-                    neurons = haystack_utils.get_top_k_neurons(df, (df["YYY"]>0), feature_mode + " (diff)", 50)
-                elif include_mode == "Smaller Negative":
-                    neurons = df[df[feature_mode + " (NEG AND)"] & df["Smaller Than All"]].index
-                elif include_mode == "All Negative":
-                    neurons = df[df[feature_mode + " (NEG AND)"]].index
-                elif include_mode == "Smaller Negative (Top 50)":
-                    neurons = haystack_utils.get_top_k_neurons(df, (df["NNN"]>0)&(df["Smaller Than All"]), feature_mode + " (diff)", 50, ascending=True)
-                elif include_mode == "All Negative (Top 50)":
-                    neurons = haystack_utils.get_top_k_neurons(df, (df["NNN"]>0), feature_mode + " (diff)", 50, ascending=True)
-                elif include_mode == "Positive and Negative (Top 25)":
-                    neurons_top = haystack_utils.get_top_k_neurons(df, (df["NNN"]>0), feature_mode + " (diff)", 25, ascending=True)
-                    neurons_bottom = haystack_utils.get_top_k_neurons(df, (df["YYY"]>0), feature_mode + " (diff)", 25)
-                    neurons = np.concatenate([neurons_top, neurons_bottom])
-                else:
-                    assert False, f"Invalid include mode: {include_mode}"
-                neurons = torch.LongTensor(neurons.tolist())
+        for scale in [True, False]:
+            all_losses[option][hook_name]["Scaled" if scale else "Unscaled"] = {}
+            df = dfs[option][hook_name]["Scaled" if scale else "Unscaled"]
+            for include_mode in ["All Positive", "Greater Positive", "All Positive (Top 50)", "Greater Positive (Top 50)", "All Negative", "Smaller Negative", "All Negative (Top 50)", "Smaller Negative (Top 50)", "Positive and Negative (Top 25)"]:
+                original_loss, all_ablated_loss = haystack_utils.compute_mlp_loss(prompts, model, df, torch.LongTensor([i for i in range(model.cfg.d_mlp)]), ablate_mode="YYN", compute_original_loss=True)
+                all_losses[option][hook_name]["Scaled" if scale else "Unscaled"][include_mode] = {
+                    "Original": original_loss,
+                    "All Ablated": all_ablated_loss,
+                }
+                for feature_mode in ["Two Features", "Single Features", "Current Token", "Grouped Tokens"]:
+                    if include_mode == "Greater Positive":
+                        neurons = df[df[feature_mode + " (AND)"] & df["Greater Than All"]].index
+                    elif include_mode == "All Positive":
+                        neurons = df[df[feature_mode + " (AND)"]].index
+                    elif include_mode == "Greater Positive (Top 50)":
+                        neurons = haystack_utils.get_top_k_neurons(df, (df["YYY"]>0)&(df["Greater Than All"]), feature_mode + " (diff)", 50)
+                    elif include_mode == "All Positive (Top 50)":
+                        neurons = haystack_utils.get_top_k_neurons(df, (df["YYY"]>0), feature_mode + " (diff)", 50)
+                    elif include_mode == "Smaller Negative":
+                        neurons = df[df[feature_mode + " (NEG AND)"] & df["Smaller Than All"]].index
+                    elif include_mode == "All Negative":
+                        neurons = df[df[feature_mode + " (NEG AND)"]].index
+                    elif include_mode == "Smaller Negative (Top 50)":
+                        neurons = haystack_utils.get_top_k_neurons(df, (df["NNN"]>0)&(df["Smaller Than All"]), feature_mode + " (diff)", 50, ascending=True)
+                    elif include_mode == "All Negative (Top 50)":
+                        neurons = haystack_utils.get_top_k_neurons(df, (df["NNN"]>0), feature_mode + " (diff)", 50, ascending=True)
+                    elif include_mode == "Positive and Negative (Top 25)":
+                        neurons_top = haystack_utils.get_top_k_neurons(df, (df["NNN"]>0), feature_mode + " (diff)", 25, ascending=True)
+                        neurons_bottom = haystack_utils.get_top_k_neurons(df, (df["YYY"]>0), feature_mode + " (diff)", 25)
+                        neurons = np.concatenate([neurons_top, neurons_bottom])
+                    else:
+                        assert False, f"Invalid include mode: {include_mode}"
+                    neurons = torch.LongTensor(neurons.tolist())
 
-                ablated_loss = haystack_utils.compute_mlp_loss(prompts, model, df, neurons, ablate_mode="YYN")
-                all_losses[option][hook_name][include_mode][feature_mode+f" (N={neurons.shape[0]})"] = ablated_loss
+                    ablated_loss = haystack_utils.compute_mlp_loss(prompts, model, df, neurons, ablate_mode="YYN")
+                    all_losses[option][hook_name]["Scaled" if scale else "Unscaled"][include_mode][feature_mode+f" (N={neurons.shape[0]})"] = ablated_loss
 
 # %%
 with open("data/and_neurons/ablation_losses.json", "w") as f:
