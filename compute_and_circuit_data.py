@@ -264,3 +264,15 @@ for option in tqdm(options):
 with open("data/and_neurons/ablation_losses.json", "w") as f:
     json.dump(all_losses, f, indent=4)
 # %%
+
+# SCALING
+
+# Get average activation for each neuron on random German prompts
+
+pre_act = haystack_utils.get_mlp_activations(german_data, 5, model, 200, hook_pre=True, mean=False)
+post_act = haystack_utils.get_mlp_activations(german_data, 5, model, 200, hook_pre=False, mean=False)
+# Dataset prompts
+
+# The random + ngram prompt
+# %%
+# %%
