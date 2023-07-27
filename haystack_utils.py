@@ -1583,7 +1583,7 @@ def compute_mlp_loss(prompts, model, df, neurons, ablate_mode="NNN", layer=5, co
 def get_top_k_neurons(df, condition, sortby, k=10, ascending=False):
     tmp_df = df[condition].copy()
     tmp_df = tmp_df.sort_values(by=sortby, ascending=ascending)
-    return tmp_df["Neuron"][:k]
+    return tmp_df.index[:k]
 
 def split_tokens_with_space(tokens: Tensor, model: HookedTransformer) -> tuple[Tensor, Tensor]:
     new_word_tokens = []

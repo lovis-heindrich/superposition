@@ -17,16 +17,19 @@ option = st.selectbox(
     tokens, index=0)
 
 #@st.cache_data
-def load_data(tokens):
+def load_data():
     path = Path(__file__).parent / f"../data/and_neurons/"
-    df = pd.read_pickle(path / f"df_{tokens.strip()}.pkl")
+    dfs = pd.read_pickle(path / f"activation_dfs.pkl")
     with open(path / "ablation_losses.json", "r") as f:
         ablation_losses = json.load(f)
     with open(path / "and_conditions.json", "r") as f:
         and_conditions = json.load(f)
-    return df, ablation_losses, and_conditions
+    return dfs, ablation_losses, and_conditions
 
-df, ablation_losses, and_conditions = load_data(option)
+dfs, ablation_losses, and_conditions = load_data()
+
+hook_select = st.selectbox(label="Select between pre-gelu activations and post-gelu activations", options=["hook_pre", "hook_post"], index=0)
+df = dfs[option][hook_select]
 
 # # Look for neurons that consistently respond to all 3 directions
 # df["Boosted"] = (df["YNN"]>df["NNN"])&(df["NYN"]>df["NNN"])&(df["NNY"]>df["NNN"])&\
@@ -53,20 +56,24 @@ st.markdown("""
             - Two features: two input features appear together
             """)
 
+
 st.latex(r'''\text{Current token: }(YYY-NYN)-((YYN-NYN)+(NYY-NYN))''')
 st.latex(r'''\text{Current tokens: }(YYY-NNN)-((YYN-NNN)+(NNY-NNN))''')
 st.latex(r'''\text{Single features: }(YYY-NNN)-((YNN-NNN)+(NYN-NNN)+(NNY-NNN))''')
 st.latex(r'''\text{Two features: }(YYY-NNN)-((YYN-NNN)+(YNY-NNN)+(NYY-NNN))/2''')
 
-show_losses = st.checkbox("Show ablation loss changes", value=False)
-show_cosine_sims = st.checkbox("Show cosine similarities with token / context directions", value=False)
+column_names = ["AblationLossIncrease", "Two Features (diff)", "Single Features (diff)", "Current Token (diff)", "Grouped Tokens (diff)", "Two Features (AND)", "Single Features (AND)", "Current Token (AND)", "Grouped Tokens (AND)", "Two Features (NEG AND)", "Single Features (NEG AND)", "Current Token (NEG AND)", "Grouped Tokens (NEG AND)", "Greater Than All", "Smaller Than All"]
+
+column_select = st.multiselect(
+    'Select visible columns',
+    column_names,
+    [])
+
 
 display_df = df.copy()
-if not show_losses:
-    display_df = display_df.drop(columns=["FullAblationLossIncrease", "ContextAblationLossIncrease"])
-if not show_cosine_sims:
-    display_df = display_df.drop(columns=["PrevTokenSim", "CurrTokenSim", "ContextSim"])
-
+for column in column_names:
+    if column not in column_select:
+        display_df = display_df.drop(columns=[column])
 
 st.dataframe(display_df.round(2))
 
@@ -121,20 +128,15 @@ st.markdown("""
             The AND features are used to highlight neurons in a scatter plot displaying their loss increase.
             """)
 
-ablation_mode = st.selectbox(label="Select the ablation mode", 
-             options=["Ablate context neuron", "Ablate context neuron and replace both current and previous token with random tokens"], index=0)
-
 highlight_mode = st.selectbox(label="Select the type of AND neurons to highlight",
                               options=["Two Features", "Single Features", "Current Token", "Grouped Tokens"], index=0)
 
-if ablation_mode == "Ablate context neuron":
-    ablation_column = "ContextAblationLossIncrease"
+negative_and_neurons = st.checkbox("Show negative AND neurons", value=False)
+if negative_and_neurons:
+    color = highlight_mode + " (NEG AND)"
 else:
-    ablation_column = "FullAblationLossIncrease"
-
-
-
-plot = px.scatter(df, y=ablation_column, color=highlight_mode + " (AND)", hover_name="Neuron", hover_data=["Neuron", ablation_column],
+    color = highlight_mode + " (AND)"
+plot = px.scatter(df, y="AblationLossIncrease", color=color,
                   color_discrete_sequence=["grey", "red", "blue"], labels=highlight_mode)
 
 plot.update_layout(
