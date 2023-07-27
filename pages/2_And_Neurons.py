@@ -29,7 +29,9 @@ def load_data():
 dfs, ablation_losses, and_conditions = load_data()
 
 hook_select = st.sidebar.selectbox(label="Select between pre-gelu activations and post-gelu activations", options=["hook_pre", "hook_post"], index=0)
-df = dfs[option][hook_select]
+scale_select = st.sidebar.selectbox(label="Select between scaled activation or original activation values", options=["Scaled", "Unscaled"], index=0)
+
+df = dfs[option][hook_select][scale_select]
 
 # # Look for neurons that consistently respond to all 3 directions
 # df["Boosted"] = (df["YNN"]>df["NNN"])&(df["NYN"]>df["NNN"])&(df["NNY"]>df["NNN"])&\
@@ -153,14 +155,14 @@ st.markdown("""
             Uses AND features to select sets of neurons and compares their loss increase.
             """)
 #[option][hook_name][include_mode]
-keys = list(ablation_losses[option][hook_select].keys())
+keys = list(ablation_losses[option][hook_select][scale_select].keys())
 select_mode = st.selectbox(label="Select whether to use all AND neurons or only the neurons where (YYY>others)",
                               options=keys, index=0)
 
 
-names = list(ablation_losses[option][hook_select][select_mode].keys())
+names = list(ablation_losses[option][hook_select][scale_select][select_mode].keys())
 short_names = [name.split(" ")[0] for name in names]
-loss_values = [[ablation_losses[option][hook_select][select_mode][name]] for name in names]
+loss_values = [[ablation_losses[option][hook_select][scale_select][select_mode][name]] for name in names]
 plot = plotting_utils.plot_barplot(loss_values, names,
                             short_names=short_names, ylabel="Last token loss",
                             title=f"Loss increase when patching groups of neurons (ablation mode: YYN)",

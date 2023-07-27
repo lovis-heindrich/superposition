@@ -172,16 +172,17 @@ with open("data/prompts.pkl", "rb") as f:
 pre_act = haystack_utils.get_mlp_activations(german_data, 5, model, 200, hook_pre=True, mean=False)
 post_act = haystack_utils.get_mlp_activations(german_data, 5, model, 200, hook_pre=False, mean=False)
 
+# %%
 def normalize_df(df, hook_name):
     df = df.copy()
     activations = pre_act if hook_name == "hook_pre" else post_act
-    std = activations.std(axis=0)
+    std = activations.std(axis=0).cpu().numpy()
     columns = ["YYY", "YYN", "YNY", "NYY", "YNN", "NYN", "NNY", "NNN"]
     for col in columns:
         df[col] = df[col] / std
     return df
 
-# %%
+
 dfs = {}
 for option in tqdm(options):
     dfs[option] = {}
@@ -201,6 +202,7 @@ with open("data/and_neurons/activation_dfs.pkl", "wb") as f:
 
 for option in options:
     for hook_name in ["hook_pre", "hook_post"]:
+        for scale in [True, False]:
             df = dfs[option][hook_name]["Scaled" if scale else "Unscaled"]
             df["Two Features (diff)"] = (df["YYY"] - df["NNN"]) - ((df["YNY"] - df["NNN"]) + (df["NYY"] - df["NNN"]) + (df["YYN"] - df["NNN"]))/2
             df["Single Features (diff)"] = (df["YYY"] - df["NNN"]) - ((df["YNN"] - df["NNN"]) + (df["NYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))

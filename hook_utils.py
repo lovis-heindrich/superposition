@@ -13,4 +13,5 @@ def save_activation(value, hook):
         Add a hook using this method and an activation label then use the label to access the activation:
         act = model.hook_dict[act_label].ctx['activation'][:, :, 669]
         """
-        hook.ctx['activation'] = value.detach().cpu().to(torch.float16)
+        hook.ctx['activation'] = value #.detach().cpu().to(torch.float16)
+        return value

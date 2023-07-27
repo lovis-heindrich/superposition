@@ -1,451 +1,907 @@
 {
     "orschl\u00e4gen": {
         "hook_pre": {
-            "All Positive": {
-                "Original": 1.4738811254501343,
-                "All Ablated": 5.745019435882568,
-                "Two Features (N=294)": 3.6444458961486816,
-                "Single Features (N=303)": 4.393819808959961,
-                "Current Token (N=226)": 2.298652410507202,
-                "Grouped Tokens (N=227)": 2.9438517093658447
+            "Scaled": {
+                "All Positive": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 3.503618001937866,
+                    "Two Features (N=295)": 3.0035617351531982,
+                    "Single Features (N=304)": 3.94057559967041,
+                    "Current Token (N=229)": 1.5628098249435425,
+                    "Grouped Tokens (N=226)": 1.7558118104934692
+                },
+                "Greater Positive": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 3.503618001937866,
+                    "Two Features (N=150)": 1.3448821306228638,
+                    "Single Features (N=149)": 1.6432868242263794,
+                    "Current Token (N=88)": 1.6704349517822266,
+                    "Grouped Tokens (N=99)": 1.794715166091919
+                },
+                "All Positive (Top 50)": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 3.503618001937866,
+                    "Two Features (N=50)": 2.2324957847595215,
+                    "Single Features (N=50)": 3.0306785106658936,
+                    "Current Token (N=50)": 0.4627438485622406,
+                    "Grouped Tokens (N=50)": 2.4676218032836914
+                },
+                "Greater Positive (Top 50)": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 3.503618001937866,
+                    "Two Features (N=50)": 0.9721868634223938,
+                    "Single Features (N=50)": 2.6141693592071533,
+                    "Current Token (N=50)": 3.6853861808776855,
+                    "Grouped Tokens (N=50)": 2.070621967315674
+                },
+                "All Negative": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 3.503618001937866,
+                    "Two Features (N=137)": 1.6543794870376587,
+                    "Single Features (N=137)": 1.7583067417144775,
+                    "Current Token (N=129)": 1.4996634721755981,
+                    "Grouped Tokens (N=114)": 1.8065383434295654
+                },
+                "Smaller Negative": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 3.503618001937866,
+                    "Two Features (N=17)": 1.4602320194244385,
+                    "Single Features (N=19)": 1.4489582777023315,
+                    "Current Token (N=11)": 1.4544743299484253,
+                    "Grouped Tokens (N=14)": 1.4501579999923706
+                },
+                "All Negative (Top 50)": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 3.503618001937866,
+                    "Two Features (N=50)": 2.5848989486694336,
+                    "Single Features (N=50)": 2.3081071376800537,
+                    "Current Token (N=50)": 1.0306845903396606,
+                    "Grouped Tokens (N=50)": 0.9743945598602295
+                },
+                "Smaller Negative (Top 50)": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 3.503618001937866,
+                    "Two Features (N=23)": 1.4321954250335693,
+                    "Single Features (N=23)": 1.3364901542663574,
+                    "Current Token (N=23)": 1.5031739473342896,
+                    "Grouped Tokens (N=23)": 1.4756848812103271
+                },
+                "Positive and Negative (Top 25)": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 3.503618001937866,
+                    "Two Features (N=50)": 2.0979206562042236,
+                    "Single Features (N=50)": 2.7784769535064697,
+                    "Current Token (N=50)": 1.6888784170150757,
+                    "Grouped Tokens (N=50)": 3.2796969413757324
+                }
             },
-            "Greater Positive": {
-                "Original": 1.4738811254501343,
-                "All Ablated": 5.745019435882568,
-                "Two Features (N=150)": 2.5077993869781494,
-                "Single Features (N=150)": 2.46665620803833,
-                "Current Token (N=86)": 1.9806715250015259,
-                "Grouped Tokens (N=102)": 2.2346572875976562
-            },
-            "All Positive (Top 50)": {
-                "Original": 1.4738811254501343,
-                "All Ablated": 5.745019435882568,
-                "Two Features (N=50)": 3.5066773891448975,
-                "Single Features (N=50)": 2.8618133068084717,
-                "Current Token (N=50)": 0.7607777714729309,
-                "Grouped Tokens (N=50)": 2.2846157550811768
-            },
-            "Greater Positive (Top 50)": {
-                "Original": 1.4738811254501343,
-                "All Ablated": 5.745019435882568,
-                "Two Features (N=50)": 1.8390650749206543,
-                "Single Features (N=50)": 2.613839626312256,
-                "Current Token (N=50)": 1.8052525520324707,
-                "Grouped Tokens (N=50)": 2.5289723873138428
-            },
-            "All Negative": {
-                "Original": 1.4738811254501343,
-                "All Ablated": 5.745019435882568,
-                "Two Features (N=138)": 2.00400447845459,
-                "Single Features (N=137)": 1.9475266933441162,
-                "Current Token (N=129)": 2.2904810905456543,
-                "Grouped Tokens (N=111)": 2.2567970752716064
-            },
-            "Smaller Negative": {
-                "Original": 1.4738811254501343,
-                "All Ablated": 5.745019435882568,
-                "Two Features (N=16)": 1.4770070314407349,
-                "Single Features (N=17)": 1.4661777019500732,
-                "Current Token (N=11)": 1.45693838596344,
-                "Grouped Tokens (N=15)": 1.4529774188995361
-            },
-            "All Negative (Top 50)": {
-                "Original": 1.4738811254501343,
-                "All Ablated": 5.745019435882568,
-                "Two Features (N=50)": 1.8612724542617798,
-                "Single Features (N=50)": 3.2319600582122803,
-                "Current Token (N=50)": 6.6558637619018555,
-                "Grouped Tokens (N=50)": 1.5974639654159546
-            },
-            "Smaller Negative (Top 50)": {
-                "Original": 1.4738811254501343,
-                "All Ablated": 5.745019435882568,
-                "Two Features (N=22)": 1.4004429578781128,
-                "Single Features (N=22)": 1.3825976848602295,
-                "Current Token (N=22)": 1.505067229270935,
-                "Grouped Tokens (N=22)": 1.482779622077942
-            },
-            "Positive and Negative (Top 25)": {
-                "Original": 1.4738811254501343,
-                "All Ablated": 5.745019435882568,
-                "Two Features (N=50)": 4.88916540145874,
-                "Single Features (N=50)": 1.770340919494629,
-                "Current Token (N=50)": 1.1903445720672607,
-                "Grouped Tokens (N=50)": 3.568472146987915
+            "Unscaled": {
+                "All Positive": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 5.7419753074646,
+                    "Two Features (N=292)": 3.3289380073547363,
+                    "Single Features (N=298)": 4.157257080078125,
+                    "Current Token (N=226)": 2.0625264644622803,
+                    "Grouped Tokens (N=225)": 2.8726484775543213
+                },
+                "Greater Positive": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 5.7419753074646,
+                    "Two Features (N=151)": 2.191227912902832,
+                    "Single Features (N=150)": 2.369563579559326,
+                    "Current Token (N=83)": 1.7535499334335327,
+                    "Grouped Tokens (N=99)": 2.059506893157959
+                },
+                "All Positive (Top 50)": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 5.7419753074646,
+                    "Two Features (N=50)": 5.059514999389648,
+                    "Single Features (N=50)": 2.5146842002868652,
+                    "Current Token (N=50)": 1.3834846019744873,
+                    "Grouped Tokens (N=50)": 2.9596874713897705
+                },
+                "Greater Positive (Top 50)": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 5.7419753074646,
+                    "Two Features (N=50)": 2.2930593490600586,
+                    "Single Features (N=50)": 2.8277525901794434,
+                    "Current Token (N=50)": 1.1599587202072144,
+                    "Grouped Tokens (N=50)": 1.5731396675109863
+                },
+                "All Negative": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 5.7419753074646,
+                    "Two Features (N=137)": 2.0655252933502197,
+                    "Single Features (N=137)": 2.0726988315582275,
+                    "Current Token (N=130)": 2.295180082321167,
+                    "Grouped Tokens (N=113)": 2.2548487186431885
+                },
+                "Smaller Negative": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 5.7419753074646,
+                    "Two Features (N=18)": 1.4658801555633545,
+                    "Single Features (N=18)": 1.4658801555633545,
+                    "Current Token (N=12)": 1.4566572904586792,
+                    "Grouped Tokens (N=15)": 1.4529930353164673
+                },
+                "All Negative (Top 50)": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 5.7419753074646,
+                    "Two Features (N=50)": 2.6000943183898926,
+                    "Single Features (N=50)": 2.899287462234497,
+                    "Current Token (N=50)": 6.843899726867676,
+                    "Grouped Tokens (N=50)": 2.505964517593384
+                },
+                "Smaller Negative (Top 50)": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 5.7419753074646,
+                    "Two Features (N=23)": 1.420014500617981,
+                    "Single Features (N=23)": 1.4173643589019775,
+                    "Current Token (N=23)": 1.51304030418396,
+                    "Grouped Tokens (N=23)": 1.468274474143982
+                },
+                "Positive and Negative (Top 25)": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 5.7419753074646,
+                    "Two Features (N=50)": 2.7522826194763184,
+                    "Single Features (N=50)": 3.3955695629119873,
+                    "Current Token (N=50)": 3.1128053665161133,
+                    "Grouped Tokens (N=50)": 1.4794087409973145
+                }
             }
         },
         "hook_post": {
-            "All Positive": {
-                "Original": 1.4738811254501343,
-                "All Ablated": 5.367800712585449,
-                "Two Features (N=296)": 3.9694483280181885,
-                "Single Features (N=317)": 4.9820780754089355,
-                "Current Token (N=268)": 3.695370674133301,
-                "Grouped Tokens (N=269)": 4.4945759773254395
+            "Scaled": {
+                "All Positive": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 13.074387550354004,
+                    "Two Features (N=294)": 10.873258590698242,
+                    "Single Features (N=321)": 14.054787635803223,
+                    "Current Token (N=267)": 2.8281729221343994,
+                    "Grouped Tokens (N=268)": 1.339505910873413
+                },
+                "Greater Positive": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 13.074387550354004,
+                    "Two Features (N=152)": 1.1808334589004517,
+                    "Single Features (N=148)": 0.8528221845626831,
+                    "Current Token (N=118)": 2.171934127807617,
+                    "Grouped Tokens (N=138)": 1.084094524383545
+                },
+                "All Positive (Top 50)": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 13.074387550354004,
+                    "Two Features (N=50)": 11.975932121276855,
+                    "Single Features (N=50)": 22.18510627746582,
+                    "Current Token (N=50)": 2.210132360458374,
+                    "Grouped Tokens (N=50)": 2.7596094608306885
+                },
+                "Greater Positive (Top 50)": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 13.074387550354004,
+                    "Two Features (N=50)": 1.0389745235443115,
+                    "Single Features (N=50)": 2.2914795875549316,
+                    "Current Token (N=50)": 3.2479758262634277,
+                    "Grouped Tokens (N=50)": 1.9122045040130615
+                },
+                "All Negative": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 13.074387550354004,
+                    "Two Features (N=275)": 1.5681028366088867,
+                    "Single Features (N=271)": 1.4191222190856934,
+                    "Current Token (N=281)": 8.400834083557129,
+                    "Grouped Tokens (N=285)": 5.670080184936523
+                },
+                "Smaller Negative": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 13.074387550354004,
+                    "Two Features (N=63)": 1.92154061794281,
+                    "Single Features (N=70)": 1.9094947576522827,
+                    "Current Token (N=57)": 1.9756790399551392,
+                    "Grouped Tokens (N=62)": 1.884245753288269
+                },
+                "All Negative (Top 50)": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 13.074387550354004,
+                    "Two Features (N=50)": 7.419585704803467,
+                    "Single Features (N=50)": 1.6595120429992676,
+                    "Current Token (N=50)": 19.186473846435547,
+                    "Grouped Tokens (N=50)": 10.137195587158203
+                },
+                "Smaller Negative (Top 50)": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 13.074387550354004,
+                    "Two Features (N=50)": 3.8047211170196533,
+                    "Single Features (N=50)": 0.9267610907554626,
+                    "Current Token (N=50)": 1.4767118692398071,
+                    "Grouped Tokens (N=50)": 1.4500938653945923
+                },
+                "Positive and Negative (Top 25)": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 13.074387550354004,
+                    "Two Features (N=50)": 10.078142166137695,
+                    "Single Features (N=50)": 5.9421868324279785,
+                    "Current Token (N=50)": 18.309219360351562,
+                    "Grouped Tokens (N=50)": 4.33856725692749
+                }
             },
-            "Greater Positive": {
-                "Original": 1.4738811254501343,
-                "All Ablated": 5.367800712585449,
-                "Two Features (N=149)": 3.2461154460906982,
-                "Single Features (N=146)": 2.8387134075164795,
-                "Current Token (N=115)": 3.1234428882598877,
-                "Grouped Tokens (N=135)": 2.9092795848846436
-            },
-            "All Positive (Top 50)": {
-                "Original": 1.4738811254501343,
-                "All Ablated": 5.367800712585449,
-                "Two Features (N=50)": 1.408786416053772,
-                "Single Features (N=50)": 1.0799784660339355,
-                "Current Token (N=50)": 1.4098252058029175,
-                "Grouped Tokens (N=50)": 2.960838556289673
-            },
-            "Greater Positive (Top 50)": {
-                "Original": 1.4738811254501343,
-                "All Ablated": 5.367800712585449,
-                "Two Features (N=50)": 1.8157280683517456,
-                "Single Features (N=50)": 3.5815138816833496,
-                "Current Token (N=50)": 1.6564394235610962,
-                "Grouped Tokens (N=50)": 3.5075693130493164
-            },
-            "All Negative": {
-                "Original": 1.4738811254501343,
-                "All Ablated": 5.367800712585449,
-                "Two Features (N=270)": 2.124316453933716,
-                "Single Features (N=267)": 2.665266513824463,
-                "Current Token (N=276)": 2.7115588188171387,
-                "Grouped Tokens (N=281)": 2.4259297847747803
-            },
-            "Smaller Negative": {
-                "Original": 1.4738811254501343,
-                "All Ablated": 5.367800712585449,
-                "Two Features (N=61)": 1.5108155012130737,
-                "Single Features (N=68)": 1.4651987552642822,
-                "Current Token (N=55)": 1.4625483751296997,
-                "Grouped Tokens (N=60)": 1.451074481010437
-            },
-            "All Negative (Top 50)": {
-                "Original": 1.4738811254501343,
-                "All Ablated": 5.367800712585449,
-                "Two Features (N=50)": 1.9735803604125977,
-                "Single Features (N=50)": 2.589596748352051,
-                "Current Token (N=50)": 1.2963670492172241,
-                "Grouped Tokens (N=50)": 3.645953893661499
-            },
-            "Smaller Negative (Top 50)": {
-                "Original": 1.4738811254501343,
-                "All Ablated": 5.367800712585449,
-                "Two Features (N=50)": 1.4079822301864624,
-                "Single Features (N=50)": 1.484114408493042,
-                "Current Token (N=50)": 1.4891278743743896,
-                "Grouped Tokens (N=50)": 1.734538197517395
-            },
-            "Positive and Negative (Top 25)": {
-                "Original": 1.4738811254501343,
-                "All Ablated": 5.367800712585449,
-                "Two Features (N=50)": 6.380513668060303,
-                "Single Features (N=50)": 2.00076961517334,
-                "Current Token (N=50)": 0.9700405597686768,
-                "Grouped Tokens (N=50)": 2.5361502170562744
+            "Unscaled": {
+                "All Positive": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 5.365880966186523,
+                    "Two Features (N=294)": 3.6505229473114014,
+                    "Single Features (N=313)": 4.7320966720581055,
+                    "Current Token (N=266)": 3.8222482204437256,
+                    "Grouped Tokens (N=267)": 4.356450080871582
+                },
+                "Greater Positive": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 5.365880966186523,
+                    "Two Features (N=150)": 2.5308828353881836,
+                    "Single Features (N=148)": 2.560811758041382,
+                    "Current Token (N=115)": 2.8604507446289062,
+                    "Grouped Tokens (N=137)": 2.59779953956604
+                },
+                "All Positive (Top 50)": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 5.365880966186523,
+                    "Two Features (N=50)": 1.7908413410186768,
+                    "Single Features (N=50)": 0.3191418945789337,
+                    "Current Token (N=50)": 1.8183679580688477,
+                    "Grouped Tokens (N=50)": 3.0522212982177734
+                },
+                "Greater Positive (Top 50)": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 5.365880966186523,
+                    "Two Features (N=50)": 2.6614928245544434,
+                    "Single Features (N=50)": 2.8575446605682373,
+                    "Current Token (N=50)": 1.4368994235992432,
+                    "Grouped Tokens (N=50)": 2.413729667663574
+                },
+                "All Negative": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 5.365880966186523,
+                    "Two Features (N=275)": 2.365600109100342,
+                    "Single Features (N=273)": 2.9010913372039795,
+                    "Current Token (N=278)": 2.588482618331909,
+                    "Grouped Tokens (N=284)": 2.4615581035614014
+                },
+                "Smaller Negative": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 5.365880966186523,
+                    "Two Features (N=66)": 1.473813772201538,
+                    "Single Features (N=70)": 1.4423458576202393,
+                    "Current Token (N=56)": 1.4550342559814453,
+                    "Grouped Tokens (N=61)": 1.4305392503738403
+                },
+                "All Negative (Top 50)": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 5.365880966186523,
+                    "Two Features (N=50)": 2.2162437438964844,
+                    "Single Features (N=50)": 2.7919771671295166,
+                    "Current Token (N=50)": 1.6483381986618042,
+                    "Grouped Tokens (N=50)": 3.38588285446167
+                },
+                "Smaller Negative (Top 50)": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 5.365880966186523,
+                    "Two Features (N=50)": 1.379632830619812,
+                    "Single Features (N=50)": 1.305369257926941,
+                    "Current Token (N=50)": 1.3750375509262085,
+                    "Grouped Tokens (N=50)": 1.649849534034729
+                },
+                "Positive and Negative (Top 25)": {
+                    "Original": 1.4738811254501343,
+                    "All Ablated": 5.365880966186523,
+                    "Two Features (N=50)": 12.213053703308105,
+                    "Single Features (N=50)": 0.9855979681015015,
+                    "Current Token (N=50)": 1.2746492624282837,
+                    "Grouped Tokens (N=50)": 1.7073924541473389
+                }
             }
         }
     },
     " h\u00e4ufig": {
         "hook_pre": {
-            "All Positive": {
-                "Original": 0.09320765733718872,
-                "All Ablated": 0.8171245455741882,
-                "Two Features (N=374)": 0.43221360445022583,
-                "Single Features (N=382)": 0.40061691403388977,
-                "Current Token (N=224)": 0.09817729145288467,
-                "Grouped Tokens (N=239)": 0.05090121552348137
+            "Scaled": {
+                "All Positive": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 0.44908756017684937,
+                    "Two Features (N=372)": 0.104496069252491,
+                    "Single Features (N=381)": 0.1457541286945343,
+                    "Current Token (N=226)": 0.11817917227745056,
+                    "Grouped Tokens (N=241)": 0.009222504682838917
+                },
+                "Greater Positive": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 0.44908756017684937,
+                    "Two Features (N=207)": 0.06892872601747513,
+                    "Single Features (N=208)": 0.06910806894302368,
+                    "Current Token (N=109)": 0.052485864609479904,
+                    "Grouped Tokens (N=130)": 0.04792776703834534
+                },
+                "All Positive (Top 50)": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 0.44908756017684937,
+                    "Two Features (N=50)": 0.13660623133182526,
+                    "Single Features (N=50)": 0.27342522144317627,
+                    "Current Token (N=50)": 0.18470144271850586,
+                    "Grouped Tokens (N=50)": 0.12676189839839935
+                },
+                "Greater Positive (Top 50)": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 0.44908756017684937,
+                    "Two Features (N=50)": 0.03477254509925842,
+                    "Single Features (N=50)": 0.043499547988176346,
+                    "Current Token (N=50)": 0.47704362869262695,
+                    "Grouped Tokens (N=50)": 0.1011318564414978
+                },
+                "All Negative": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 0.44908756017684937,
+                    "Two Features (N=155)": 0.125637948513031,
+                    "Single Features (N=152)": 0.0872255340218544,
+                    "Current Token (N=125)": 0.23749203979969025,
+                    "Grouped Tokens (N=125)": 0.36939236521720886
+                },
+                "Smaller Negative": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 0.44908756017684937,
+                    "Two Features (N=30)": 0.12941431999206543,
+                    "Single Features (N=30)": 0.12941431999206543,
+                    "Current Token (N=15)": 0.08994452655315399,
+                    "Grouped Tokens (N=21)": 0.0914609283208847
+                },
+                "All Negative (Top 50)": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 0.44908756017684937,
+                    "Two Features (N=50)": 0.0743400827050209,
+                    "Single Features (N=50)": 0.07147223502397537,
+                    "Current Token (N=50)": 3.8256325721740723,
+                    "Grouped Tokens (N=50)": 1.2259732484817505
+                },
+                "Smaller Negative (Top 50)": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 0.44908756017684937,
+                    "Two Features (N=31)": 0.14702832698822021,
+                    "Single Features (N=31)": 0.13230900466442108,
+                    "Current Token (N=31)": 0.12641504406929016,
+                    "Grouped Tokens (N=31)": 0.11459339410066605
+                },
+                "Positive and Negative (Top 25)": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 0.44908756017684937,
+                    "Two Features (N=50)": 0.1281629502773285,
+                    "Single Features (N=50)": 0.10674562305212021,
+                    "Current Token (N=50)": 1.2980130910873413,
+                    "Grouped Tokens (N=50)": 1.199013113975525
+                }
             },
-            "Greater Positive": {
-                "Original": 0.09320765733718872,
-                "All Ablated": 0.8171245455741882,
-                "Two Features (N=207)": 0.3195248544216156,
-                "Single Features (N=209)": 0.3052677810192108,
-                "Current Token (N=109)": 0.10146847367286682,
-                "Grouped Tokens (N=130)": 0.09008906781673431
-            },
-            "All Positive (Top 50)": {
-                "Original": 0.09320765733718872,
-                "All Ablated": 0.8171245455741882,
-                "Two Features (N=50)": 0.06620510667562485,
-                "Single Features (N=50)": 0.2687522768974304,
-                "Current Token (N=50)": 2.042570114135742,
-                "Grouped Tokens (N=50)": 0.12349662184715271
-            },
-            "Greater Positive (Top 50)": {
-                "Original": 0.09320765733718872,
-                "All Ablated": 0.8171245455741882,
-                "Two Features (N=50)": 0.11372637003660202,
-                "Single Features (N=50)": 0.49089258909225464,
-                "Current Token (N=50)": 0.09852573275566101,
-                "Grouped Tokens (N=50)": 0.08802516758441925
-            },
-            "All Negative": {
-                "Original": 0.09320765733718872,
-                "All Ablated": 0.8171245455741882,
-                "Two Features (N=158)": 0.08250424265861511,
-                "Single Features (N=153)": 0.07031632959842682,
-                "Current Token (N=127)": 0.33348798751831055,
-                "Grouped Tokens (N=125)": 0.5290178060531616
-            },
-            "Smaller Negative": {
-                "Original": 0.09320765733718872,
-                "All Ablated": 0.8171245455741882,
-                "Two Features (N=30)": 0.09295035153627396,
-                "Single Features (N=31)": 0.09497856348752975,
-                "Current Token (N=16)": 0.09618943929672241,
-                "Grouped Tokens (N=22)": 0.09812130779027939
-            },
-            "All Negative (Top 50)": {
-                "Original": 0.09320765733718872,
-                "All Ablated": 0.8171245455741882,
-                "Two Features (N=50)": 0.03008805401623249,
-                "Single Features (N=50)": 0.06773030757904053,
-                "Current Token (N=50)": 0.3297468423843384,
-                "Grouped Tokens (N=50)": 0.21429114043712616
-            },
-            "Smaller Negative (Top 50)": {
-                "Original": 0.09320765733718872,
-                "All Ablated": 0.8171245455741882,
-                "Two Features (N=32)": 0.42473506927490234,
-                "Single Features (N=32)": 0.025284023955464363,
-                "Current Token (N=32)": 0.13295096158981323,
-                "Grouped Tokens (N=32)": 0.011943678371608257
-            },
-            "Positive and Negative (Top 25)": {
-                "Original": 0.09320765733718872,
-                "All Ablated": 0.8171245455741882,
-                "Two Features (N=50)": 1.576474905014038,
-                "Single Features (N=50)": 0.14969003200531006,
-                "Current Token (N=50)": 0.030376063659787178,
-                "Grouped Tokens (N=50)": 0.34651753306388855
+            "Unscaled": {
+                "All Positive": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 0.8173445463180542,
+                    "Two Features (N=377)": 0.3789818286895752,
+                    "Single Features (N=382)": 0.40146932005882263,
+                    "Current Token (N=226)": 0.11002151668071747,
+                    "Grouped Tokens (N=241)": 0.041928429156541824
+                },
+                "Greater Positive": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 0.8173445463180542,
+                    "Two Features (N=207)": 0.2990920841693878,
+                    "Single Features (N=207)": 0.2951197624206543,
+                    "Current Token (N=109)": 0.10147164016962051,
+                    "Grouped Tokens (N=129)": 0.08793430030345917
+                },
+                "All Positive (Top 50)": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 0.8173445463180542,
+                    "Two Features (N=50)": 0.23818907141685486,
+                    "Single Features (N=50)": 0.07985854148864746,
+                    "Current Token (N=50)": 1.018986463546753,
+                    "Grouped Tokens (N=50)": 0.3987591564655304
+                },
+                "Greater Positive (Top 50)": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 0.8173445463180542,
+                    "Two Features (N=50)": 0.18468829989433289,
+                    "Single Features (N=50)": 0.24550148844718933,
+                    "Current Token (N=50)": 0.16349343955516815,
+                    "Grouped Tokens (N=50)": 0.18238264322280884
+                },
+                "All Negative": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 0.8173445463180542,
+                    "Two Features (N=156)": 0.09201811999082565,
+                    "Single Features (N=154)": 0.07607153803110123,
+                    "Current Token (N=128)": 0.35850998759269714,
+                    "Grouped Tokens (N=125)": 0.5607408881187439
+                },
+                "Smaller Negative": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 0.8173445463180542,
+                    "Two Features (N=30)": 0.0929589495062828,
+                    "Single Features (N=31)": 0.09498798847198486,
+                    "Current Token (N=16)": 0.09618648141622543,
+                    "Grouped Tokens (N=22)": 0.0981239378452301
+                },
+                "All Negative (Top 50)": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 0.8173445463180542,
+                    "Two Features (N=50)": 0.19012995064258575,
+                    "Single Features (N=50)": 0.3195197880268097,
+                    "Current Token (N=50)": 0.3993099629878998,
+                    "Grouped Tokens (N=50)": 0.2854791283607483
+                },
+                "Smaller Negative (Top 50)": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 0.8173445463180542,
+                    "Two Features (N=32)": 0.724785327911377,
+                    "Single Features (N=32)": 0.011766409501433372,
+                    "Current Token (N=32)": 0.13344742357730865,
+                    "Grouped Tokens (N=32)": 0.011332071386277676
+                },
+                "Positive and Negative (Top 25)": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 0.8173445463180542,
+                    "Two Features (N=50)": 0.2691023051738739,
+                    "Single Features (N=50)": 0.5231064558029175,
+                    "Current Token (N=50)": 0.3515267074108124,
+                    "Grouped Tokens (N=50)": 0.053233783692121506
+                }
             }
         },
         "hook_post": {
-            "All Positive": {
-                "Original": 0.09320765733718872,
-                "All Ablated": 0.6029648780822754,
-                "Two Features (N=382)": 0.45615333318710327,
-                "Single Features (N=390)": 0.477998286485672,
-                "Current Token (N=285)": 0.33299800753593445,
-                "Grouped Tokens (N=291)": 0.33873796463012695
+            "Scaled": {
+                "All Positive": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 10.072874069213867,
+                    "Two Features (N=377)": 2.278575897216797,
+                    "Single Features (N=390)": 3.0297980308532715,
+                    "Current Token (N=282)": 0.00040968420216813684,
+                    "Grouped Tokens (N=291)": 0.0028505760710686445
+                },
+                "Greater Positive": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 10.072874069213867,
+                    "Two Features (N=204)": 0.07913964986801147,
+                    "Single Features (N=208)": 0.0742652639746666,
+                    "Current Token (N=163)": 0.0065456354059278965,
+                    "Grouped Tokens (N=181)": 0.0048181964084506035
+                },
+                "All Positive (Top 50)": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 10.072874069213867,
+                    "Two Features (N=50)": 2.6776416301727295,
+                    "Single Features (N=50)": 2.8595142364501953,
+                    "Current Token (N=50)": 0.8276759386062622,
+                    "Grouped Tokens (N=50)": 0.06500367820262909
+                },
+                "Greater Positive (Top 50)": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 10.072874069213867,
+                    "Two Features (N=50)": 0.42807844281196594,
+                    "Single Features (N=50)": 1.9465346336364746,
+                    "Current Token (N=50)": 0.006740998476743698,
+                    "Grouped Tokens (N=50)": 0.006263184826821089
+                },
+                "All Negative": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 10.072874069213867,
+                    "Two Features (N=330)": 1.0010138750076294,
+                    "Single Features (N=328)": 0.7343273162841797,
+                    "Current Token (N=324)": 2.7096025943756104,
+                    "Grouped Tokens (N=327)": 3.7863335609436035
+                },
+                "Smaller Negative": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 10.072874069213867,
+                    "Two Features (N=103)": 0.30996787548065186,
+                    "Single Features (N=102)": 0.3296031057834625,
+                    "Current Token (N=82)": 0.2295389175415039,
+                    "Grouped Tokens (N=85)": 0.22013284265995026
+                },
+                "All Negative (Top 50)": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 10.072874069213867,
+                    "Two Features (N=50)": 0.07768655568361282,
+                    "Single Features (N=50)": 0.8178788423538208,
+                    "Current Token (N=50)": 4.600976943969727,
+                    "Grouped Tokens (N=50)": 3.3305416107177734
+                },
+                "Smaller Negative (Top 50)": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 10.072874069213867,
+                    "Two Features (N=50)": 0.2300373911857605,
+                    "Single Features (N=50)": 0.11404003947973251,
+                    "Current Token (N=50)": 0.20359842479228973,
+                    "Grouped Tokens (N=50)": 0.1463056355714798
+                },
+                "Positive and Negative (Top 25)": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 10.072874069213867,
+                    "Two Features (N=50)": 2.8042373657226562,
+                    "Single Features (N=50)": 4.249423980712891,
+                    "Current Token (N=50)": 0.01906243897974491,
+                    "Grouped Tokens (N=50)": 5.967833518981934
+                }
             },
-            "Greater Positive": {
-                "Original": 0.09320765733718872,
-                "All Ablated": 0.6029648780822754,
-                "Two Features (N=203)": 0.30689096450805664,
-                "Single Features (N=206)": 0.3053021728992462,
-                "Current Token (N=164)": 0.2239963412284851,
-                "Grouped Tokens (N=182)": 0.3724106550216675
-            },
-            "All Positive (Top 50)": {
-                "Original": 0.09320765733718872,
-                "All Ablated": 0.6029648780822754,
-                "Two Features (N=50)": 0.13183115422725677,
-                "Single Features (N=50)": 0.07788416743278503,
-                "Current Token (N=50)": 1.2157341241836548,
-                "Grouped Tokens (N=50)": 0.30034130811691284
-            },
-            "Greater Positive (Top 50)": {
-                "Original": 0.09320765733718872,
-                "All Ablated": 0.6029648780822754,
-                "Two Features (N=50)": 0.13593463599681854,
-                "Single Features (N=50)": 1.9629218578338623,
-                "Current Token (N=50)": 0.24592721462249756,
-                "Grouped Tokens (N=50)": 0.03873559832572937
-            },
-            "All Negative": {
-                "Original": 0.09320765733718872,
-                "All Ablated": 0.6029648780822754,
-                "Two Features (N=323)": 0.14408929646015167,
-                "Single Features (N=322)": 0.12937627732753754,
-                "Current Token (N=324)": 0.23995614051818848,
-                "Grouped Tokens (N=328)": 0.1590171903371811
-            },
-            "Smaller Negative": {
-                "Original": 0.09320765733718872,
-                "All Ablated": 0.6029648780822754,
-                "Two Features (N=98)": 0.11560948938131332,
-                "Single Features (N=98)": 0.11771790683269501,
-                "Current Token (N=82)": 0.12038993835449219,
-                "Grouped Tokens (N=85)": 0.11996294558048248
-            },
-            "All Negative (Top 50)": {
-                "Original": 0.09320765733718872,
-                "All Ablated": 0.6029648780822754,
-                "Two Features (N=50)": 0.11310447752475739,
-                "Single Features (N=50)": 0.13291242718696594,
-                "Current Token (N=50)": 0.43302035331726074,
-                "Grouped Tokens (N=50)": 0.31568026542663574
-            },
-            "Smaller Negative (Top 50)": {
-                "Original": 0.09320765733718872,
-                "All Ablated": 0.6029648780822754,
-                "Two Features (N=50)": 0.3077610731124878,
-                "Single Features (N=50)": 1.41055428981781,
-                "Current Token (N=50)": 0.09527013450860977,
-                "Grouped Tokens (N=50)": 0.09870602190494537
-            },
-            "Positive and Negative (Top 25)": {
-                "Original": 0.09320765733718872,
-                "All Ablated": 0.6029648780822754,
-                "Two Features (N=50)": 0.14164197444915771,
-                "Single Features (N=50)": 0.24594733119010925,
-                "Current Token (N=50)": 0.1770123690366745,
-                "Grouped Tokens (N=50)": 1.3257079124450684
+            "Unscaled": {
+                "All Positive": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 0.6033231019973755,
+                    "Two Features (N=381)": 0.4768455922603607,
+                    "Single Features (N=390)": 0.4675552248954773,
+                    "Current Token (N=283)": 0.3609725534915924,
+                    "Grouped Tokens (N=290)": 0.33211731910705566
+                },
+                "Greater Positive": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 0.6033231019973755,
+                    "Two Features (N=203)": 0.34035035967826843,
+                    "Single Features (N=206)": 0.3388359546661377,
+                    "Current Token (N=162)": 0.2597489655017853,
+                    "Grouped Tokens (N=180)": 0.4035468101501465
+                },
+                "All Positive (Top 50)": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 0.6033231019973755,
+                    "Two Features (N=50)": 0.11740695685148239,
+                    "Single Features (N=50)": 0.0708969309926033,
+                    "Current Token (N=50)": 0.5886234045028687,
+                    "Grouped Tokens (N=50)": 0.20474082231521606
+                },
+                "Greater Positive (Top 50)": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 0.6033231019973755,
+                    "Two Features (N=50)": 0.36438074707984924,
+                    "Single Features (N=50)": 1.3477705717086792,
+                    "Current Token (N=50)": 0.15746460855007172,
+                    "Grouped Tokens (N=50)": 0.07744116336107254
+                },
+                "All Negative": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 0.6033231019973755,
+                    "Two Features (N=323)": 0.13833291828632355,
+                    "Single Features (N=323)": 0.1294184774160385,
+                    "Current Token (N=323)": 0.2004939615726471,
+                    "Grouped Tokens (N=326)": 0.143790140748024
+                },
+                "Smaller Negative": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 0.6033231019973755,
+                    "Two Features (N=102)": 0.12090111523866653,
+                    "Single Features (N=102)": 0.12166409939527512,
+                    "Current Token (N=85)": 0.12347528338432312,
+                    "Grouped Tokens (N=86)": 0.1204817146062851
+                },
+                "All Negative (Top 50)": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 0.6033231019973755,
+                    "Two Features (N=50)": 0.11993682384490967,
+                    "Single Features (N=50)": 0.17018012702465057,
+                    "Current Token (N=50)": 0.5453847050666809,
+                    "Grouped Tokens (N=50)": 0.5870916247367859
+                },
+                "Smaller Negative (Top 50)": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 0.6033231019973755,
+                    "Two Features (N=50)": 0.32117581367492676,
+                    "Single Features (N=50)": 1.4924672842025757,
+                    "Current Token (N=50)": 0.09082002937793732,
+                    "Grouped Tokens (N=50)": 0.09466255456209183
+                },
+                "Positive and Negative (Top 25)": {
+                    "Original": 0.09320765733718872,
+                    "All Ablated": 0.6033231019973755,
+                    "Two Features (N=50)": 0.3676195442676544,
+                    "Single Features (N=50)": 0.14708125591278076,
+                    "Current Token (N=50)": 0.021298903971910477,
+                    "Grouped Tokens (N=50)": 0.7973482012748718
+                }
             }
         }
     },
     " beweglich": {
         "hook_pre": {
-            "All Positive": {
-                "Original": 4.816296100616455,
-                "All Ablated": 8.340494155883789,
-                "Two Features (N=317)": 6.733100891113281,
-                "Single Features (N=316)": 6.563490390777588,
-                "Current Token (N=300)": 7.233094215393066,
-                "Grouped Tokens (N=274)": 7.037229061126709
+            "Scaled": {
+                "All Positive": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 10.851943969726562,
+                    "Two Features (N=319)": 6.863081455230713,
+                    "Single Features (N=317)": 7.516903877258301,
+                    "Current Token (N=298)": 7.521900653839111,
+                    "Grouped Tokens (N=274)": 5.20362663269043
+                },
+                "Greater Positive": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 10.851943969726562,
+                    "Two Features (N=173)": 5.780220985412598,
+                    "Single Features (N=172)": 5.813604831695557,
+                    "Current Token (N=156)": 6.103600025177002,
+                    "Grouped Tokens (N=149)": 5.459097862243652
+                },
+                "All Positive (Top 50)": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 10.851943969726562,
+                    "Two Features (N=50)": 6.015017986297607,
+                    "Single Features (N=50)": 6.671925067901611,
+                    "Current Token (N=50)": 4.08095645904541,
+                    "Grouped Tokens (N=50)": 4.793865203857422
+                },
+                "Greater Positive (Top 50)": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 10.851943969726562,
+                    "Two Features (N=50)": 6.644274711608887,
+                    "Single Features (N=50)": 6.357370376586914,
+                    "Current Token (N=50)": 5.764625549316406,
+                    "Grouped Tokens (N=50)": 4.9780120849609375
+                },
+                "All Negative": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 10.851943969726562,
+                    "Two Features (N=108)": 5.523470878601074,
+                    "Single Features (N=114)": 5.581663608551025,
+                    "Current Token (N=92)": 5.123873233795166,
+                    "Grouped Tokens (N=103)": 6.278896808624268
+                },
+                "Smaller Negative": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 10.851943969726562,
+                    "Two Features (N=22)": 4.445553779602051,
+                    "Single Features (N=23)": 4.445210933685303,
+                    "Current Token (N=17)": 4.284664154052734,
+                    "Grouped Tokens (N=20)": 4.915643692016602
+                },
+                "All Negative (Top 50)": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 10.851943969726562,
+                    "Two Features (N=50)": 7.877989768981934,
+                    "Single Features (N=50)": 5.472542762756348,
+                    "Current Token (N=50)": 3.511564016342163,
+                    "Grouped Tokens (N=50)": 5.844450950622559
+                },
+                "Smaller Negative (Top 50)": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 10.851943969726562,
+                    "Two Features (N=28)": 4.193513870239258,
+                    "Single Features (N=28)": 4.3123860359191895,
+                    "Current Token (N=28)": 4.79790735244751,
+                    "Grouped Tokens (N=28)": 4.088514804840088
+                },
+                "Positive and Negative (Top 25)": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 10.851943969726562,
+                    "Two Features (N=50)": 5.757345199584961,
+                    "Single Features (N=50)": 5.732015132904053,
+                    "Current Token (N=50)": 3.995804786682129,
+                    "Grouped Tokens (N=50)": 6.758816242218018
+                }
             },
-            "Greater Positive": {
-                "Original": 4.816296100616455,
-                "All Ablated": 8.340494155883789,
-                "Two Features (N=169)": 6.353949546813965,
-                "Single Features (N=170)": 5.78183126449585,
-                "Current Token (N=155)": 6.644782543182373,
-                "Grouped Tokens (N=149)": 6.238819122314453
-            },
-            "All Positive (Top 50)": {
-                "Original": 4.816296100616455,
-                "All Ablated": 8.340494155883789,
-                "Two Features (N=50)": 5.6042561531066895,
-                "Single Features (N=50)": 4.232537269592285,
-                "Current Token (N=50)": 6.96595573425293,
-                "Grouped Tokens (N=50)": 4.043171405792236
-            },
-            "Greater Positive (Top 50)": {
-                "Original": 4.816296100616455,
-                "All Ablated": 8.340494155883789,
-                "Two Features (N=50)": 3.192321538925171,
-                "Single Features (N=50)": 5.697122573852539,
-                "Current Token (N=50)": 5.853501319885254,
-                "Grouped Tokens (N=50)": 4.446752071380615
-            },
-            "All Negative": {
-                "Original": 4.816296100616455,
-                "All Ablated": 8.340494155883789,
-                "Two Features (N=109)": 4.903048992156982,
-                "Single Features (N=115)": 5.030587673187256,
-                "Current Token (N=91)": 4.973998546600342,
-                "Grouped Tokens (N=104)": 4.7858147621154785
-            },
-            "Smaller Negative": {
-                "Original": 4.816296100616455,
-                "All Ablated": 8.340494155883789,
-                "Two Features (N=22)": 5.055757522583008,
-                "Single Features (N=23)": 5.05537748336792,
-                "Current Token (N=17)": 5.20119571685791,
-                "Grouped Tokens (N=20)": 4.73814058303833
-            },
-            "All Negative (Top 50)": {
-                "Original": 4.816296100616455,
-                "All Ablated": 8.340494155883789,
-                "Two Features (N=50)": 8.793059349060059,
-                "Single Features (N=50)": 6.488718032836914,
-                "Current Token (N=50)": 6.22843074798584,
-                "Grouped Tokens (N=50)": 3.7818961143493652
-            },
-            "Smaller Negative (Top 50)": {
-                "Original": 4.816296100616455,
-                "All Ablated": 8.340494155883789,
-                "Two Features (N=28)": 3.3877832889556885,
-                "Single Features (N=28)": 3.6718034744262695,
-                "Current Token (N=28)": 6.176741600036621,
-                "Grouped Tokens (N=28)": 3.8832688331604004
-            },
-            "Positive and Negative (Top 25)": {
-                "Original": 4.816296100616455,
-                "All Ablated": 8.340494155883789,
-                "Two Features (N=50)": 5.065659523010254,
-                "Single Features (N=50)": 3.8656296730041504,
-                "Current Token (N=50)": 6.806199550628662,
-                "Grouped Tokens (N=50)": 5.273208141326904
+            "Unscaled": {
+                "All Positive": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 8.340371131896973,
+                    "Two Features (N=323)": 7.158054828643799,
+                    "Single Features (N=324)": 6.840861797332764,
+                    "Current Token (N=301)": 7.292550086975098,
+                    "Grouped Tokens (N=276)": 6.9439311027526855
+                },
+                "Greater Positive": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 8.340371131896973,
+                    "Two Features (N=174)": 6.136441707611084,
+                    "Single Features (N=175)": 5.688393592834473,
+                    "Current Token (N=159)": 6.5228118896484375,
+                    "Grouped Tokens (N=153)": 6.057234287261963
+                },
+                "All Positive (Top 50)": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 8.340371131896973,
+                    "Two Features (N=50)": 4.9953083992004395,
+                    "Single Features (N=50)": 4.933068752288818,
+                    "Current Token (N=50)": 6.119815826416016,
+                    "Grouped Tokens (N=50)": 4.634014129638672
+                },
+                "Greater Positive (Top 50)": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 8.340371131896973,
+                    "Two Features (N=50)": 4.20509672164917,
+                    "Single Features (N=50)": 4.343681812286377,
+                    "Current Token (N=50)": 6.3743414878845215,
+                    "Grouped Tokens (N=50)": 4.841762065887451
+                },
+                "All Negative": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 8.340371131896973,
+                    "Two Features (N=108)": 4.890456199645996,
+                    "Single Features (N=117)": 5.1402082443237305,
+                    "Current Token (N=91)": 5.140526294708252,
+                    "Grouped Tokens (N=103)": 4.639184951782227
+                },
+                "Smaller Negative": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 8.340371131896973,
+                    "Two Features (N=21)": 5.047268867492676,
+                    "Single Features (N=22)": 5.046898365020752,
+                    "Current Token (N=16)": 5.192927837371826,
+                    "Grouped Tokens (N=19)": 4.729816913604736
+                },
+                "All Negative (Top 50)": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 8.340371131896973,
+                    "Two Features (N=50)": 10.73208999633789,
+                    "Single Features (N=50)": 2.74163818359375,
+                    "Current Token (N=50)": 6.227203845977783,
+                    "Grouped Tokens (N=50)": 3.1810288429260254
+                },
+                "Smaller Negative (Top 50)": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 8.340371131896973,
+                    "Two Features (N=27)": 4.977221965789795,
+                    "Single Features (N=27)": 4.299136161804199,
+                    "Current Token (N=27)": 5.475677013397217,
+                    "Grouped Tokens (N=27)": 3.6810202598571777
+                },
+                "Positive and Negative (Top 25)": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 8.340371131896973,
+                    "Two Features (N=50)": 3.4405925273895264,
+                    "Single Features (N=50)": 5.843681335449219,
+                    "Current Token (N=50)": 4.320512771606445,
+                    "Grouped Tokens (N=50)": 5.483111381530762
+                }
             }
         },
         "hook_post": {
-            "All Positive": {
-                "Original": 4.816296100616455,
-                "All Ablated": 9.247943878173828,
-                "Two Features (N=322)": 6.999878406524658,
-                "Single Features (N=323)": 6.49677038192749,
-                "Current Token (N=324)": 7.030272483825684,
-                "Grouped Tokens (N=308)": 7.713934898376465
+            "Scaled": {
+                "All Positive": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 18.495166778564453,
+                    "Two Features (N=322)": 11.460150718688965,
+                    "Single Features (N=328)": 9.606955528259277,
+                    "Current Token (N=322)": 12.56216049194336,
+                    "Grouped Tokens (N=309)": 8.944291114807129
+                },
+                "Greater Positive": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 18.495166778564453,
+                    "Two Features (N=183)": 7.865074634552002,
+                    "Single Features (N=184)": 7.413217544555664,
+                    "Current Token (N=162)": 8.763185501098633,
+                    "Grouped Tokens (N=174)": 7.001254081726074
+                },
+                "All Positive (Top 50)": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 18.495166778564453,
+                    "Two Features (N=50)": 5.6787543296813965,
+                    "Single Features (N=50)": 9.722784996032715,
+                    "Current Token (N=50)": 6.9698872566223145,
+                    "Grouped Tokens (N=50)": 6.6081132888793945
+                },
+                "Greater Positive (Top 50)": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 18.495166778564453,
+                    "Two Features (N=50)": 7.127793788909912,
+                    "Single Features (N=50)": 4.329345226287842,
+                    "Current Token (N=50)": 7.747053146362305,
+                    "Grouped Tokens (N=50)": 6.977002143859863
+                },
+                "All Negative": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 18.495166778564453,
+                    "Two Features (N=291)": 9.406549453735352,
+                    "Single Features (N=312)": 11.586767196655273,
+                    "Current Token (N=283)": 12.521199226379395,
+                    "Grouped Tokens (N=292)": 13.605717658996582
+                },
+                "Smaller Negative": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 18.495166778564453,
+                    "Two Features (N=88)": 4.816732883453369,
+                    "Single Features (N=99)": 4.899787425994873,
+                    "Current Token (N=84)": 4.5191240310668945,
+                    "Grouped Tokens (N=89)": 5.236832141876221
+                },
+                "All Negative (Top 50)": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 18.495166778564453,
+                    "Two Features (N=50)": 8.313647270202637,
+                    "Single Features (N=50)": 6.0151753425598145,
+                    "Current Token (N=50)": 10.694082260131836,
+                    "Grouped Tokens (N=50)": 7.031818389892578
+                },
+                "Smaller Negative (Top 50)": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 18.495166778564453,
+                    "Two Features (N=50)": 7.52305269241333,
+                    "Single Features (N=50)": 5.810301780700684,
+                    "Current Token (N=50)": 3.4948933124542236,
+                    "Grouped Tokens (N=50)": 5.086696624755859
+                },
+                "Positive and Negative (Top 25)": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 18.495166778564453,
+                    "Two Features (N=50)": 7.058847904205322,
+                    "Single Features (N=50)": 9.364501953125,
+                    "Current Token (N=50)": 4.986199855804443,
+                    "Grouped Tokens (N=50)": 6.225314617156982
+                }
             },
-            "Greater Positive": {
-                "Original": 4.816296100616455,
-                "All Ablated": 9.247943878173828,
-                "Two Features (N=185)": 5.522768974304199,
-                "Single Features (N=185)": 5.489733695983887,
-                "Current Token (N=162)": 5.587806701660156,
-                "Grouped Tokens (N=175)": 5.809988975524902
-            },
-            "All Positive (Top 50)": {
-                "Original": 4.816296100616455,
-                "All Ablated": 9.247943878173828,
-                "Two Features (N=50)": 5.416093826293945,
-                "Single Features (N=50)": 4.28265905380249,
-                "Current Token (N=50)": 5.814803600311279,
-                "Grouped Tokens (N=50)": 4.771506309509277
-            },
-            "Greater Positive (Top 50)": {
-                "Original": 4.816296100616455,
-                "All Ablated": 9.247943878173828,
-                "Two Features (N=50)": 4.690246105194092,
-                "Single Features (N=50)": 4.093833923339844,
-                "Current Token (N=50)": 7.529615879058838,
-                "Grouped Tokens (N=50)": 4.630505084991455
-            },
-            "All Negative": {
-                "Original": 4.816296100616455,
-                "All Ablated": 9.247943878173828,
-                "Two Features (N=291)": 5.42800235748291,
-                "Single Features (N=317)": 5.7859015464782715,
-                "Current Token (N=285)": 5.661828517913818,
-                "Grouped Tokens (N=292)": 4.864046573638916
-            },
-            "Smaller Negative": {
-                "Original": 4.816296100616455,
-                "All Ablated": 9.247943878173828,
-                "Two Features (N=93)": 5.4306535720825195,
-                "Single Features (N=99)": 5.455445289611816,
-                "Current Token (N=82)": 5.659299850463867,
-                "Grouped Tokens (N=87)": 5.104769706726074
-            },
-            "All Negative (Top 50)": {
-                "Original": 4.816296100616455,
-                "All Ablated": 9.247943878173828,
-                "Two Features (N=50)": 4.595042705535889,
-                "Single Features (N=50)": 8.666313171386719,
-                "Current Token (N=50)": 5.851274490356445,
-                "Grouped Tokens (N=50)": 5.748241424560547
-            },
-            "Smaller Negative (Top 50)": {
-                "Original": 4.816296100616455,
-                "All Ablated": 9.247943878173828,
-                "Two Features (N=50)": 4.384259223937988,
-                "Single Features (N=50)": 4.652672290802002,
-                "Current Token (N=50)": 6.642130374908447,
-                "Grouped Tokens (N=50)": 5.570772647857666
-            },
-            "Positive and Negative (Top 25)": {
-                "Original": 4.816296100616455,
-                "All Ablated": 9.247943878173828,
-                "Two Features (N=50)": 4.945521354675293,
-                "Single Features (N=50)": 5.461641788482666,
-                "Current Token (N=50)": 5.867419242858887,
-                "Grouped Tokens (N=50)": 3.754624605178833
+            "Unscaled": {
+                "All Positive": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 9.247533798217773,
+                    "Two Features (N=318)": 7.03987455368042,
+                    "Single Features (N=328)": 6.578545093536377,
+                    "Current Token (N=321)": 7.160562992095947,
+                    "Grouped Tokens (N=308)": 7.635826587677002
+                },
+                "Greater Positive": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 9.247533798217773,
+                    "Two Features (N=180)": 5.611849784851074,
+                    "Single Features (N=180)": 5.551510334014893,
+                    "Current Token (N=160)": 5.62961483001709,
+                    "Grouped Tokens (N=172)": 5.842595100402832
+                },
+                "All Positive (Top 50)": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 9.247533798217773,
+                    "Two Features (N=50)": 5.0963263511657715,
+                    "Single Features (N=50)": 6.031604290008545,
+                    "Current Token (N=50)": 6.4973015785217285,
+                    "Grouped Tokens (N=50)": 5.335692405700684
+                },
+                "Greater Positive (Top 50)": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 9.247533798217773,
+                    "Two Features (N=50)": 4.027127742767334,
+                    "Single Features (N=50)": 4.119846820831299,
+                    "Current Token (N=50)": 7.179259777069092,
+                    "Grouped Tokens (N=50)": 5.8742356300354
+                },
+                "All Negative": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 9.247533798217773,
+                    "Two Features (N=294)": 5.355257511138916,
+                    "Single Features (N=312)": 5.671281337738037,
+                    "Current Token (N=277)": 5.536074638366699,
+                    "Grouped Tokens (N=289)": 4.880876541137695
+                },
+                "Smaller Negative": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 9.247533798217773,
+                    "Two Features (N=92)": 5.273289203643799,
+                    "Single Features (N=102)": 5.290279388427734,
+                    "Current Token (N=83)": 5.391039848327637,
+                    "Grouped Tokens (N=89)": 4.949681758880615
+                },
+                "All Negative (Top 50)": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 9.247533798217773,
+                    "Two Features (N=50)": 5.396909236907959,
+                    "Single Features (N=50)": 4.895904541015625,
+                    "Current Token (N=50)": 9.000726699829102,
+                    "Grouped Tokens (N=50)": 4.994835376739502
+                },
+                "Smaller Negative (Top 50)": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 9.247533798217773,
+                    "Two Features (N=50)": 4.338534355163574,
+                    "Single Features (N=50)": 5.549281597137451,
+                    "Current Token (N=50)": 6.453569412231445,
+                    "Grouped Tokens (N=50)": 4.895343780517578
+                },
+                "Positive and Negative (Top 25)": {
+                    "Original": 4.816296100616455,
+                    "All Ablated": 9.247533798217773,
+                    "Two Features (N=50)": 6.698427200317383,
+                    "Single Features (N=50)": 5.294273853302002,
+                    "Current Token (N=50)": 12.351783752441406,
+                    "Grouped Tokens (N=50)": 4.112344741821289
+                }
             }
         }
     }
