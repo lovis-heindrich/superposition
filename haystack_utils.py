@@ -1,4 +1,5 @@
 import warnings
+from hook_utils import save_activation
 from transformer_lens import HookedTransformer, ActivationCache, utils
 from transformer_lens.hook_points import HookPoint
 from jaxtyping import Float, Int
@@ -66,12 +67,14 @@ def get_mlp_activations(
         act_label = f"blocks.{layer}.mlp.hook_pre"
     else:
         act_label = f"blocks.{layer}.mlp.hook_post"
+
     if num_prompts == -1:
         num_prompts = len(prompts)
     for i in tqdm(range(num_prompts)):
         tokens = model.to_tokens(prompts[i])
-        _, cache = model.run_with_cache(tokens)
-        act = cache[act_label][:, context_crop_start:context_crop_end, :]
+        with model.hooks([(act_label, save_activation)]):
+            model.run_with_hooks(tokens)
+            act = model.hook_dict[act_label].ctx['activation'][:, context_crop_start:context_crop_end, :]
         if pos is not None:
             act = act[:, pos, :].unsqueeze(1)
         act = einops.rearrange(act, "batch pos d_mlp -> (batch pos) d_mlp")
@@ -1469,21 +1472,15 @@ def get_trigram_neuron_activations(prompt_tuple, model, deactivate_neurons_fwd_h
         data["Activation"].extend(cache_result[neurons].tolist())
         return data
 
-    def save_activation(tensor, hook):
-        hook.ctx['activation'] = tensor.detach().cpu().to(torch.float16)
-    save_hook = (cache_name, save_activation)
-
     def get_mean_activations(prompts):
-        with model.hooks([save_hook]):
+        with model.hooks([(cache_name, save_activation)]):
             model.run_with_hooks(prompts)
-            hook_name, hook = save_hook
-            act_original = model.hook_dict[hook_name].ctx['activation']
+            act_original = model.hook_dict[cache_name].ctx['activation']
             act_original = act_original[:, -2].mean(0)
 
-        with model.hooks(fwd_hooks=deactivate_neurons_fwd_hooks+[save_hook]):
+        with model.hooks(fwd_hooks=deactivate_neurons_fwd_hooks+[(cache_name, save_activation)]):
             model.run_with_hooks(prompts)
-            hook_name, hook = save_hook
-            act_ablated = model.hook_dict[hook_name].ctx['activation']
+            act_ablated = model.hook_dict[cache_name].ctx['activation']
             act_ablated = act_ablated[:, -2].mean(0)
         return act_original, act_ablated
 
