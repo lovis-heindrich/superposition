@@ -228,7 +228,7 @@ for option in tqdm(options):
         df = dfs[option][hook_name]
         for include_mode in ["All Positive", "Greater Positive", "All Positive (Top 50)", "Greater Positive (Top 50)", "All Negative", "Smaller Negative", "All Negative (Top 50)", "Smaller Negative (Top 50)", "Positive and Negative (Top 25)"]:
             original_loss, all_ablated_loss = haystack_utils.compute_mlp_loss(prompts, model, df, torch.LongTensor([i for i in range(model.cfg.d_mlp)]), ablate_mode="YYN", compute_original_loss=True)
-            all_losses[option][include_mode] = {
+            all_losses[option][hook_name][include_mode] = {
                 "Original": original_loss,
                 "All Ablated": all_ablated_loss,
             }
@@ -258,8 +258,9 @@ for option in tqdm(options):
                 neurons = torch.LongTensor(neurons.tolist())
 
                 ablated_loss = haystack_utils.compute_mlp_loss(prompts, model, df, neurons, ablate_mode="YYN")
-                all_losses[option][include_mode][feature_mode+f" (N={neurons.shape[0]})"] = ablated_loss
+                all_losses[option][hook_name][include_mode][feature_mode+f" (N={neurons.shape[0]})"] = ablated_loss
 
 # %%
 with open("data/and_neurons/ablation_losses.json", "w") as f:
     json.dump(all_losses, f, indent=4)
+# %%
