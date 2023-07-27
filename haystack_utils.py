@@ -6,7 +6,7 @@ from torch import Tensor
 import einops
 from tqdm.auto import tqdm
 import torch
-from typing import List, Tuple, Literal
+from typing import Callable, List, Tuple, Literal
 import plotly.express as px
 import plotly.graph_objects as go
 import gc
@@ -1342,7 +1342,7 @@ def get_average_loss_plot_method(activate_context_fwd_hooks, deactivate_context_
             return original_losses, ablated_losses, context_and_activated_losses, only_activated_losses
     return average_loss_plot
 
-def get_common_tokens(data, model, ignore_tokens, k=100):
+def get_common_tokens(data, model, ignore_tokens, k=100) -> Tensor:
     # Get top common german tokens excluding punctuation
     token_counts = torch.zeros(model.cfg.d_vocab).cuda()
     for example in tqdm(data):
@@ -1476,14 +1476,14 @@ def get_trigram_neuron_activations(prompt_tuple, model, deactivate_neurons_fwd_h
     def get_mean_activations(prompts):
         with model.hooks([save_hook]):
             model.run_with_hooks(prompts)
-            _, hook = save_hook
-            act_original = model.hook_dict[hook].ctx['activation']
+            hook_name, hook = save_hook
+            act_original = model.hook_dict[hook_name].ctx['activation']
             act_original = act_original[:, -2].mean(0)
 
         with model.hooks(fwd_hooks=deactivate_neurons_fwd_hooks+[save_hook]):
             model.run_with_hooks(prompts)
-            _, hook = save_hook
-            act_ablated = model.hook_dict[hook].ctx['activation']
+            hook_name, hook = save_hook
+            act_ablated = model.hook_dict[hook_name].ctx['activation']
             act_ablated = act_ablated[:, -2].mean(0)
         return act_original, act_ablated
 
@@ -1585,17 +1585,25 @@ def get_top_k_neurons(df, condition, sortby, k=10, ascending=False):
     tmp_df = tmp_df.sort_values(by=sortby, ascending=ascending)
     return tmp_df["Neuron"][:k]
 
+def split_tokens_with_space(tokens: Tensor, model: HookedTransformer) -> tuple[Tensor, Tensor]:
+    new_word_tokens = []
+    continuation_tokens = []
+    for token in tokens:
+        str_token = model.to_single_str_token(token.item())
+        if str_token.startswith(" "):
+            new_word_tokens.append(token)
+        else:
+            continuation_tokens.append(token)
+    new_word_tokens = torch.stack(new_word_tokens)
+    continuation_tokens = torch.stack(continuation_tokens)
+    return new_word_tokens, continuation_tokens
 
-def activation_data_frame(ngram:str, model, common_tokens, new_word_tokens, continuation_tokens, deactivate_neurons_fwd_hooks, batch=400, layer=5):
-    prompts = generate_random_prompts(ngram, model, common_tokens, batch, length=20)
+def activation_data_frame(ngram: str, prompts: Tensor, model: HookedTransformer, common_tokens: Tensor, deactivate_neurons_fwd_hooks: list[tuple[str, Callable]], layer=5, mlp_hook="hook_pre") -> pd.DataFrame:
+    new_word_tokens, continuation_tokens = split_tokens_with_space(common_tokens, model)
     if ngram.startswith(" "):
         prompt_tuple = get_trigram_prompts(prompts, new_word_tokens, continuation_tokens)
     else:
         prompt_tuple = get_trigram_prompts(prompts, continuation_tokens, continuation_tokens)
 
-    df = get_trigram_neuron_activations(prompt_tuple, model, deactivate_neurons_fwd_hooks ,layer)
-
-    original_loss, ablated_loss = compute_mlp_loss(prompts, df, torch.LongTensor([i for i in range(model.cfg.d_mlp)]).cuda(), compute_original_loss=True)
-    print(original_loss, ablated_loss)
-
+    df = get_trigram_neuron_activations(prompt_tuple, model, deactivate_neurons_fwd_hooks ,layer, mlp_hook=mlp_hook)
     return df

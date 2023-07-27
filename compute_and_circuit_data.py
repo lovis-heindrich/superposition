@@ -1,6 +1,7 @@
 
 #%% 
 
+import pickle
 from typing import Literal
 import torch
 from tqdm.auto import tqdm
@@ -203,4 +204,71 @@ for option in options:
 # %%
 with open("data/and_neurons/ablation_losses.json", "w") as f:
     json.dump(all_losses, f, indent=4)
+
+# %%
+all_prompts = {}
+for option in tqdm(options):
+    # Create global prompts
+    option_prompts = haystack_utils.generate_random_prompts(option, model, common_tokens, 5000, length=20).cpu()
+    all_prompts[option] = option_prompts
+
+with open("data/prompts.pkl", "wb") as f:
+    pickle.dump(all_prompts, f)
+# %%
+dfs = {}
+for option in tqdm(options):
+    dfs[option] = {}
+    prompts = all_prompts[option][:2000]
+    for hook_name in ["hook_pre", "hook_post"]:
+        df = haystack_utils.activation_data_frame(option, prompts, model, common_tokens, deactivate_neurons_fwd_hooks, mlp_hook=hook_name)
+        dfs[option][hook_name] = df
+# %%
+with open("data/and_neurons/activation_dfs.pkl", "wb") as f:
+    pickle.dump(dfs, f)
+# %%
+
+
+for option in options:
+    for hook_name in ["hook_pre", "hook_post"]:
+        df = dfs[option][hook_name]
+        df["Two Features (diff)"] = (df["YYY"] - df["NNN"]) - ((df["YNY"] - df["NNN"]) + (df["NYY"] - df["NNN"]) + (df["YYN"] - df["NNN"]))/2
+        df["Single Features (diff)"] = (df["YYY"] - df["NNN"]) - ((df["YNN"] - df["NNN"]) + (df["NYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))
+        df["Current Token (diff)"] = ((df["YYY"] - df["NYN"]) - ((df["YYN"] - df["NYN"]) + (df["NYY"] - df["NYN"])))
+        df["Grouped Tokens (diff)"] = ((df["YYY"] - df["NNN"]) - ((df["YYN"] - df["NNN"]) + (df["NNY"] - df["NNN"])))
+        df["Two Features (AND)"] = ((df["YYY"] - df["NNN"]) > ((df["YNY"] - df["NNN"]) + (df["NYY"] - df["NNN"]) + (df["YYN"] - df["NNN"]))/2) & (df["YYY"]>0)
+        df["Single Features (AND)"] = ((df["YYY"] - df["NNN"]) > ((df["YNN"] - df["NNN"]) + (df["NYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))) & (df["YYY"]>0)
+        df["Current Token (AND)"] = ((df["YYY"] - df["NYN"]) > ((df["YYN"] - df["NYN"]) + (df["NYY"] - df["NYN"]))) & (df["YYY"]>0)
+        df["Grouped Tokens (NEG AND)"] = ((df["YYY"] - df["NNN"]) > ((df["YYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))) & (df["YYY"]>0)
+        df["Two Features (NEG AND)"] = ((df["YYY"] - df["NNN"]) < ((df["YNY"] - df["NNN"]) + (df["NYY"] - df["NNN"]) + (df["YYN"] - df["NNN"]))/2) & (df["NNN"]>0)
+        df["Single Features (NEG AND)"] = ((df["YYY"] - df["NNN"]) < ((df["YNN"] - df["NNN"]) + (df["NYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))) & (df["NNN"]>0)
+        df["Current Token (NEG AND)"] = ((df["YYY"] - df["NYN"]) < ((df["YYN"] - df["NYN"]) + (df["NYY"] - df["NYN"]))) & (df["NNN"]>0)
+        df["Grouped Tokens (NEG AND)"] = ((df["YYY"] - df["NNN"]) < ((df["YYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))) & (df["NNN"]>0)
+        df["Greater Than All"] = (df["YYY"] > df["NNN"]) & (df["YYY"] > df["YNN"]) & (df["YYY"] > df["NYN"]) & (df["YYY"] > df["NNY"]) & (df["YYY"] > df["YYN"]) & (df["YYY"] > df["NYY"]) & (df["YYY"] > df["YNY"])
+        df["Smaller Than All"] = (df["YYY"] < df["NNN"]) & (df["YYY"] < df["YNN"]) & (df["YYY"] < df["NYN"]) & (df["YYY"] < df["NNY"]) & (df["YYY"] < df["YYN"]) & (df["YYY"] < df["NYY"]) & (df["YYY"] < df["YNY"])
+        dfs[option][hook_name] = df
+
+with open("data/and_neurons/activation_dfs.pkl", "wb") as f:
+    pickle.dump(dfs, f)
+# %%
+
+for option in tqdm(options):
+    prompts = all_prompts[option][:1000]
+
+    for hook_name in ["hook_pre", "hook_post"]:
+        df = dfs[option][hook_name]
+
+        original_loss, ablated_loss = haystack_utils.compute_mlp_loss(prompts, model, df, torch.LongTensor([i for i in range(model.cfg.d_mlp)]).cuda(), compute_original_loss=True, ablate_mode="YYN")
+        print(original_loss, ablated_loss)
+
+        ablated_losses = []
+        for neuron in tqdm(range(model.cfg.d_mlp)):
+            ablated_loss = haystack_utils.compute_mlp_loss(prompts, model, df, torch.LongTensor([neuron]).cuda(), ablate_mode="YYN")
+            ablated_losses.append(ablated_loss)
+
+        df["AblationLossIncrease"] = ablated_losses
+        df["AblationLossIncrease"] -= original_loss
+        dfs[option][hook_name] = df
+
+with open("data/and_neurons/activation_dfs.pkl", "wb") as f:
+    pickle.dump(dfs, f)
 # %%
