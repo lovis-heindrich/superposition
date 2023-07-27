@@ -159,14 +159,36 @@ for option in tqdm(options):
 
 with open("data/prompts.pkl", "wb") as f:
     pickle.dump(all_prompts, f)
+
+# %% 
+
+# SCALING
+
+# Get average activation for each neuron on random German prompts
+
+pre_act = haystack_utils.get_mlp_activations(german_data, 5, model, 200, hook_pre=True, mean=False)
+post_act = haystack_utils.get_mlp_activations(german_data, 5, model, 200, hook_pre=False, mean=False)
+
+def normalize_df(df, hook_name):
+    df = df.copy()
+    activations = pre_act if hook_name == "hook_pre" else post_act
+    std = activations.std(axis=0)
+    columns = ["YYY", "YYN", "YNY", "NYY", "YNN", "NYN", "NNY", "NNN"]
+    for col in columns:
+        df[col] = df[col] / std
+    return df
+
 # %%
 dfs = {}
 for option in tqdm(options):
     dfs[option] = {}
     prompts = all_prompts[option][:2000]
     for hook_name in ["hook_pre", "hook_post"]:
-        df = haystack_utils.activation_data_frame(option, prompts, model, common_tokens, deactivate_neurons_fwd_hooks, mlp_hook=hook_name)
-        dfs[option][hook_name] = df
+        for scale in [True, False]:
+            df = haystack_utils.activation_data_frame(option, prompts, model, common_tokens, deactivate_neurons_fwd_hooks, mlp_hook=hook_name)
+            if scale:
+                df = normalize_df(df, hook_name)
+            dfs[option][hook_name]["Scaled" if scale else "Unscaled"] = df
 # %%
 with open("data/and_neurons/activation_dfs.pkl", "wb") as f:
     pickle.dump(dfs, f)
@@ -265,12 +287,6 @@ with open("data/and_neurons/ablation_losses.json", "w") as f:
     json.dump(all_losses, f, indent=4)
 # %%
 
-# SCALING
-
-# Get average activation for each neuron on random German prompts
-
-pre_act = haystack_utils.get_mlp_activations(german_data, 5, model, 200, hook_pre=True, mean=False)
-post_act = haystack_utils.get_mlp_activations(german_data, 5, model, 200, hook_pre=False, mean=False)
 # Dataset prompts
 
 # The random + ngram prompt
