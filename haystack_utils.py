@@ -1469,12 +1469,22 @@ def get_trigram_neuron_activations(prompt_tuple, model, deactivate_neurons_fwd_h
         data["Activation"].extend(cache_result[neurons].tolist())
         return data
 
+    def save_activation(tensor, hook):
+        hook.ctx['activation'] = tensor.detach().cpu().to(torch.float16)
+    save_hook = (cache_name, save_activation)
+
     def get_mean_activations(prompts):
-        _, original_cache = model.run_with_cache(prompts)
-        with model.hooks(fwd_hooks=deactivate_neurons_fwd_hooks):
-            _, original_cache_ablated = model.run_with_cache(prompts)
-        act_original = original_cache[cache_name][:, -2].mean(0)
-        act_ablated = original_cache_ablated[cache_name][:, -2].mean(0)
+        with model.hooks([save_hook]):
+            model.run_with_hooks(prompts)
+            _, hook = save_hook
+            act_original = model.hook_dict[hook].ctx['activation']
+            act_original = act_original[:, -2].mean(0)
+
+        with model.hooks(fwd_hooks=deactivate_neurons_fwd_hooks+[save_hook]):
+            model.run_with_hooks(prompts)
+            _, hook = save_hook
+            act_ablated = model.hook_dict[hook].ctx['activation']
+            act_ablated = act_ablated[:, -2].mean(0)
         return act_original, act_ablated
 
     full_prompts, test_prompts_prev, random_prompts_prev, test_prompts_curr, random_prompts_curr = prompt_tuple
