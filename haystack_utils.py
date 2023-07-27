@@ -1447,9 +1447,9 @@ def get_residual_trigram_directions(prompt_tuple, model, layer, ):
 
     return prev_token_direction, curr_token_direction
 
-def get_trigram_neuron_activations(prompt_tuple, model, deactivate_neurons_fwd_hooks, layer=5):
+def get_trigram_neuron_activations(prompt_tuple, model, deactivate_neurons_fwd_hooks, layer=5, mlp_hook="hook_pre"):
 
-    cache_name = F"blocks.{layer}.mlp.hook_pre"
+    cache_name = F"blocks.{layer}.mlp.{mlp_hook}"
     neurons = torch.LongTensor([i for i in range(2048)])
     neuron_list = neurons.tolist()
 
@@ -1574,3 +1574,18 @@ def get_top_k_neurons(df, condition, sortby, k=10, ascending=False):
     tmp_df = df[condition].copy()
     tmp_df = tmp_df.sort_values(by=sortby, ascending=ascending)
     return tmp_df["Neuron"][:k]
+
+
+def activation_data_frame(ngram:str, model, common_tokens, new_word_tokens, continuation_tokens, deactivate_neurons_fwd_hooks, batch=400, layer=5):
+    prompts = generate_random_prompts(ngram, model, common_tokens, batch, length=20)
+    if ngram.startswith(" "):
+        prompt_tuple = get_trigram_prompts(prompts, new_word_tokens, continuation_tokens)
+    else:
+        prompt_tuple = get_trigram_prompts(prompts, continuation_tokens, continuation_tokens)
+
+    df = get_trigram_neuron_activations(prompt_tuple, model, deactivate_neurons_fwd_hooks ,layer)
+
+    original_loss, ablated_loss = compute_mlp_loss(prompts, df, torch.LongTensor([i for i in range(model.cfg.d_mlp)]).cuda(), compute_original_loss=True)
+    print(original_loss, ablated_loss)
+
+    return df
