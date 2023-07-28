@@ -57,8 +57,8 @@ mean_active_activations = haystack_utils.get_mean_neuron_activations(context_neu
 mean_inactive_activations = haystack_utils.get_mean_neuron_activations(context_neurons, english_data, model)
 
 # %%
-activate_context_hooks = hook_utils.get_mean_ablate_context_neurons_hooks(context_neurons, mean_active_activations)
-deactivate_context_hooks = hook_utils.get_mean_ablate_context_neurons_hooks(context_neurons, mean_inactive_activations)
+activate_context_hooks = hook_utils.get_ablate_context_neurons_hooks(context_neurons, mean_active_activations)
+deactivate_context_hooks = hook_utils.get_ablate_context_neurons_hooks(context_neurons, mean_inactive_activations)
 
 
 # %%
