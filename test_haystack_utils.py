@@ -97,7 +97,7 @@ def test_get_direct_effect_batched():
     
 def test_get_direct_effect_hooked():
     test_prompt = "chicken"
-    hook = hook_utils.get_mean_ablate_neuron_hook(3, 669, -0.2, 'post')
+    hook = hook_utils.get_ablate_neuron_hook(3, 669, -0.2, 'post')
     model = HookedTransformer.from_pretrained("pythia-70m", fold_ln=True, device="cuda")
 
     original_loss, ablated_loss, direct_and_activated_loss, activated_loss = haystack_utils.get_direct_effect(test_prompt, model, [hook], [],
