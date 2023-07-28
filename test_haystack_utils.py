@@ -115,3 +115,10 @@ def test_get_ablate_neuron_hook__single_neuron():
     # example activation tensor with 1 batch, 1 pos, and 3 neurons
     torch.testing.assert_close(hook(torch.tensor([[[0.0, 1.0, 2.0]]]), None), torch.tensor([[[-0.2, 1.0, 2.0]]]))
 
+
+def test_get_ablate_neuron_hook__multiple_neurons():
+    act_name, hook = hook_utils.get_ablate_neuron_hook(3, torch.tensor([0, 1]), torch.tensor([-0.2, -0.4]), 'post')
+    
+    assert act_name == "blocks.3.mlp.hook_post"
+    # example activation tensor with 1 batch, 1 pos, and 3 neurons
+    torch.testing.assert_close(hook(torch.tensor([[[0.0, 1.0, 2.0]]]), None), torch.tensor([[[-0.2, -0.4, 2.0]]]))
