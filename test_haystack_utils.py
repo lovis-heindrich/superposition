@@ -41,7 +41,15 @@ def test_weighted_mean():
     torch.testing.assert_close(weighted_mean, torch.tensor([2/3]))
 
 
-def test_get_mlp_activations_with_neurons():
+def test_get_mlp_activations_with_mean():
+    model = HookedTransformer.from_pretrained("pythia-70m", fold_ln=True, device="cuda")
+    german_data = haystack_utils.load_json_data("data/german_europarl.json")[:200]
+    acts = haystack_utils.get_mlp_activations(german_data, 3, model, mean=True)
+    
+    torch.testing.assert_close(acts[669].item(), 3.47, atol=0.1, rtol=0.0)
+
+
+def test_get_mlp_activations_with_mean_neurons():
     model = HookedTransformer.from_pretrained("pythia-70m", fold_ln=True, device="cuda")
     german_data = haystack_utils.load_json_data("data/german_europarl.json")[:200]
     acts = haystack_utils.get_mlp_activations(german_data, 3, model, mean=True, neurons=torch.tensor([669]))
@@ -59,10 +67,10 @@ def test_DLA():
     
 
 def test_top_k_with_exclude():
-    numbers = torch.tensor([0, 1, 2, 3])
+    numbers = torch.tensor([0.0, 1.0, 2.0, 3.0])
     
-    assert torch.topk(numbers, 1) == haystack_utils.top_k_with_exclude(numbers, 1, [0])
-    assert haystack_utils.top_k_with_exclude(numbers, 2, numbers) == torch.tensor([])
+    values, indices = haystack_utils.top_k_with_exclude(numbers, 2, torch.tensor([2]))
+    torch.testing.assert_close(values, torch.tensor([3.0, 1.0]))
 
 
 def test_get_direct_effect_does_nothing_without_hooks():
@@ -91,12 +99,12 @@ def test_get_direct_effect_batched():
     
 def test_get_direct_effect_hooked():
     test_prompt = "chicken"
-    hooks = hook_utils.get_mean_ablate_neuron_hook(3, 669, -0.2, 'post')
+    hook = hook_utils.get_mean_ablate_neuron_hook(3, 669, -0.2, 'post')
     model = HookedTransformer.from_pretrained("pythia-70m", fold_ln=True, device="cuda")
 
-    original_loss, ablated_loss, direct_and_activated_loss, activated_loss = haystack_utils.get_direct_effect(test_prompt, model, hooks, [],
+    original_loss, ablated_loss, direct_and_activated_loss, activated_loss = haystack_utils.get_direct_effect(test_prompt, model, [hook], [],
                                     deactivated_components=("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.4.hook_mlp_out"),
                                     activated_components=("blocks.5.hook_mlp_out",), return_type = 'loss')
 
-    assert isinstance(original_loss, torch.Tensor)
-    assert all(loss[0] != original_loss[0] for loss in [ablated_loss, direct_and_activated_loss, activated_loss])
+    assert isinstance(original_loss, float)
+    assert all(loss != original_loss for loss in [ablated_loss, direct_and_activated_loss, activated_loss])
