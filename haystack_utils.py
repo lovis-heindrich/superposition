@@ -20,7 +20,7 @@ import json
 import pandas as pd
 
 
-def DLA(prompts: List[str], model: HookedTransformer):
+def DLA(prompts: List[str], model: HookedTransformer) -> tuple[Float[Tensor, "component"], list[str]]:
     logit_attributions = []
     for prompt in tqdm(prompts):
         tokens = model.to_tokens(prompt)
@@ -29,7 +29,6 @@ def DLA(prompts: List[str], model: HookedTransformer):
         answer_residual_directions = model.tokens_to_residual_directions(answers)  # [batch pos d_model]
         _, cache = model.run_with_cache(tokens)
         accumulated_residual, labels = cache.accumulated_resid(layer=-1, incl_mid=False, pos_slice=None, return_labels=True)
-        # Component batch pos d_model
         scaled_residual_stack = cache.apply_ln_to_stack(accumulated_residual, layer = -1, pos_slice=None)
         logit_attribution = einsum(scaled_residual_stack, answer_residual_directions, "component batch pos d_model, batch pos d_model -> component") / answers.shape[1]
         logit_attributions.append(logit_attribution)
@@ -47,7 +46,8 @@ def get_mlp_activations(
     context_crop_end=400,
     mean=True,
     hook_pre = False,
-    pos=None
+    pos=None,
+    neurons: Int[Tensor, "n_neurons"] | None = None,
 ) -> Float[Tensor, "num_activations d_mlp"]:
     """Runs the model through a list of prompts and stores the mlp activations for a given layer. Might be slow for large batches as examples are run one by one.
 
@@ -63,26 +63,43 @@ def get_mlp_activations(
         Float[Tensor, "num_activations d_mlp"]: Stacked activations for each prompt and position.
     """
     acts = []
+    if mean:
+        act_lens = []
+
     if hook_pre:
         act_label = f"blocks.{layer}.mlp.hook_pre"
     else:
         act_label = f"blocks.{layer}.mlp.hook_post"
-
+    neurons = neurons or torch.arange(model.cfg.d_mlp)
     if num_prompts == -1:
         num_prompts = len(prompts)
+
     for i in tqdm(range(num_prompts)):
         tokens = model.to_tokens(prompts[i])
         with model.hooks([(act_label, save_activation)]):
-            model.run_with_hooks(tokens)
+            model(tokens)
             act = model.hook_dict[act_label].ctx['activation'][:, context_crop_start:context_crop_end, :]
         if pos is not None:
-            act = act[:, pos, :].unsqueeze(1)
+            act = act[:, pos, neurons].unsqueeze(1)
         act = einops.rearrange(act, "batch pos d_mlp -> (batch pos) d_mlp")
+        if mean:
+            act_lens.append(tokens.shape[1])
+            act = torch.mean(act, dim=0)
         acts.append(act)
-    acts = torch.concat(acts, dim=0)
     if mean:
-        return torch.mean(acts, dim=0)
+        sum_act_lens = sum(act_lens)
+        weighted_mean = torch.sum(torch.stack([a*b/sum_act_lens for a, b in zip(acts, act_lens)]), dim=0)
+        return weighted_mean
+    acts = torch.concat(acts, dim=0)
     return acts
+
+
+def weighted_mean(mean_acts: list[Float[Tensor, "n_acts n_neurons"]], batch_sizes: list[int]):
+    """global mean of means, determined using the batch size used to calculate each mean"""
+    sum_act_lens = sum(batch_sizes)
+    normalized_means = [a*b/sum_act_lens for a, b in zip(mean_acts, batch_sizes)]
+    weighted_mean = torch.sum(torch.stack(normalized_means), dim=0)
+    return weighted_mean
 
 
 def get_average_loss(data: List[str], model: HookedTransformer, crop_context=-1, fwd_hooks=[], positionwise=False):
