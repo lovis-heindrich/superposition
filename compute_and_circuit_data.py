@@ -147,19 +147,19 @@ def compute_and_conditions(option, type: Literal["logits", "loss"]):
     two_feature_diffs = yyy_nnn_diff - (nyy_nnn_diff + yny_nnn_diff + yyn_nnn_diff)/2
 
     result = {
-        "nnn": nnn_value,
-        "nny": nny_value,
-        "nyn": nyn_value,
-        "ynn": ynn_value,
-        "nyy": nyy_value,
-        "yny": yny_value,
-        "yyn": yyn_value,
-        "yyy": yyy_value,
-        "current_token_diffs": current_diffs,
-        "previous_token_diffs": previous_diffs,
-        "context_neuron_diffs": context_diffs,
-        "individiual_features_diffs": individual_diffs,
-        "two_features_diffs": two_feature_diffs,
+        "NNN": nnn_value,
+        "NNY": nny_value,
+        "NYN": nyn_value,
+        "YNN": ynn_value,
+        "NYY": nyy_value,
+        "YNY": yny_value,
+        "YYN": yyn_value,
+        "YYY": yyy_value,
+        "Fix Current": current_diffs,
+        "Fix Previous": previous_diffs,
+        "Fix Context": context_diffs,
+        "Single Feature": individual_diffs,
+        "Two Features": two_feature_diffs,
     }
 
     return result
