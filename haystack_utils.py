@@ -1604,3 +1604,16 @@ def activation_data_frame(ngram: str, prompts: Tensor, model: HookedTransformer,
 
     df = get_trigram_neuron_activations(prompt_tuple, model, deactivate_neurons_fwd_hooks ,layer, mlp_hook=mlp_hook)
     return df
+
+def get_mean_neuron_activations(neurons: list[(int, int)], data: list[str], model: HookedTransformer):
+    # Neuron is a tuple of (layer, neuron)
+    layers = list(set([x[0] for x in neurons]))
+    activations = {}
+    for layer in layers:
+        activations[layer] = get_mlp_activations(data, layer, model, mean=True)
+    mean_activations = []
+    for layer, neuron in neurons:
+        mean_activations.append(activations[layer][neuron])
+    return mean_activations
+
+    
