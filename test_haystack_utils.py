@@ -106,33 +106,3 @@ def test_get_direct_effect_hooked():
 
     assert isinstance(original_loss, float)
     assert all(loss != original_loss for loss in [ablated_loss, direct_and_activated_loss, activated_loss])
-
-
-def test_get_ablate_neuron_hook__single_neuron():
-    act_name, hook = hook_utils.get_ablate_neuron_hook(3, 0, -0.2, 'post')
-    
-    assert act_name == "blocks.3.mlp.hook_post"
-    # example activation tensor with 1 batch, 1 pos, and 3 neurons
-    torch.testing.assert_close(hook(torch.tensor([[[0.0, 1.0, 2.0]]]), None), torch.tensor([[[-0.2, 1.0, 2.0]]]))
-
-
-def test_get_ablate_neuron_hook__multiple_neurons():
-    act_name, hook = hook_utils.get_ablate_neuron_hook(3, torch.tensor([0, 1]), torch.tensor([-0.2, -0.4]), 'post')
-    
-    assert act_name == "blocks.3.mlp.hook_post"
-    # example activation tensor with 1 batch, 1 pos, and 3 neurons
-    torch.testing.assert_close(hook(torch.tensor([[[0.0, 1.0, 2.0]]]), None), torch.tensor([[[-0.2, -0.4, 2.0]]]))
-
-
-def test_get_ablate_context_neurons_hooks():
-    hooks = hook_utils.get_ablate_context_neurons_hooks([(2, 0), (3, 1)], [-0.2, -0.4])
-    
-    first_act_name, first_hook = hooks[0]
-    second_act_name, second_hook = hooks[1]
-
-    assert first_act_name == "blocks.2.mlp.hook_post"
-    assert second_act_name == "blocks.3.mlp.hook_post"
-
-    # example activation tensor with 1 batch, 1 pos, and 3 neurons
-    torch.testing.assert_close(first_hook(torch.tensor([[[0.0, 1.0, 2.0]]]), None), torch.tensor([[[-0.2, 1.0, 2.0]]]))
-    torch.testing.assert_close(second_hook(torch.tensor([[[0.0, 1.0, 2.0]]]), None), torch.tensor([[[0.0, -0.4, 2.0]]]))
