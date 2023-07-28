@@ -41,8 +41,16 @@ def test_weighted_mean():
     torch.testing.assert_close(weighted_mean, torch.tensor([2/3]))
 
 
+def test_get_mlp_activations_with_neurons():
+    model = HookedTransformer.from_pretrained("pythia-70m", fold_ln=True, device="cuda")
+    german_data = haystack_utils.load_json_data("data/german_europarl.json")[:200]
+    acts = haystack_utils.get_mlp_activations(german_data, 3, model, mean=True, neurons=torch.tensor([669]))
+    
+    torch.testing.assert_close(acts, torch.tensor([3.47]).cuda(), atol=0.1, rtol=0.0)
+
+
 def test_DLA():
-    model = HookedTransformer.from_pretrained("pythia-70m-v0", fold_ln=True, device="cuda")
+    model = HookedTransformer.from_pretrained("pythia-70m", fold_ln=True, device="cuda")
     test_prompts = ["chicken"]
     logit_attributions, labels = haystack_utils.DLA(test_prompts, model)
 

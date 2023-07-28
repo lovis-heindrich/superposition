@@ -30,9 +30,11 @@ def get_mean_ablate_neuron_hook(layer: int, neuron: int | Int[Tensor, "n"], act_
 class ContextNeuron(NamedTuple):
     layer: int
     neuron: int
-    activation: float
-    deactivation: float
-    
+    on_activation: float
+    off_activation: float
+    enabled_act: float
+    disabled_act: float
+
 def get_mean_ablate_context_neurons_hooks(context_neurons: list[tuple[int, int]], mean_activations: list[float]):
     hooks = []
     # Group neurons by layer
