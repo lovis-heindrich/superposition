@@ -20,7 +20,7 @@ import json
 import pandas as pd
 
 
-def DLA(prompts: List[str], model: HookedTransformer):
+def DLA(prompts: List[str], model: HookedTransformer) -> tuple[Float[Tensor, "component"], list[str]]:
     logit_attributions = []
     for prompt in tqdm(prompts):
         tokens = model.to_tokens(prompt)
@@ -29,7 +29,6 @@ def DLA(prompts: List[str], model: HookedTransformer):
         answer_residual_directions = model.tokens_to_residual_directions(answers)  # [batch pos d_model]
         _, cache = model.run_with_cache(tokens)
         accumulated_residual, labels = cache.accumulated_resid(layer=-1, incl_mid=False, pos_slice=None, return_labels=True)
-        # Component batch pos d_model
         scaled_residual_stack = cache.apply_ln_to_stack(accumulated_residual, layer = -1, pos_slice=None)
         logit_attribution = einsum(scaled_residual_stack, answer_residual_directions, "component batch pos d_model, batch pos d_model -> component") / answers.shape[1]
         logit_attributions.append(logit_attribution)
@@ -91,8 +90,6 @@ def get_mlp_activations(
         sum_act_lens = sum(act_lens)
         weighted_mean = torch.sum(torch.stack([a*b/sum_act_lens for a, b in zip(acts, act_lens)]), dim=0)
         return weighted_mean
-
-        # return torch.mean(acts * act_lens, dim=0) / torch.sum(act_lens)
     acts = torch.concat(acts, dim=0)
     return acts
 

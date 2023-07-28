@@ -37,3 +37,19 @@ def test_weighted_mean():
     weighted_mean = haystack_utils.weighted_mean(mean_acts, [1, 2])
     
     torch.testing.assert_close(weighted_mean, torch.tensor([2/3]))
+
+
+def test_DLA():
+    model = HookedTransformer.from_pretrained("pythia-70m-v0", fold_ln=True, device="cuda")
+    test_prompts = ["chicken"]
+    logit_attributions, labels = haystack_utils.DLA(test_prompts, model)
+
+    assert logit_attributions.shape[0] == 1
+    assert logit_attributions.shape[1] == 7
+    
+
+def test_top_k_with_exclude():
+    numbers = torch.tensor([0, 1, 2, 3])
+    
+    assert torch.topk(numbers, 1) == haystack_utils.top_k_with_exclude(numbers, 1, [0])
+    assert haystack_utils.top_k_with_exclude(numbers, 2, numbers) == torch.tensor([])
