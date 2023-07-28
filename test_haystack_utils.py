@@ -20,13 +20,11 @@ def test_get_average_loss_unbatched():
 
 def test_get_average_loss_batched():
     model = HookedTransformer.from_pretrained("pythia-70m-v0", fold_ln=True, device="cuda")
-
     kde_french = haystack_utils.load_txt_data("data/kde4_french.txt")
     # token rows are of equal length and prepended with BOS
     prompts = kde_french[:5]
     tokens = model.to_tokens(prompts)[:, :10]
     prompts = model.to_string(tokens[:, 1:])  # remove BOS
-    print(prompts)
 
     loss = model(prompts, return_type="loss", loss_per_token=True)
     avg_loss = haystack_utils.get_average_loss(prompts, model, crop_context=-1, fwd_hooks=[], positionwise=False)
@@ -68,8 +66,8 @@ def test_DLA():
 
 def test_top_k_with_exclude():
     numbers = torch.tensor([0.0, 1.0, 2.0, 3.0])
-    
     values, indices = haystack_utils.top_k_with_exclude(numbers, 2, torch.tensor([2]))
+    
     torch.testing.assert_close(values, torch.tensor([3.0, 1.0]))
 
 
