@@ -126,11 +126,11 @@ def compute_and_conditions(option, type: Literal["logits", "loss"]):
     yyy_ynn_diff =  (ynn_value - yyy_value) * multiplier
     previous_diffs = yyy_ynn_diff - (yyn_ynn_diff + yny_ynn_diff)
 
-    # Group current and previous token
-    yyn_nnn_diff = (nnn_value - yyn_value) * multiplier
-    nny_nnn_diff = (nnn_value - nny_value) * multiplier 
-    yyy_nnn_diff =  (nnn_value - yyy_value) * multiplier
-    grouped_diffs = yyy_nnn_diff - (yyn_nnn_diff + nny_nnn_diff)
+    # Fix context neuron
+    yyy_nny_diff = (nny_value - yyy_value) * multiplier
+    nyy_nny_diff = (nny_value - nyy_value) * multiplier 
+    yny_nny_diff =  (nny_value - yny_value) * multiplier
+    context_diffs = yyy_nny_diff - (nyy_nny_diff + yny_nny_diff)
 
     # All groups of two features
     nyy_nnn_diff = (nnn_value - nyy_value) * multiplier
@@ -147,17 +147,17 @@ def compute_and_conditions(option, type: Literal["logits", "loss"]):
     two_feature_diffs = yyy_nnn_diff - (nyy_nnn_diff + yny_nnn_diff + yyn_nnn_diff)/2
 
     result = {
-        "yyy": yyy_value,
+        "nnn": nnn_value,
         "nny": nny_value,
         "nyn": nyn_value,
         "ynn": ynn_value,
         "nyy": nyy_value,
         "yny": yny_value,
         "yyn": yyn_value,
-        "nnn": nnn_value,
+        "yyy": yyy_value,
         "current_token_diffs": current_diffs,
         "previous_token_diffs": previous_diffs,
-        "grouped_token_diffs": grouped_diffs,
+        "context_neuron_diffs": context_diffs,
         "individiual_features_diffs": individual_diffs,
         "two_features_diffs": two_feature_diffs,
     }
@@ -167,6 +167,15 @@ def compute_and_conditions(option, type: Literal["logits", "loss"]):
 # %%
 options = ["orschlägen", " häufig", " beweglich"]
 #%%
+for type in ["loss", "logits"]:
+    all_res = {}
+    for option in options:
+    
+        all_res[option] = compute_and_conditions(option, type)
+    df = pd.DataFrame(all_res).round(2)
+    df.to_csv(f"data/and_neurons/and_conditions_{type}.csv")
+
+# %%
 all_res = {}
 for option in options:
     all_res[option] = {}
