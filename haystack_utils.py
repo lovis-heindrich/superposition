@@ -1080,7 +1080,7 @@ def effect_of_context_and_mlp_4_on_neurons_vs_just_context(prompt: str, model:Ho
 
 def get_direct_effect(prompt: str | list[str], model: HookedTransformer, context_ablation_hooks: list, context_activation_hooks: list, pos: int | None = -1,
                       deactivated_components=("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.4.hook_mlp_out"),
-                      activated_components=("blocks.5.hook_mlp_out",), return_type: Literal['logits', 'logprobs', 'loss'] = 'loss'
+                      activated_components=("blocks.5.hook_mlp_out",), return_type: Literal['logits', 'logprobs', 'loss', "cache"] = 'loss'
 ):
     """ Direct MLP5 effect
 
@@ -1112,6 +1112,13 @@ def get_direct_effect(prompt: str | list[str], model: HookedTransformer, context
     with model.hooks(fwd_hooks=deactivate_components_hooks+context_activation_hooks):
         context_and_activated_metric, context_and_activated_cache = model.run_with_cache(prompt, return_type=metric_return_type, loss_per_token=True)
 
+    if return_type == "cache":
+        pre_ablated_cache = ablated_cache["pre", 5]
+        post_ablated_cache = ablated_cache["post", 5]
+        pre_cache = context_and_activated_cache["pre", 5]
+        post_cache = context_and_activated_cache["post", 5]
+        return {"hook_pre": pre_ablated_cache, "hook_post": post_ablated_cache}, {"hook_pre": pre_cache, "hook_post": post_cache}
+    
     # 3. Deactivate context neuron, patch context neuron into activated_components, deactivate deactivated_components (doesn't matter when looking at MLP5)
     def activate_components_hook(value, hook: HookPoint):
         value = context_and_activated_cache[hook.name]
@@ -1450,7 +1457,7 @@ def get_residual_trigram_directions(prompt_tuple, model, layer, ):
 
     return prev_token_direction, curr_token_direction
 
-def get_trigram_neuron_activations(prompt_tuple, model, deactivate_neurons_fwd_hooks, layer=5, mlp_hook="hook_pre"):
+def get_trigram_neuron_activations(prompt_tuple, model, activate_neurons_fwd_hooks, deactivate_neurons_fwd_hooks, layer=5, mlp_hook="hook_pre"):
 
     cache_name = F"blocks.{layer}.mlp.{mlp_hook}"
     neurons = torch.LongTensor([i for i in range(2048)])
@@ -1473,15 +1480,11 @@ def get_trigram_neuron_activations(prompt_tuple, model, deactivate_neurons_fwd_h
         return data
 
     def get_mean_activations(prompts):
-        with model.hooks([(cache_name, save_activation)]):
-            model.run_with_hooks(prompts)
-            act_original = model.hook_dict[cache_name].ctx['activation']
-            act_original = act_original[:, -2].mean(0)
-
-        with model.hooks(fwd_hooks=deactivate_neurons_fwd_hooks+[(cache_name, save_activation)]):
-            model.run_with_hooks(prompts)
-            act_ablated = model.hook_dict[cache_name].ctx['activation']
-            act_ablated = act_ablated[:, -2].mean(0)
+        cache_ablated, cache_patched = get_direct_effect(prompts, model, 
+            context_ablation_hooks=deactivate_neurons_fwd_hooks, context_activation_hooks=activate_neurons_fwd_hooks, return_type="cache")
+        
+        act_original = cache_patched[mlp_hook][:, -2].mean(0)
+        act_ablated = cache_ablated[mlp_hook][:, -2].mean(0)
         return act_original, act_ablated
 
     full_prompts, test_prompts_prev, random_prompts_prev, test_prompts_curr, random_prompts_curr = prompt_tuple
@@ -1595,14 +1598,14 @@ def split_tokens_with_space(tokens: Tensor, model: HookedTransformer) -> tuple[T
     continuation_tokens = torch.stack(continuation_tokens)
     return new_word_tokens, continuation_tokens
 
-def activation_data_frame(ngram: str, prompts: Tensor, model: HookedTransformer, common_tokens: Tensor, deactivate_neurons_fwd_hooks: list[tuple[str, Callable]], layer=5, mlp_hook="hook_pre") -> pd.DataFrame:
+def activation_data_frame(ngram: str, prompts: Tensor, model: HookedTransformer, common_tokens: Tensor, activate_neurons_fwd_hooks, deactivate_neurons_fwd_hooks: list[tuple[str, Callable]], layer=5, mlp_hook="hook_pre") -> pd.DataFrame:
     new_word_tokens, continuation_tokens = split_tokens_with_space(common_tokens, model)
     if ngram.startswith(" "):
         prompt_tuple = get_trigram_prompts(prompts, new_word_tokens, continuation_tokens)
     else:
         prompt_tuple = get_trigram_prompts(prompts, continuation_tokens, continuation_tokens)
 
-    df = get_trigram_neuron_activations(prompt_tuple, model, deactivate_neurons_fwd_hooks ,layer, mlp_hook=mlp_hook)
+    df = get_trigram_neuron_activations(prompt_tuple, model, activate_neurons_fwd_hooks, deactivate_neurons_fwd_hooks ,layer, mlp_hook=mlp_hook)
     return df
 
 def get_mean_neuron_activations(neurons: list[(int, int)], data: list[str], model: HookedTransformer):
