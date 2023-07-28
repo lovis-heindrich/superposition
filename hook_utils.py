@@ -2,6 +2,8 @@ from typing import Literal
 import torch
 from jaxtyping import Int, Float
 from torch import Tensor
+from typing import NamedTuple
+
 
 def get_ablate_mlp_neurons_hook(neurons, layer, cache):
     def ablate_neurons_hook(value, hook):
@@ -24,6 +26,13 @@ def get_mean_ablate_neuron_hook(layer: int, neuron: int | Int[Tensor, "n"], act_
         return value
     return (f'blocks.{layer}.mlp.hook_{hook_point}', neuron_hook)
 
+
+class ContextNeuron(NamedTuple):
+    layer: int
+    neuron: int
+    activation: float
+    deactivation: float
+    
 def get_mean_ablate_context_neurons_hooks(context_neurons: list[tuple[int, int]], mean_activations: list[float]):
     hooks = []
     # Group neurons by layer

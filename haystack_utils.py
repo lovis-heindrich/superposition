@@ -77,7 +77,7 @@ def get_mlp_activations(
     for i in tqdm(range(num_prompts)):
         tokens = model.to_tokens(prompts[i])
         with model.hooks([(act_label, save_activation)]):
-            model.run_with_hooks(tokens)
+            model(tokens)
             act = model.hook_dict[act_label].ctx['activation'][:, context_crop_start:context_crop_end, :]
         if pos is not None:
             act = act[:, pos, neurons].unsqueeze(1)
@@ -1491,12 +1491,12 @@ def get_trigram_neuron_activations(prompt_tuple, model, deactivate_neurons_fwd_h
 
     def get_mean_activations(prompts):
         with model.hooks([(cache_name, save_activation)]):
-            model.run_with_hooks(prompts)
+            model(prompts)
             act_original = model.hook_dict[cache_name].ctx['activation']
             act_original = act_original[:, -2].mean(0)
 
         with model.hooks(fwd_hooks=deactivate_neurons_fwd_hooks+[(cache_name, save_activation)]):
-            model.run_with_hooks(prompts)
+            model(prompts)
             act_ablated = model.hook_dict[cache_name].ctx['activation']
             act_ablated = act_ablated[:, -2].mean(0)
         return act_original, act_ablated
