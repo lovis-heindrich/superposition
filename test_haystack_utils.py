@@ -34,6 +34,6 @@ def test_get_average_loss_batched():
 
 def test_weighted_mean():
     mean_acts = [torch.tensor([0.0]), torch.tensor([1.0])]
-
     weighted_mean = haystack_utils.weighted_mean(mean_acts, [1, 2])
+    
     torch.testing.assert_close(weighted_mean, torch.tensor([2/3]))

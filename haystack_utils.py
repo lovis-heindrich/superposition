@@ -48,7 +48,7 @@ def get_mlp_activations(
     mean=True,
     hook_pre = False,
     pos=None,
-    neurons: Tensor | None = None,
+    neurons: Int[Tensor, "n_neurons"] | None = None,
 ) -> Float[Tensor, "num_activations d_mlp"]:
     """Runs the model through a list of prompts and stores the mlp activations for a given layer. Might be slow for large batches as examples are run one by one.
 
@@ -63,16 +63,18 @@ def get_mlp_activations(
     Returns:
         Float[Tensor, "num_activations d_mlp"]: Stacked activations for each prompt and position.
     """
-    neurons = neurons or torch.arange(model.cfg.d_mlp)
     acts = []
+    if mean:
+        act_lens = []
+
     if hook_pre:
         act_label = f"blocks.{layer}.mlp.hook_pre"
     else:
         act_label = f"blocks.{layer}.mlp.hook_post"
-
+    neurons = neurons or torch.arange(model.cfg.d_mlp)
     if num_prompts == -1:
         num_prompts = len(prompts)
-    act_lens = []
+
     for i in tqdm(range(num_prompts)):
         tokens = model.to_tokens(prompts[i])
         with model.hooks([(act_label, save_activation)]):
@@ -94,12 +96,14 @@ def get_mlp_activations(
     acts = torch.concat(acts, dim=0)
     return acts
 
+
 def weighted_mean(mean_acts: list[Float[Tensor, "n_acts n_neurons"]], batch_sizes: list[int]):
-    """per neuron weighted mean"""
+    """global mean of means, determined using the batch size used to calculate each mean"""
     sum_act_lens = sum(batch_sizes)
     normalized_means = [a*b/sum_act_lens for a, b in zip(mean_acts, batch_sizes)]
     weighted_mean = torch.sum(torch.stack(normalized_means), dim=0)
     return weighted_mean
+
 
 def get_average_loss(data: List[str], model: HookedTransformer, crop_context=-1, fwd_hooks=[], positionwise=False):
     """
