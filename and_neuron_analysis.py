@@ -105,7 +105,7 @@ def process_data_frame(ngram:str, batch=400):
     pos_sim = haystack_utils.union_where([prev_token_sim, curr_token_sim, context_sim], 0.02)
     neg_sim = haystack_utils.union_where([prev_token_sim, curr_token_sim, context_sim], 0.02, greater=False)
 
-    df = haystack_utils.get_trigram_neuron_activations(prompt_tuple, model, deactivate_neurons_fwd_hooks ,5)
+    df = haystack_utils.get_trigram_neuron_activations(prompt_tuple, model, activate_neurons_fwd_hooks, deactivate_neurons_fwd_hooks ,5)
 
     df["PrevTokenSim"] = prev_token_sim.cpu().numpy()
     df["CurrTokenSim"] = curr_token_sim.cpu().numpy()

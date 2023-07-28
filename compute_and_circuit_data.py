@@ -26,13 +26,10 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 torch.autograd.set_grad_enabled(False)
 torch.set_grad_enabled(False)
 
-from haystack_utils import get_mlp_activations
 import haystack_utils
 
 %reload_ext autoreload
 %autoreload 2
-
-haystack_utils.clean_cache()
 #%%
 
 model = HookedTransformer.from_pretrained("EleutherAI/pythia-70m",
@@ -60,18 +57,46 @@ new_word_tokens = torch.stack(new_word_tokens)
 continuation_tokens = torch.stack(continuation_tokens)
 
 context_direction = model.W_out[3, 669, :]
+
+
+# %%
+# %%
+# all_prompts = {}
+# for option in tqdm(options):
+#     # Create global prompts
+#     option_prompts = haystack_utils.generate_random_prompts(option, model, common_tokens, 5000, length=20).cpu()
+#     all_prompts[option] = option_prompts
+
+# Only overwrite if really needed!
+# with open("data/prompts.pkl", "wb") as f:
+#     pickle.dump(all_prompts, f)
+
+with open("data/prompts.pkl", "rb") as f:
+    all_prompts = pickle.load(f)
 # %%
 def compute_and_conditions(option, type: Literal["logits", "loss"]):
     ANSWER_TOKEN_ID = model.to_tokens(option).flatten()[-1].item()
-    prompts = haystack_utils.generate_random_prompts(option, model, common_tokens, 1000, length=20)
+    prompts = all_prompts[option][:1000]
     multiplier = 1 if type == "loss" else -1
 
-    def get_value(prompts):
-        if type == "logits":
-            value = model(prompts, return_type="logits", loss_per_token=True)[:, -2, ANSWER_TOKEN_ID].mean().item()
-        elif type == "loss":
-            value = model(prompts, return_type="loss", loss_per_token=True)[:, -1].mean().item()
-        return value
+    def get_value(prompts, activated=False):
+        if activated:
+            if type == "logits":
+                _, _, _, value = haystack_utils.get_direct_effect(prompts, model, 
+                        context_ablation_hooks=deactivate_neurons_fwd_hooks, context_activation_hooks=activate_neurons_fwd_hooks,
+                        return_type=type, pos=-2)
+                return value[:, ANSWER_TOKEN_ID].mean().item()
+            elif type == "loss":
+                _, _, _, value = haystack_utils.get_direct_effect(prompts, model, 
+                        context_ablation_hooks=deactivate_neurons_fwd_hooks, context_activation_hooks=activate_neurons_fwd_hooks,
+                        return_type=type, pos=-1)
+                return value.mean().item()
+        with model.hooks(fwd_hooks=deactivate_neurons_fwd_hooks):
+            if type == "logits":
+                return model(prompts, return_type="logits", loss_per_token=True)[:, -2, ANSWER_TOKEN_ID].mean().item()
+            elif type == "loss":
+                return model(prompts, return_type="loss", loss_per_token=True)[:, -1].mean().item()
+
     
     # COMPUTE AND CONDITIONS
     # Fix current token
@@ -79,22 +104,27 @@ def compute_and_conditions(option, type: Literal["logits", "loss"]):
     ablated_prompts_yn = haystack_utils.create_ablation_prompts(prompts, "YNY", common_tokens)
     ablated_prompts_nn = haystack_utils.create_ablation_prompts(prompts, "NNY", common_tokens)
 
-    yyy_value = get_value(prompts)
-    nyy_value = get_value(ablated_prompts_ny)
-    yny_value = get_value(ablated_prompts_yn)
-    nny_value = get_value(ablated_prompts_nn)
+    yyy_value = get_value(prompts, activated=True)
+    nyy_value = get_value(ablated_prompts_ny, activated=True)
+    yny_value = get_value(ablated_prompts_yn, activated=True)
+    nny_value = get_value(ablated_prompts_nn, activated=True)
 
-    with model.hooks(fwd_hooks=deactivate_neurons_fwd_hooks):
-        yyn_value = get_value(prompts)
-        nyn_value = get_value(ablated_prompts_ny)
-        ynn_value = get_value(ablated_prompts_yn)
-        nnn_value = get_value(ablated_prompts_nn)
+    yyn_value = get_value(prompts, activated=False)
+    nyn_value = get_value(ablated_prompts_ny, activated=False)
+    ynn_value = get_value(ablated_prompts_yn, activated=False)
+    nnn_value = get_value(ablated_prompts_nn, activated=False)
 
     # Fix current token
     yyn_nyn_diff = (nyn_value - yyn_value) * multiplier
     nyy_nyn_diff = (nyn_value - nyy_value) * multiplier
     yyy_nyn_diff =  (nyn_value - yyy_value) * multiplier
     current_diffs = yyy_nyn_diff - (yyn_nyn_diff + nyy_nyn_diff)
+
+    # Fix previous token
+    yyn_ynn_diff = (ynn_value - yyn_value) * multiplier
+    yny_ynn_diff = (ynn_value - yny_value) * multiplier
+    yyy_ynn_diff =  (ynn_value - yyy_value) * multiplier
+    previous_diffs = yyy_ynn_diff - (yyn_ynn_diff + yny_ynn_diff)
 
     # Group current and previous token
     yyn_nnn_diff = (nnn_value - yyn_value) * multiplier
@@ -126,6 +156,7 @@ def compute_and_conditions(option, type: Literal["logits", "loss"]):
         "yyn": yyn_value,
         "nnn": nnn_value,
         "current_token_diffs": current_diffs,
+        "previous_token_diffs": previous_diffs,
         "grouped_token_diffs": grouped_diffs,
         "individiual_features_diffs": individual_diffs,
         "two_features_diffs": two_feature_diffs,
@@ -147,22 +178,6 @@ for option in options:
 with open("data/and_neurons/and_conditions.json", "w") as f:
     json.dump(all_res, f, indent=4)
 
-# %%
-
-
-# %%
-# all_prompts = {}
-# for option in tqdm(options):
-#     # Create global prompts
-#     option_prompts = haystack_utils.generate_random_prompts(option, model, common_tokens, 5000, length=20).cpu()
-#     all_prompts[option] = option_prompts
-
-# Only overwrite if really needed!
-# with open("data/prompts.pkl", "wb") as f:
-#     pickle.dump(all_prompts, f)
-
-with open("data/prompts.pkl", "rb") as f:
-    all_prompts = pickle.load(f)
 
 # %% 
 
@@ -186,11 +201,11 @@ def normalize_df(df, hook_name):
 dfs = {}
 for option in tqdm(options):
     dfs[option] = {}
-    prompts = all_prompts[option][:2000]
+    prompts = all_prompts[option][:1000]
     for hook_name in ["hook_pre", "hook_post"]:
         dfs[option][hook_name] = {}
         for scale in [True, False]:
-            df = haystack_utils.activation_data_frame(option, prompts, model, common_tokens, deactivate_neurons_fwd_hooks, mlp_hook=hook_name)
+            df = haystack_utils.activation_data_frame(option, prompts, model, common_tokens, activate_neurons_fwd_hooks, deactivate_neurons_fwd_hooks, mlp_hook=hook_name)
             if scale:
                 df = normalize_df(df, hook_name)
             dfs[option][hook_name]["Scaled" if scale else "Unscaled"] = df
@@ -207,14 +222,17 @@ for option in options:
             df["Two Features (diff)"] = (df["YYY"] - df["NNN"]) - ((df["YNY"] - df["NNN"]) + (df["NYY"] - df["NNN"]) + (df["YYN"] - df["NNN"]))/2
             df["Single Features (diff)"] = (df["YYY"] - df["NNN"]) - ((df["YNN"] - df["NNN"]) + (df["NYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))
             df["Current Token (diff)"] = ((df["YYY"] - df["NYN"]) - ((df["YYN"] - df["NYN"]) + (df["NYY"] - df["NYN"])))
+            df["Previous Token (diff)"] = ((df["YYY"] - df["YNN"]) - ((df["YYN"] - df["YNN"]) + (df["YNY"] - df["YNN"])))
             df["Grouped Tokens (diff)"] = ((df["YYY"] - df["NNN"]) - ((df["YYN"] - df["NNN"]) + (df["NNY"] - df["NNN"])))
             df["Two Features (AND)"] = ((df["YYY"] - df["NNN"]) > ((df["YNY"] - df["NNN"]) + (df["NYY"] - df["NNN"]) + (df["YYN"] - df["NNN"]))/2) & (df["YYY"]>0)
             df["Single Features (AND)"] = ((df["YYY"] - df["NNN"]) > ((df["YNN"] - df["NNN"]) + (df["NYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))) & (df["YYY"]>0)
             df["Current Token (AND)"] = ((df["YYY"] - df["NYN"]) > ((df["YYN"] - df["NYN"]) + (df["NYY"] - df["NYN"]))) & (df["YYY"]>0)
+            df["Previous Token (AND)"] = ((df["YYY"] - df["YNN"]) > ((df["YYN"] - df["YNN"]) + (df["YNY"] - df["YNN"]))) & (df["YYY"]>0)
             df["Grouped Tokens (AND)"] = ((df["YYY"] - df["NNN"]) > ((df["YYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))) & (df["YYY"]>0)
             df["Two Features (NEG AND)"] = ((df["YYY"] - df["NNN"]) < ((df["YNY"] - df["NNN"]) + (df["NYY"] - df["NNN"]) + (df["YYN"] - df["NNN"]))/2) & (df["NNN"]>0)
             df["Single Features (NEG AND)"] = ((df["YYY"] - df["NNN"]) < ((df["YNN"] - df["NNN"]) + (df["NYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))) & (df["NNN"]>0)
             df["Current Token (NEG AND)"] = ((df["YYY"] - df["NYN"]) < ((df["YYN"] - df["NYN"]) + (df["NYY"] - df["NYN"]))) & (df["NNN"]>0)
+            df["Previous Token (NEG AND)"] = ((df["YYY"] - df["YNN"]) < ((df["YYN"] - df["YNN"]) + (df["YNY"] - df["YNN"]))) & (df["NNN"]>0)
             df["Grouped Tokens (NEG AND)"] = ((df["YYY"] - df["NNN"]) < ((df["YYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))) & (df["NNN"]>0)
             df["Greater Than All"] = (df["YYY"] > df["NNN"]) & (df["YYY"] > df["YNN"]) & (df["YYY"] > df["NYN"]) & (df["YYY"] > df["NNY"]) & (df["YYY"] > df["YYN"]) & (df["YYY"] > df["NYY"]) & (df["YYY"] > df["YNY"])
             df["Smaller Than All"] = (df["YYY"] < df["NNN"]) & (df["YYY"] < df["YNN"]) & (df["YYY"] < df["NYN"]) & (df["YYY"] < df["NNY"]) & (df["YYY"] < df["YYN"]) & (df["YYY"] < df["NYY"]) & (df["YYY"] < df["YNY"])
@@ -266,7 +284,7 @@ for option in tqdm(options):
                     "Original": original_loss,
                     "All Ablated": all_ablated_loss,
                 }
-                for feature_mode in ["Two Features", "Single Features", "Current Token", "Grouped Tokens"]:
+                for feature_mode in ["Two Features", "Single Features", "Current Token", "Previous Token", "Grouped Tokens"]:
                     if include_mode == "Greater Positive":
                         neurons = df[df[feature_mode + " (AND)"] & df["Greater Than All"]].index
                     elif include_mode == "All Positive":
