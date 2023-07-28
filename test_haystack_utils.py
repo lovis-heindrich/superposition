@@ -2,6 +2,8 @@ import torch
 import haystack_utils
 from transformer_lens import HookedTransformer
 
+import hook_utils
+
 
 def test_get_average_loss_unbatched():
     model = HookedTransformer.from_pretrained("pythia-70m-v0", fold_ln=True, device="cuda")
@@ -53,3 +55,40 @@ def test_top_k_with_exclude():
     
     assert torch.topk(numbers, 1) == haystack_utils.top_k_with_exclude(numbers, 1, [0])
     assert haystack_utils.top_k_with_exclude(numbers, 2, numbers) == torch.tensor([])
+
+
+def test_get_direct_effect_does_nothing_without_hooks():
+    test_prompt = "chicken"
+    model = HookedTransformer.from_pretrained("pythia-70m-v0", fold_ln=True, device="cuda")
+
+    original_loss, ablated_loss, direct_and_activated_loss, activated_loss = haystack_utils.get_direct_effect(test_prompt, model, [], [],
+                                    deactivated_components=("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.4.hook_mlp_out"),
+                                    activated_components=("blocks.5.hook_mlp_out",), return_type = 'loss')
+
+    assert isinstance(original_loss, float)
+    assert all(loss == original_loss for loss in [ablated_loss, direct_and_activated_loss, activated_loss])
+    
+
+def test_get_direct_effect_batched():
+    test_prompts = ["chicken", "chicken"]
+    model = HookedTransformer.from_pretrained("pythia-70m-v0", fold_ln=True, device="cuda")
+
+    original_loss, ablated_loss, direct_and_activated_loss, activated_loss = haystack_utils.get_direct_effect(test_prompts, model, [], [],
+                                    deactivated_components=("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.4.hook_mlp_out"),
+                                    activated_components=("blocks.5.hook_mlp_out",), return_type = 'loss')
+
+    assert isinstance(original_loss, torch.Tensor)
+    assert all(loss[0] == original_loss[0] for loss in [ablated_loss, direct_and_activated_loss, activated_loss])
+
+    
+def test_get_direct_effect_hooked():
+    test_prompt = "chicken"
+    hooks = hook_utils.get_mean_ablate_neuron_hook(3, 669, -0.2, 'post')
+    model = HookedTransformer.from_pretrained("pythia-70m", fold_ln=True, device="cuda")
+
+    original_loss, ablated_loss, direct_and_activated_loss, activated_loss = haystack_utils.get_direct_effect(test_prompt, model, hooks, [],
+                                    deactivated_components=("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.4.hook_mlp_out"),
+                                    activated_components=("blocks.5.hook_mlp_out",), return_type = 'loss')
+
+    assert isinstance(original_loss, torch.Tensor)
+    assert all(loss[0] != original_loss[0] for loss in [ablated_loss, direct_and_activated_loss, activated_loss])
