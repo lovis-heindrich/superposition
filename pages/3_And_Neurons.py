@@ -28,8 +28,8 @@ def load_data():
 
 dfs, ablation_losses, and_conditions = load_data()
 
-hook_select = st.sidebar.selectbox(label="Select between pre-gelu activations and post-gelu activations", options=["hook_pre", "hook_post"], index=0)
-scale_select = st.sidebar.selectbox(label="Select between scaled activation or original activation values", options=["Scaled", "Unscaled"], index=0)
+hook_select = st.sidebar.selectbox(label="Select between pre-gelu activations and post-gelu activations", options=["hook_pre", "hook_post"], index=1)
+scale_select = st.sidebar.selectbox(label="Select between scaled activation or original activation values", options=["Scaled", "Unscaled"], index=1)
 
 df = dfs[option][hook_select][scale_select]
 
@@ -111,8 +111,8 @@ else:
 
 
 and_condition_data = and_conditions[option][data_select_index]
-data_indices = ["current_token_diffs", "grouped_token_diffs", "individiual_features_diffs", "two_features_diffs"]
-plot_names = ["Current token", "Grouped tokens", "Single features", "Two features"]
+data_indices = ["current_token_diffs", "previous_token_diffs", "context_neuron_diffs", "individiual_features_diffs", "two_features_diffs"]
+plot_names = ["Fix Current", "Fix Previous", "Fix Context", "Single features", "Two features"]
 plot_data = [[and_condition_data[index]] for index in data_indices]
 plot = plotting_utils.plot_barplot(plot_data, plot_names, ylabel=data_select,show=False, legend=False, width=600)
 st.plotly_chart(plot)
