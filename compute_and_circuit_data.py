@@ -74,8 +74,8 @@ with open("data/prompts.pkl", "rb") as f:
     all_prompts = pickle.load(f)
 
 # %%
-PROMPT_START, PROMPT_END = 0, 1000
-file_name_append = "_0"
+PROMPT_START, PROMPT_END = 2000, 3000
+file_name_append = "_2000"
 # %%
 def compute_and_conditions(option, type: Literal["logits", "loss"]):
     ANSWER_TOKEN_ID = model.to_tokens(option).flatten()[-1].item()

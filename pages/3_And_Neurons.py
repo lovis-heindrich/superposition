@@ -17,13 +17,15 @@ option = st.sidebar.selectbox(
     tokens, index=0)
 
 run_select = st.sidebar.selectbox(
-    "Select run", options=["Run 1", "Run 2"], index=0
+    "Select run", options=["Run 1", "Run 2", "Run 3"], index=0
 )
 
-if run_select == "Run 2":
+if run_select == "Run 1":
+    file_name_append = "_0"
+elif run_select == "Run 2":
     file_name_append = "_1000"
 else:
-    file_name_append = ""
+    file_name_append = "_2000"
 
 #@st.cache_data
 def load_data():
