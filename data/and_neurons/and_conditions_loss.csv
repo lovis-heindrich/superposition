@@ -1,14 +1,14 @@
 ,orschlägen, häufig, beweglich
-yyy,2.1,0.21,5.51
-nny,9.68,13.52,14.1
-nyn,3.64,10.29,9.25
-ynn,10.9,12.52,13.81
-nyy,3.9,8.64,7.92
-yny,10.36,11.28,13.35
-yyn,3.38,1.24,7.72
-nnn,10.08,14.56,14.63
-current_token_diffs,1.55,-0.62,0.88
-previous_token_diffs,0.74,-0.21,1.75
-context_neuron_diffs,2.48,6.19,1.66
-individiual_features_diffs,1.96,7.0,2.38
-two_features_diffs,1.68,3.09,1.67
+NNN,10.22,14.62,14.74
+NNY,9.82,13.59,14.2
+NYN,3.59,10.28,9.31
+YNN,11.08,12.71,13.73
+NYY,3.84,8.64,7.99
+YNY,10.54,11.46,13.27
+YYN,3.38,1.24,7.72
+YYY,2.1,0.21,5.51
+Fix Current,1.54,-0.6,0.89
+Fix Previous,0.75,-0.22,1.75
+Fix Context,2.47,6.31,1.56
+Single Feature,1.96,7.13,2.26
+Two Features,1.68,3.15,1.61
