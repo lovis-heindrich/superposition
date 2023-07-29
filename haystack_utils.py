@@ -19,6 +19,8 @@ from pathlib import Path
 import json
 import pandas as pd
 
+import hook_utils
+
 
 def DLA(prompts: List[str], model: HookedTransformer) -> tuple[Float[Tensor, "component"], list[str]]:
     logit_attributions = []
@@ -1583,14 +1585,17 @@ def create_ablation_prompts(prompts, ablation_mode, common_tokens):
         prompts = replace_column(prompts, -2, common_tokens)
     return prompts
 
-def compute_mlp_loss(prompts, model, df, neurons, ablate_mode="NNN", layer=5, compute_original_loss=False):
-
+def compute_mlp_loss(
+    prompts: str | list[str] | Int[Tensor, "batch pos"], 
+    model: HookedTransformer, 
+    df: pd.DataFrame,
+    neurons: Int[Tensor, "n_neurons"], 
+    ablate_mode="NNN", 
+    layer=5, 
+    compute_original_loss=False
+):
     mean_activations = torch.Tensor(df[df.index.isin(neurons.tolist())][ablate_mode].tolist()).cuda()
-    def ablate_mlp_hook(value, hook):
-        value[:, :, neurons] = mean_activations
-        return value
-
-    with model.hooks(fwd_hooks=[(f"blocks.{layer}.mlp.hook_pre", ablate_mlp_hook)]):
+    with model.hooks([hook_utils.get_ablate_neuron_hook(layer, neurons, mean_activations, 'pre')]):
         ablated_loss = model(prompts, return_type="loss", loss_per_token=True)[:, -1].mean().item()
 
     if compute_original_loss:
