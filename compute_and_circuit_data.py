@@ -60,7 +60,6 @@ context_direction = model.W_out[3, 669, :]
 
 
 # %%
-# %%
 # all_prompts = {}
 # for option in tqdm(options):
 #     # Create global prompts
@@ -73,10 +72,14 @@ context_direction = model.W_out[3, 669, :]
 
 with open("data/prompts.pkl", "rb") as f:
     all_prompts = pickle.load(f)
+
+# %%
+PROMPT_START, PROMPT_END = 2000, 3000
+file_name_append = "_2000"
 # %%
 def compute_and_conditions(option, type: Literal["logits", "loss"]):
     ANSWER_TOKEN_ID = model.to_tokens(option).flatten()[-1].item()
-    prompts = all_prompts[option][:1000]
+    prompts = all_prompts[option][PROMPT_START:PROMPT_END]
     multiplier = 1 if type == "loss" else -1
 
     def get_value(prompts, activated=False):
@@ -173,25 +176,10 @@ for type in ["loss", "logits"]:
     
         all_res[option] = compute_and_conditions(option, type)
     df = pd.DataFrame(all_res).round(2)
-    df.to_csv(f"data/and_neurons/and_conditions_{type}.csv")
-
-# %%
-all_res = {}
-for option in options:
-    all_res[option] = {}
-    for type in ["loss", "logits"]:
-        result = compute_and_conditions(option, type)
-        all_res[option][type] = result
-        
-# %%
-with open("data/and_neurons/and_conditions.json", "w") as f:
-    json.dump(all_res, f, indent=4)
+    df.to_csv(f"data/and_neurons/and_conditions_{type}{file_name_append}.csv")
 
 
 # %% 
-
-# SCALING
-
 # Get average activation for each neuron on random German prompts
 pre_act = haystack_utils.get_mlp_activations(german_data, 5, model, 200, hook_pre=True, mean=False)
 post_act = haystack_utils.get_mlp_activations(german_data, 5, model, 200, hook_pre=False, mean=False)
@@ -210,7 +198,7 @@ def normalize_df(df, hook_name):
 dfs = {}
 for option in tqdm(options):
     dfs[option] = {}
-    prompts = all_prompts[option][:1000]
+    prompts = all_prompts[option][PROMPT_START:PROMPT_END]
     for hook_name in ["hook_pre", "hook_post"]:
         dfs[option][hook_name] = {}
         for scale in [True, False]:
@@ -219,7 +207,7 @@ for option in tqdm(options):
                 df = normalize_df(df, hook_name)
             dfs[option][hook_name]["Scaled" if scale else "Unscaled"] = df
 # %%
-with open("data/and_neurons/activation_dfs.pkl", "wb") as f:
+with open(f"data/and_neurons/activation_dfs{file_name_append}.pkl", "wb") as f:
     pickle.dump(dfs, f)
 # %%
 
@@ -232,27 +220,27 @@ for option in options:
             df["Single Features (diff)"] = (df["YYY"] - df["NNN"]) - ((df["YNN"] - df["NNN"]) + (df["NYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))
             df["Current Token (diff)"] = ((df["YYY"] - df["NYN"]) - ((df["YYN"] - df["NYN"]) + (df["NYY"] - df["NYN"])))
             df["Previous Token (diff)"] = ((df["YYY"] - df["YNN"]) - ((df["YYN"] - df["YNN"]) + (df["YNY"] - df["YNN"])))
-            df["Grouped Tokens (diff)"] = ((df["YYY"] - df["NNN"]) - ((df["YYN"] - df["NNN"]) + (df["NNY"] - df["NNN"])))
+            df["Context Neuron (diff)"] = ((df["YYY"] - df["NNY"]) - ((df["YNY"] - df["NNY"]) + (df["NYY"] - df["NNY"])))
             df["Two Features (AND)"] = ((df["YYY"] - df["NNN"]) > ((df["YNY"] - df["NNN"]) + (df["NYY"] - df["NNN"]) + (df["YYN"] - df["NNN"]))/2) & (df["YYY"]>0)
             df["Single Features (AND)"] = ((df["YYY"] - df["NNN"]) > ((df["YNN"] - df["NNN"]) + (df["NYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))) & (df["YYY"]>0)
             df["Current Token (AND)"] = ((df["YYY"] - df["NYN"]) > ((df["YYN"] - df["NYN"]) + (df["NYY"] - df["NYN"]))) & (df["YYY"]>0)
             df["Previous Token (AND)"] = ((df["YYY"] - df["YNN"]) > ((df["YYN"] - df["YNN"]) + (df["YNY"] - df["YNN"]))) & (df["YYY"]>0)
-            df["Grouped Tokens (AND)"] = ((df["YYY"] - df["NNN"]) > ((df["YYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))) & (df["YYY"]>0)
+            df["Context Neuron (AND)"] = ((df["YYY"] - df["NNY"]) > ((df["YNY"] - df["NNY"]) + (df["NYY"] - df["NNY"]))) & (df["YYY"]>0)
             df["Two Features (NEG AND)"] = ((df["YYY"] - df["NNN"]) < ((df["YNY"] - df["NNN"]) + (df["NYY"] - df["NNN"]) + (df["YYN"] - df["NNN"]))/2) & (df["NNN"]>0)
             df["Single Features (NEG AND)"] = ((df["YYY"] - df["NNN"]) < ((df["YNN"] - df["NNN"]) + (df["NYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))) & (df["NNN"]>0)
             df["Current Token (NEG AND)"] = ((df["YYY"] - df["NYN"]) < ((df["YYN"] - df["NYN"]) + (df["NYY"] - df["NYN"]))) & (df["NNN"]>0)
             df["Previous Token (NEG AND)"] = ((df["YYY"] - df["YNN"]) < ((df["YYN"] - df["YNN"]) + (df["YNY"] - df["YNN"]))) & (df["NNN"]>0)
-            df["Grouped Tokens (NEG AND)"] = ((df["YYY"] - df["NNN"]) < ((df["YYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))) & (df["NNN"]>0)
+            df["Context Neuron (NEG AND)"] =((df["YYY"] - df["NNY"]) < ((df["YNY"] - df["NNY"]) + (df["NYY"] - df["NNY"]))) & (df["NNN"]>0)
             df["Greater Than All"] = (df["YYY"] > df["NNN"]) & (df["YYY"] > df["YNN"]) & (df["YYY"] > df["NYN"]) & (df["YYY"] > df["NNY"]) & (df["YYY"] > df["YYN"]) & (df["YYY"] > df["NYY"]) & (df["YYY"] > df["YNY"])
             df["Smaller Than All"] = (df["YYY"] < df["NNN"]) & (df["YYY"] < df["YNN"]) & (df["YYY"] < df["NYN"]) & (df["YYY"] < df["NNY"]) & (df["YYY"] < df["YYN"]) & (df["YYY"] < df["NYY"]) & (df["YYY"] < df["YNY"])
             dfs[option][hook_name]["Scaled" if scale else "Unscaled"] = df
 
-with open("data/and_neurons/activation_dfs.pkl", "wb") as f:
+with open(f"data/and_neurons/activation_dfs{file_name_append}.pkl", "wb") as f:
     pickle.dump(dfs, f)
 # %%
 
 for option in tqdm(options):
-    prompts = all_prompts[option][:1000]
+    prompts = all_prompts[option][PROMPT_START:PROMPT_END]
 
     # Ablation loss should be identical for all settings
     df = dfs[option]["hook_post"]["Unscaled"]
@@ -273,7 +261,7 @@ for option in tqdm(options):
             df["AblationLossIncrease"] = ablation_loss_increase
             dfs[option][hook_name]["Scaled" if scale else "Unscaled"] = df
 
-with open("data/and_neurons/activation_dfs.pkl", "wb") as f:
+with open(f"data/and_neurons/activation_dfs{file_name_append}.pkl", "wb") as f:
     pickle.dump(dfs, f)
 # %%
 
@@ -281,7 +269,7 @@ with open("data/and_neurons/activation_dfs.pkl", "wb") as f:
 all_losses = {}
 for option in tqdm(options):
     all_losses[option] = {}
-    prompts = all_prompts[option][:1000]
+    prompts = all_prompts[option][PROMPT_START:PROMPT_END]
     for hook_name in ["hook_pre", "hook_post"]:
         all_losses[option][hook_name] = {}
         for scale in [True, False]:
@@ -293,7 +281,7 @@ for option in tqdm(options):
                     "Original": original_loss,
                     "All Ablated": all_ablated_loss,
                 }
-                for feature_mode in ["Two Features", "Single Features", "Current Token", "Previous Token", "Grouped Tokens"]:
+                for feature_mode in ["Two Features", "Single Features", "Current Token", "Previous Token", "Context Neuron"]:
                     if include_mode == "Greater Positive":
                         neurons = df[df[feature_mode + " (AND)"] & df["Greater Than All"]].index
                     elif include_mode == "All Positive":
@@ -322,7 +310,7 @@ for option in tqdm(options):
                     all_losses[option][hook_name]["Scaled" if scale else "Unscaled"][include_mode][feature_mode+f" (N={neurons.shape[0]})"] = ablated_loss
 
 # %%
-with open("data/and_neurons/ablation_losses.json", "w") as f:
+with open(f"data/and_neurons/ablation_losses{file_name_append}.json", "w") as f:
     json.dump(all_losses, f, indent=4)
 # %%
 

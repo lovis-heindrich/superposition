@@ -16,32 +16,31 @@ option = st.sidebar.selectbox(
     'Select the trigram to analyze',
     tokens, index=0)
 
+run_select = st.sidebar.selectbox(
+    "Select run", options=["Run 1", "Run 2", "Run 3"], index=0
+)
+
+if run_select == "Run 1":
+    file_name_append = "_0"
+elif run_select == "Run 2":
+    file_name_append = "_1000"
+else:
+    file_name_append = "_2000"
+
 #@st.cache_data
 def load_data():
     path = Path(__file__).parent / f"../data/and_neurons/"
-    dfs = pd.read_pickle(path / f"activation_dfs.pkl")
-    with open(path / "ablation_losses.json", "r") as f:
+    dfs = pd.read_pickle(path / f"activation_dfs{file_name_append}.pkl")
+    with open(path / f"ablation_losses{file_name_append}.json", "r") as f:
         ablation_losses = json.load(f)
-    with open(path / "and_conditions.json", "r") as f:
-        and_conditions = json.load(f)
-    return dfs, ablation_losses, and_conditions
+    return dfs, ablation_losses
 
-dfs, ablation_losses, and_conditions = load_data()
+dfs, ablation_losses = load_data()
 
 hook_select = st.sidebar.selectbox(label="Select between pre-gelu activations and post-gelu activations", options=["hook_pre", "hook_post"], index=1)
 scale_select = st.sidebar.selectbox(label="Select between scaled activation or original activation values", options=["Scaled", "Unscaled"], index=1)
 
 df = dfs[option][hook_select][scale_select]
-
-# # Look for neurons that consistently respond to all 3 directions
-# df["Boosted"] = (df["YNN"]>df["NNN"])&(df["NYN"]>df["NNN"])&(df["NNY"]>df["NNN"])&\
-#                 (df["YYY"]>df["YNN"])&(df["YYY"]>df["NYN"])&(df["YYY"]>df["NNY"])&\
-#                 (df["YYY"]>0) # Negative boosts don't matter
-
-# df["Deboosted"] = (df["YNN"]<df["NNN"])&(df["NYN"]<df["NNN"])&(df["NNY"]<df["NNN"])&\
-#                 (df["YYY"]<df["YNN"])&(df["YYY"]<df["NYN"])&(df["YYY"]<df["NNY"])&\
-#                 (df["NNN"]>0) # Deboosting negative things doesn't matter
-
 
 st.markdown("""
             ### Neuron activation data
@@ -51,71 +50,54 @@ st.markdown("""
             2. The second trigram token is present (Y), or replaced with random tokens (N)
             3. The context token activates normally (Y), or the context neuron is ablated (N)
 
-            We compute 4 different AND conditions in which we compare the neuron's activation with all features being present (YYY) to different combinations of features being absent:
-            - Current token: the current token is always present
-            - Grouped tokens: current and previous token are grouped together
-            - Single features: all three input features appear individually
-            - Two features: two input features appear together
+            AND conditions (different features are active at the same time):
             """)
 
 
-st.latex(r'''\text{Current token: }(YYY-NYN)-((YYN-NYN)+(NYY-NYN))''')
-st.latex(r'''\text{Current tokens: }(YYY-NNN)-((YYN-NNN)+(NNY-NNN))''')
-st.latex(r'''\text{Single features: }(YYY-NNN)-((YNN-NNN)+(NYN-NNN)+(NNY-NNN))''')
-st.latex(r'''\text{Two features: }(YYY-NNN)-((YYN-NNN)+(YNY-NNN)+(NYY-NNN))/2''')
+st.latex(r'''\text{Fix Current:}(YYY-NYN)-((YYN-NYN)+(NYY-NYN))''')
+st.latex(r'''\text{Fix Previous:}(YYY-YNN)-((YYN-YNN)+(YNY-YNN))''')
+st.latex(r'''\text{Fix Context:}(YYY-NNY)-((YNY-NNY)+(NYY-NNY))''')
+st.latex(r'''\text{Single feature:}(YYY-NNN)-((YNN-NNN)+(NYN-NNN)+(NNY-NNN))''')
+st.latex(r'''\text{Two features:}(YYY-NNN)-((YYN-NNN)+(YNY-NNN)+(NYY-NNN))/2''')
 
-column_names = ["AblationLossIncrease", "Two Features (diff)", "Single Features (diff)", "Current Token (diff)", "Grouped Tokens (diff)", "Two Features (AND)", "Single Features (AND)", "Current Token (AND)", "Grouped Tokens (AND)", "Two Features (NEG AND)", "Single Features (NEG AND)", "Current Token (NEG AND)", "Grouped Tokens (NEG AND)", "Greater Than All", "Smaller Than All"]
 
+all_columns = df.columns.tolist()
+always_show = ['NNN', 'NNY', 'NYN', 'NYY', 'YNN', 'YNY', 'YYN', 'YYY']
+select_names = [name for name in all_columns if name not in always_show]
 column_select = st.multiselect(
     'Select visible columns',
-    column_names,
+    select_names,
     [])
 
 
 display_df = df.copy()
-for column in column_names:
+for column in select_names:
     if column not in column_select:
         display_df = display_df.drop(columns=[column])
 
 st.dataframe(display_df.round(2))
 
-st.markdown("""
-            ### Looking for non-linearities
+# if data_select == "Change in loss":
+#     st.latex(r'''\text{Current token: }(NYN-YYY)-((NYN-YYN)+(NYN-NYY))''')
+# else:
+#     st.latex(r'''\text{Current token: }(YYY-NYN)-((YYN-NYN)+(NYY-NYN))''')
 
-            We check if the whole model computes a non-linear function by comparing the correct token's logit or the loss with and without all features being active.
-            """)
+# if data_select == "Change in loss":
+#     st.latex(r'''\text{Grouped tokens: }(NNN-YYY)-((NNN-YYN)+(NNN-NNY))''')
+# else:
+#     st.latex(r'''\text{Current tokens: }(YYY-NNN)-((YYN-NNN)+(NNY-NNN))''')
 
-data_select = st.selectbox(label="Select which value to compare", 
-             options=["Change in loss", "Change in correct token logit"], index=1)
-data_select_index = "loss" if data_select == "Change in loss" else "logits"
+# if data_select == "Change in loss":
+#     st.latex(r'''\text{Single features: }(NNN-YYY)-((NNN-YNN)+(NNN-NYN)+(NNN-NNY))''')
+# else:
+#     st.latex(r'''\text{Single features: }(YYY-NNN)-((YNN-NNN)+(NYN-NNN)+(NNY-NNN))''')
 
-if data_select == "Change in loss":
-    st.latex(r'''\text{Current token: }(NYN-YYY)-((NYN-YYN)+(NYN-NYY))''')
-else:
-    st.latex(r'''\text{Current token: }(YYY-NYN)-((YYN-NYN)+(NYY-NYN))''')
-
-if data_select == "Change in loss":
-    st.latex(r'''\text{Grouped tokens: }(NNN-YYY)-((NNN-YYN)+(NNN-NNY))''')
-else:
-    st.latex(r'''\text{Current tokens: }(YYY-NNN)-((YYN-NNN)+(NNY-NNN))''')
-
-if data_select == "Change in loss":
-    st.latex(r'''\text{Single features: }(NNN-YYY)-((NNN-YNN)+(NNN-NYN)+(NNN-NNY))''')
-else:
-    st.latex(r'''\text{Single features: }(YYY-NNN)-((YNN-NNN)+(NYN-NNN)+(NNY-NNN))''')
-
-if data_select == "Change in loss":
-    st.latex(r'''\text{Two features: }(NNN-YYY)-((NNN-YYN)+(NNN-YNY)+(NNN-NYY))/2''')
-else:
-    st.latex(r'''\text{Two features: }(YYY-NNN)-((YYN-NNN)+(YNY-NNN)+(NYY-NNN))/2''')
+# if data_select == "Change in loss":
+#     st.latex(r'''\text{Two features: }(NNN-YYY)-((NNN-YYN)+(NNN-YNY)+(NNN-NYY))/2''')
+# else:
+#     st.latex(r'''\text{Two features: }(YYY-NNN)-((YYN-NNN)+(YNY-NNN)+(NYY-NNN))/2''')
 
 
-and_condition_data = and_conditions[option][data_select_index]
-data_indices = ["current_token_diffs", "previous_token_diffs", "context_neuron_diffs", "individiual_features_diffs", "two_features_diffs"]
-plot_names = ["Fix Current", "Fix Previous", "Fix Context", "Single features", "Two features"]
-plot_data = [[and_condition_data[index]] for index in data_indices]
-plot = plotting_utils.plot_barplot(plot_data, plot_names, ylabel=data_select,show=False, legend=False, width=600)
-st.plotly_chart(plot)
 
 # Useful visualizations
 
@@ -131,7 +113,7 @@ st.markdown("""
             """)
 
 highlight_mode = st.selectbox(label="Select the type of AND neurons to highlight",
-                              options=["Two Features", "Single Features", "Current Token", "Grouped Tokens"], index=0)
+                              options=["Two Features", "Single Features", "Current Token", "Previous Token", "Context Neuron"], index=0)
 
 negative_and_neurons = st.checkbox("Show negative AND neurons", value=False)
 if negative_and_neurons:
