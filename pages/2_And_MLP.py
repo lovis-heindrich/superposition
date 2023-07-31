@@ -51,7 +51,7 @@ df = df.rename(columns = {"Unnamed: 0": 'Value'})
 st.dataframe(df, hide_index=True, height=500, width=500)
 
 
-features = ["Fix Current", "Fix Previous", "Fix Context", "Single Feature", "Two Features"]
+features = ["Fix Current", "Fix Previous", "Fix Context", "Single Feature", "Two Features", "Merge Tokens"]
 
 def create_grouped_barplot(df, values):
     df_long = df[df['Value'].isin(values)].melt(id_vars='Value', var_name='Category', value_name='Number')

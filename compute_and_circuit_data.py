@@ -56,9 +56,6 @@ for token in common_tokens:
 new_word_tokens = torch.stack(new_word_tokens)
 continuation_tokens = torch.stack(continuation_tokens)
 
-context_direction = model.W_out[3, 669, :]
-
-
 # %%
 # all_prompts = {}
 # for option in tqdm(options):
@@ -74,8 +71,8 @@ with open("data/prompts.pkl", "rb") as f:
     all_prompts = pickle.load(f)
 
 # %%
-PROMPT_START, PROMPT_END = 0, 1000
-file_name_append = "_0"
+PROMPT_START, PROMPT_END = 1000, 2000
+file_name_append = "_1"
 # %%
 def compute_and_conditions(option, type: Literal["logits", "loss"]):
     ANSWER_TOKEN_ID = model.to_tokens(option).flatten()[-1].item()
@@ -102,7 +99,6 @@ def compute_and_conditions(option, type: Literal["logits", "loss"]):
 
     
     # COMPUTE AND CONDITIONS
-    # Fix current token
     ablated_prompts_ny = haystack_utils.create_ablation_prompts(prompts, "NYY", common_tokens)
     ablated_prompts_yn = haystack_utils.create_ablation_prompts(prompts, "YNY", common_tokens)
     ablated_prompts_nn = haystack_utils.create_ablation_prompts(prompts, "NNY", common_tokens)
@@ -149,6 +145,9 @@ def compute_and_conditions(option, type: Literal["logits", "loss"]):
     individual_diffs = yyy_nnn_diff - (nny_nnn_diff + nyn_nnn_diff + ynn_nnn_diff)
     two_feature_diffs = yyy_nnn_diff - (nyy_nnn_diff + yny_nnn_diff + yyn_nnn_diff)/2
 
+    # Merge current and previous tokens
+    merged_tokens_diff = yyy_nnn_diff - (yyn_nnn_diff + nny_nnn_diff)
+
     result = {
         "NNN": nnn_value,
         "NNY": nny_value,
@@ -163,6 +162,7 @@ def compute_and_conditions(option, type: Literal["logits", "loss"]):
         "Fix Context": context_diffs,
         "Single Feature": individual_diffs,
         "Two Features": two_feature_diffs,
+        "Merge Tokens": merged_tokens_diff,
     }
 
     return result
@@ -221,16 +221,19 @@ for option in options:
             df["Current Token (diff)"] = ((df["YYY"] - df["NYN"]) - ((df["YYN"] - df["NYN"]) + (df["NYY"] - df["NYN"])))
             df["Previous Token (diff)"] = ((df["YYY"] - df["YNN"]) - ((df["YYN"] - df["YNN"]) + (df["YNY"] - df["YNN"])))
             df["Context Neuron (diff)"] = ((df["YYY"] - df["NNY"]) - ((df["YNY"] - df["NNY"]) + (df["NYY"] - df["NNY"])))
+            df["Merge Tokens (diff)"] = ((df["YYY"] - df["NNN"]) - ((df["YYN"] - df["NNN"]) + (df["NNY"] - df["NNN"])))
             df["Two Features (AND)"] = ((df["YYY"] - df["NNN"]) > ((df["YNY"] - df["NNN"]) + (df["NYY"] - df["NNN"]) + (df["YYN"] - df["NNN"]))/2) & (df["YYY"]>0)
             df["Single Features (AND)"] = ((df["YYY"] - df["NNN"]) > ((df["YNN"] - df["NNN"]) + (df["NYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))) & (df["YYY"]>0)
             df["Current Token (AND)"] = ((df["YYY"] - df["NYN"]) > ((df["YYN"] - df["NYN"]) + (df["NYY"] - df["NYN"]))) & (df["YYY"]>0)
             df["Previous Token (AND)"] = ((df["YYY"] - df["YNN"]) > ((df["YYN"] - df["YNN"]) + (df["YNY"] - df["YNN"]))) & (df["YYY"]>0)
             df["Context Neuron (AND)"] = ((df["YYY"] - df["NNY"]) > ((df["YNY"] - df["NNY"]) + (df["NYY"] - df["NNY"]))) & (df["YYY"]>0)
+            df["Merge Tokens (AND)"] = ((df["YYY"] - df["NNN"]) > ((df["YYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))) & (df["YYY"]>0)
             df["Two Features (NEG AND)"] = ((df["YYY"] - df["NNN"]) < ((df["YNY"] - df["NNN"]) + (df["NYY"] - df["NNN"]) + (df["YYN"] - df["NNN"]))/2) & (df["NNN"]>0)
             df["Single Features (NEG AND)"] = ((df["YYY"] - df["NNN"]) < ((df["YNN"] - df["NNN"]) + (df["NYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))) & (df["NNN"]>0)
             df["Current Token (NEG AND)"] = ((df["YYY"] - df["NYN"]) < ((df["YYN"] - df["NYN"]) + (df["NYY"] - df["NYN"]))) & (df["NNN"]>0)
             df["Previous Token (NEG AND)"] = ((df["YYY"] - df["YNN"]) < ((df["YYN"] - df["YNN"]) + (df["YNY"] - df["YNN"]))) & (df["NNN"]>0)
             df["Context Neuron (NEG AND)"] =((df["YYY"] - df["NNY"]) < ((df["YNY"] - df["NNY"]) + (df["NYY"] - df["NNY"]))) & (df["NNN"]>0)
+            df["Merge Tokens (NEG AND)"] = ((df["YYY"] - df["NNN"]) < ((df["YYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))) & (df["NNN"]>0)
             df["Greater Than All"] = (df["YYY"] > df["NNN"]) & (df["YYY"] > df["YNN"]) & (df["YYY"] > df["NYN"]) & (df["YYY"] > df["NNY"]) & (df["YYY"] > df["YYN"]) & (df["YYY"] > df["NYY"]) & (df["YYY"] > df["YNY"])
             df["Smaller Than All"] = (df["YYY"] < df["NNN"]) & (df["YYY"] < df["YNN"]) & (df["YYY"] < df["NYN"]) & (df["YYY"] < df["NNY"]) & (df["YYY"] < df["YYN"]) & (df["YYY"] < df["NYY"]) & (df["YYY"] < df["YNY"])
             dfs[option][hook_name]["Scaled" if scale else "Unscaled"] = df
@@ -287,7 +290,7 @@ for option in tqdm(options):
                     "Original": original_loss,
                     "All Ablated": all_ablated_loss,
                 }
-                for feature_mode in ["Two Features", "Single Features", "Current Token", "Previous Token", "Context Neuron"]:
+                for feature_mode in ["Two Features", "Single Features", "Current Token", "Previous Token", "Context Neuron", "Merge Tokens"]:
                     if include_mode == "Greater Positive":
                         neurons = df[df[feature_mode + " (AND)"] & df["Greater Than All"]].index
                     elif include_mode == "All Positive":
