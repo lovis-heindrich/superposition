@@ -74,8 +74,8 @@ with open("data/prompts.pkl", "rb") as f:
     all_prompts = pickle.load(f)
 
 # %%
-PROMPT_START, PROMPT_END = 2000, 3000
-file_name_append = "_2000"
+PROMPT_START, PROMPT_END = 0, 1000
+file_name_append = "_0"
 # %%
 def compute_and_conditions(option, type: Literal["logits", "loss"]):
     ANSWER_TOKEN_ID = model.to_tokens(option).flatten()[-1].item()
@@ -264,7 +264,12 @@ for option in tqdm(options):
 with open(f"data/and_neurons/activation_dfs{file_name_append}.pkl", "wb") as f:
     pickle.dump(dfs, f)
 # %%
+with open(f"data/and_neurons/activation_dfs{file_name_append}.pkl", "rb") as f:
+    dfs = pickle.load(f)
 
+# %%
+with open(f"data/and_neurons/activation_dfs{file_name_append}.pkl", "rb") as f:
+    dfs = pickle.load(f)
 # Ablation losses
 all_losses = {}
 for option in tqdm(options):
@@ -275,8 +280,9 @@ for option in tqdm(options):
         for scale in [True, False]:
             all_losses[option][hook_name]["Scaled" if scale else "Unscaled"] = {}
             df = dfs[option][hook_name]["Scaled" if scale else "Unscaled"]
+            unscaled_df = dfs[option][hook_name]["Unscaled"]
             for include_mode in ["All Positive", "Greater Positive", "All Positive (Top 50)", "Greater Positive (Top 50)", "All Negative", "Smaller Negative", "All Negative (Top 50)", "Smaller Negative (Top 50)", "Positive and Negative (Top 25)"]:
-                original_loss, all_ablated_loss = haystack_utils.compute_mlp_loss(prompts, model, df, torch.LongTensor([i for i in range(model.cfg.d_mlp)]), ablate_mode="YYN", compute_original_loss=True)
+                original_loss, all_ablated_loss = haystack_utils.compute_mlp_loss(prompts, model, unscaled_df, torch.LongTensor([i for i in range(model.cfg.d_mlp)]), ablate_mode="YYN", compute_original_loss=True)
                 all_losses[option][hook_name]["Scaled" if scale else "Unscaled"][include_mode] = {
                     "Original": original_loss,
                     "All Ablated": all_ablated_loss,
@@ -306,7 +312,7 @@ for option in tqdm(options):
                         assert False, f"Invalid include mode: {include_mode}"
                     neurons = torch.LongTensor(neurons.tolist())
 
-                    ablated_loss = haystack_utils.compute_mlp_loss(prompts, model, df, neurons, ablate_mode="YYN")
+                    ablated_loss = haystack_utils.compute_mlp_loss(prompts, model, unscaled_df, neurons, ablate_mode="YYN")
                     all_losses[option][hook_name]["Scaled" if scale else "Unscaled"][include_mode][feature_mode+f" (N={neurons.shape[0]})"] = ablated_loss
 
 # %%

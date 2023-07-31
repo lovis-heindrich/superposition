@@ -50,15 +50,15 @@ st.markdown("""
             2. The second trigram token is present (Y), or replaced with random tokens (N)
             3. The context token activates normally (Y), or the context neuron is ablated (N)
 
-            AND conditions (different features are active at the same time):
             """)
 
 
-st.latex(r'''\text{Fix Current:}(YYY-NYN)-((YYN-NYN)+(NYY-NYN))''')
-st.latex(r'''\text{Fix Previous:}(YYY-YNN)-((YYN-YNN)+(YNY-YNN))''')
-st.latex(r'''\text{Fix Context:}(YYY-NNY)-((YNY-NNY)+(NYY-NNY))''')
-st.latex(r'''\text{Single feature:}(YYY-NNN)-((YNN-NNN)+(NYN-NNN)+(NNY-NNN))''')
-st.latex(r'''\text{Two features:}(YYY-NNN)-((YYN-NNN)+(YNY-NNN)+(NYY-NNN))/2''')
+with st.expander("Show AND condition formulas"):
+    st.latex(r'''\text{Fix Current:}(YYY-NYN)-((YYN-NYN)+(NYY-NYN))''')
+    st.latex(r'''\text{Fix Previous:}(YYY-YNN)-((YYN-YNN)+(YNY-YNN))''')
+    st.latex(r'''\text{Fix Context:}(YYY-NNY)-((YNY-NNY)+(NYY-NNY))''')
+    st.latex(r'''\text{Single feature:}(YYY-NNN)-((YNN-NNN)+(NYN-NNN)+(NNY-NNN))''')
+    st.latex(r'''\text{Two features:}(YYY-NNN)-((YYN-NNN)+(YNY-NNN)+(NYY-NNN))/2''')
 
 
 all_columns = df.columns.tolist()
@@ -77,35 +77,6 @@ for column in select_names:
 
 st.dataframe(display_df.round(2))
 
-# if data_select == "Change in loss":
-#     st.latex(r'''\text{Current token: }(NYN-YYY)-((NYN-YYN)+(NYN-NYY))''')
-# else:
-#     st.latex(r'''\text{Current token: }(YYY-NYN)-((YYN-NYN)+(NYY-NYN))''')
-
-# if data_select == "Change in loss":
-#     st.latex(r'''\text{Grouped tokens: }(NNN-YYY)-((NNN-YYN)+(NNN-NNY))''')
-# else:
-#     st.latex(r'''\text{Current tokens: }(YYY-NNN)-((YYN-NNN)+(NNY-NNN))''')
-
-# if data_select == "Change in loss":
-#     st.latex(r'''\text{Single features: }(NNN-YYY)-((NNN-YNN)+(NNN-NYN)+(NNN-NNY))''')
-# else:
-#     st.latex(r'''\text{Single features: }(YYY-NNN)-((YNN-NNN)+(NYN-NNN)+(NNY-NNN))''')
-
-# if data_select == "Change in loss":
-#     st.latex(r'''\text{Two features: }(NNN-YYY)-((NNN-YYN)+(NNN-YNY)+(NNN-NYY))/2''')
-# else:
-#     st.latex(r'''\text{Two features: }(YYY-NNN)-((YYN-NNN)+(YNY-NNN)+(NYY-NNN))/2''')
-
-
-
-# Useful visualizations
-
-# Scatter plots
-# Loss increase - average similarity / all sims same sign
-# Loss increase - activation diff
-# loss increase - Is And
-# loss increase - clean increase pattern / decrease pattern
 st.markdown("""
             ### Comparing neuron-wise ablation loss increase
 

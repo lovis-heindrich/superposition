@@ -4,84 +4,84 @@
             "Scaled": {
                 "All Positive": {
                     "Original": 1.4549890756607056,
-                    "All Ablated": 3.362806797027588,
-                    "Two Features (N=289)": 2.5324604511260986,
-                    "Single Features (N=292)": 2.4520318508148193,
-                    "Current Token (N=137)": 2.3744428157806396,
-                    "Previous Token (N=76)": 1.3140950202941895,
-                    "Context Neuron (N=299)": 3.1818976402282715
+                    "All Ablated": 5.580868244171143,
+                    "Two Features (N=289)": 2.27779221534729,
+                    "Single Features (N=292)": 2.081538677215576,
+                    "Current Token (N=137)": 2.563458204269409,
+                    "Previous Token (N=76)": 1.939501404762268,
+                    "Context Neuron (N=299)": 2.67944598197937
                 },
                 "Greater Positive": {
                     "Original": 1.4549890756607056,
-                    "All Ablated": 3.362806797027588,
-                    "Two Features (N=149)": 2.451103687286377,
-                    "Single Features (N=151)": 2.4601569175720215,
-                    "Current Token (N=1)": 1.6216353178024292,
-                    "Previous Token (N=7)": 1.5388509035110474,
-                    "Context Neuron (N=153)": 2.5103795528411865
+                    "All Ablated": 5.580868244171143,
+                    "Two Features (N=149)": 2.3304708003997803,
+                    "Single Features (N=151)": 2.28389573097229,
+                    "Current Token (N=1)": 1.4553555250167847,
+                    "Previous Token (N=7)": 1.62203848361969,
+                    "Context Neuron (N=153)": 2.2986409664154053
                 },
                 "All Positive (Top 50)": {
                     "Original": 1.4549890756607056,
-                    "All Ablated": 3.362806797027588,
-                    "Two Features (N=50)": 1.5835801362991333,
-                    "Single Features (N=50)": 0.8595131635665894,
-                    "Current Token (N=50)": 1.2084743976593018,
-                    "Previous Token (N=50)": 1.8902335166931152,
-                    "Context Neuron (N=50)": 1.8431367874145508
+                    "All Ablated": 5.580868244171143,
+                    "Two Features (N=50)": 1.553283929824829,
+                    "Single Features (N=50)": 0.7032582759857178,
+                    "Current Token (N=50)": 1.2943402528762817,
+                    "Previous Token (N=50)": 2.82039737701416,
+                    "Context Neuron (N=50)": 3.2652719020843506
                 },
                 "Greater Positive (Top 50)": {
                     "Original": 1.4549890756607056,
-                    "All Ablated": 3.362806797027588,
-                    "Two Features (N=50)": 1.725168228149414,
-                    "Single Features (N=50)": 3.708625555038452,
-                    "Current Token (N=50)": 2.9123599529266357,
-                    "Previous Token (N=50)": 1.8766252994537354,
-                    "Context Neuron (N=50)": 1.3066915273666382
+                    "All Ablated": 5.580868244171143,
+                    "Two Features (N=50)": 1.4310548305511475,
+                    "Single Features (N=50)": 2.533914566040039,
+                    "Current Token (N=50)": 3.0084168910980225,
+                    "Previous Token (N=50)": 2.291698694229126,
+                    "Context Neuron (N=50)": 1.1508351564407349
                 },
                 "All Negative": {
                     "Original": 1.4549890756607056,
-                    "All Ablated": 3.362806797027588,
-                    "Two Features (N=148)": 1.592296838760376,
-                    "Single Features (N=147)": 1.774899959564209,
-                    "Current Token (N=156)": 1.8323850631713867,
-                    "Previous Token (N=101)": 2.027048349380493,
-                    "Context Neuron (N=149)": 1.54887056350708
+                    "All Ablated": 5.580868244171143,
+                    "Two Features (N=148)": 2.2325103282928467,
+                    "Single Features (N=147)": 2.366433620452881,
+                    "Current Token (N=156)": 2.064201831817627,
+                    "Previous Token (N=101)": 2.0808427333831787,
+                    "Context Neuron (N=149)": 2.2082724571228027
                 },
                 "Smaller Negative": {
                     "Original": 1.4549890756607056,
-                    "All Ablated": 3.362806797027588,
-                    "Two Features (N=24)": 1.450327754020691,
-                    "Single Features (N=24)": 1.450327754020691,
-                    "Current Token (N=3)": 1.453336477279663,
-                    "Previous Token (N=4)": 1.4707772731781006,
-                    "Context Neuron (N=24)": 1.450327754020691
+                    "All Ablated": 5.580868244171143,
+                    "Two Features (N=24)": 1.4544881582260132,
+                    "Single Features (N=24)": 1.4544881582260132,
+                    "Current Token (N=3)": 1.453606128692627,
+                    "Previous Token (N=4)": 1.4676417112350464,
+                    "Context Neuron (N=24)": 1.4544881582260132
                 },
                 "All Negative (Top 50)": {
                     "Original": 1.4549890756607056,
-                    "All Ablated": 3.362806797027588,
-                    "Two Features (N=50)": 3.083000898361206,
-                    "Single Features (N=50)": 2.866678476333618,
-                    "Current Token (N=50)": 1.4121564626693726,
-                    "Previous Token (N=50)": 0.8113626837730408,
-                    "Context Neuron (N=50)": 3.493053436279297
+                    "All Ablated": 5.580868244171143,
+                    "Two Features (N=50)": 3.731318950653076,
+                    "Single Features (N=50)": 2.0334434509277344,
+                    "Current Token (N=50)": 1.7888482809066772,
+                    "Previous Token (N=50)": 0.8051077127456665,
+                    "Context Neuron (N=50)": 3.5364677906036377
                 },
                 "Smaller Negative (Top 50)": {
                     "Original": 1.4549890756607056,
-                    "All Ablated": 3.362806797027588,
-                    "Two Features (N=32)": 1.5625524520874023,
-                    "Single Features (N=32)": 1.5624618530273438,
-                    "Current Token (N=32)": 1.5700119733810425,
-                    "Previous Token (N=32)": 1.4269523620605469,
-                    "Context Neuron (N=32)": 1.5482637882232666
+                    "All Ablated": 5.580868244171143,
+                    "Two Features (N=32)": 1.627017617225647,
+                    "Single Features (N=32)": 1.6269878149032593,
+                    "Current Token (N=32)": 1.512425422668457,
+                    "Previous Token (N=32)": 1.4385716915130615,
+                    "Context Neuron (N=32)": 1.538349986076355
                 },
                 "Positive and Negative (Top 25)": {
                     "Original": 1.4549890756607056,
-                    "All Ablated": 3.362806797027588,
-                    "Two Features (N=50)": 1.1284852027893066,
-                    "Single Features (N=50)": 1.5862025022506714,
-                    "Current Token (N=50)": 1.619449257850647,
-                    "Previous Token (N=50)": 2.887200117111206,
-                    "Context Neuron (N=50)": 2.022066354751587
+                    "All Ablated": 5.580868244171143,
+                    "Two Features (N=50)": 1.3079948425292969,
+                    "Single Features (N=50)": 2.169135808944702,
+                    "Current Token (N=50)": 1.6255881786346436,
+                    "Previous Token (N=50)": 4.008830547332764,
+                    "Context Neuron (N=50)": 2.0390515327453613
                 }
             },
             "Unscaled": {
@@ -172,84 +172,84 @@
             "Scaled": {
                 "All Positive": {
                     "Original": 1.4549890756607056,
-                    "All Ablated": 13.02025032043457,
-                    "Two Features (N=324)": 13.769152641296387,
-                    "Single Features (N=334)": 11.369514465332031,
-                    "Current Token (N=324)": 7.808429718017578,
-                    "Previous Token (N=320)": 11.007859230041504,
-                    "Context Neuron (N=322)": 10.381586074829102
+                    "All Ablated": 5.161134243011475,
+                    "Two Features (N=324)": 3.1121582984924316,
+                    "Single Features (N=334)": 2.89548397064209,
+                    "Current Token (N=324)": 5.184385776519775,
+                    "Previous Token (N=320)": 5.864315509796143,
+                    "Context Neuron (N=322)": 2.624863386154175
                 },
                 "Greater Positive": {
                     "Original": 1.4549890756607056,
-                    "All Ablated": 13.02025032043457,
-                    "Two Features (N=169)": 11.133139610290527,
-                    "Single Features (N=170)": 10.936323165893555,
-                    "Current Token (N=162)": 5.234806060791016,
-                    "Previous Token (N=169)": 8.220093727111816,
-                    "Context Neuron (N=161)": 11.16793441772461
+                    "All Ablated": 5.161134243011475,
+                    "Two Features (N=169)": 3.0623180866241455,
+                    "Single Features (N=170)": 3.1547749042510986,
+                    "Current Token (N=162)": 4.134740352630615,
+                    "Previous Token (N=169)": 3.6851465702056885,
+                    "Context Neuron (N=161)": 2.961968421936035
                 },
                 "All Positive (Top 50)": {
                     "Original": 1.4549890756607056,
-                    "All Ablated": 13.02025032043457,
-                    "Two Features (N=50)": 14.957877159118652,
-                    "Single Features (N=50)": 12.161539077758789,
-                    "Current Token (N=50)": 0.8360303044319153,
-                    "Previous Token (N=50)": 0.4468696713447571,
-                    "Context Neuron (N=50)": 17.45368766784668
+                    "All Ablated": 5.161134243011475,
+                    "Two Features (N=50)": 1.2762473821640015,
+                    "Single Features (N=50)": 0.3081511855125427,
+                    "Current Token (N=50)": 1.0970369577407837,
+                    "Previous Token (N=50)": 0.4629267156124115,
+                    "Context Neuron (N=50)": 0.5606586933135986
                 },
                 "Greater Positive (Top 50)": {
                     "Original": 1.4549890756607056,
-                    "All Ablated": 13.02025032043457,
-                    "Two Features (N=50)": 6.493922233581543,
-                    "Single Features (N=50)": 6.869500160217285,
-                    "Current Token (N=50)": 1.3362817764282227,
-                    "Previous Token (N=50)": 2.9036715030670166,
-                    "Context Neuron (N=50)": 8.40673828125
+                    "All Ablated": 5.161134243011475,
+                    "Two Features (N=50)": 2.3867387771606445,
+                    "Single Features (N=50)": 1.921303391456604,
+                    "Current Token (N=50)": 0.922768235206604,
+                    "Previous Token (N=50)": 0.8131078481674194,
+                    "Context Neuron (N=50)": 4.692510604858398
                 },
                 "All Negative": {
                     "Original": 1.4549890756607056,
-                    "All Ablated": 13.02025032043457,
-                    "Two Features (N=269)": 1.1653119325637817,
-                    "Single Features (N=271)": 1.3420518636703491,
-                    "Current Token (N=251)": 7.5035786628723145,
-                    "Previous Token (N=274)": 5.5390119552612305,
-                    "Context Neuron (N=241)": 2.316408634185791
+                    "All Ablated": 5.161134243011475,
+                    "Two Features (N=269)": 3.0047531127929688,
+                    "Single Features (N=271)": 2.9503843784332275,
+                    "Current Token (N=251)": 2.1083641052246094,
+                    "Previous Token (N=274)": 1.3333849906921387,
+                    "Context Neuron (N=241)": 3.136347770690918
                 },
                 "Smaller Negative": {
                     "Original": 1.4549890756607056,
-                    "All Ablated": 13.02025032043457,
-                    "Two Features (N=61)": 1.4298220872879028,
-                    "Single Features (N=62)": 1.4408671855926514,
-                    "Current Token (N=52)": 1.4451686143875122,
-                    "Previous Token (N=55)": 1.490643858909607,
-                    "Context Neuron (N=50)": 1.4168169498443604
+                    "All Ablated": 5.161134243011475,
+                    "Two Features (N=61)": 1.5367189645767212,
+                    "Single Features (N=62)": 1.5576601028442383,
+                    "Current Token (N=52)": 1.4380276203155518,
+                    "Previous Token (N=55)": 1.469415545463562,
+                    "Context Neuron (N=50)": 1.5150552988052368
                 },
                 "All Negative (Top 50)": {
                     "Original": 1.4549890756607056,
-                    "All Ablated": 13.02025032043457,
-                    "Two Features (N=50)": 1.3683582544326782,
-                    "Single Features (N=50)": 4.928577423095703,
-                    "Current Token (N=50)": 18.81668472290039,
-                    "Previous Token (N=50)": 20.94036102294922,
-                    "Context Neuron (N=50)": 1.688698649406433
+                    "All Ablated": 5.161134243011475,
+                    "Two Features (N=50)": 2.8338916301727295,
+                    "Single Features (N=50)": 2.2136647701263428,
+                    "Current Token (N=50)": 4.595067024230957,
+                    "Previous Token (N=50)": 6.577680587768555,
+                    "Context Neuron (N=50)": 2.4145584106445312
                 },
                 "Smaller Negative (Top 50)": {
                     "Original": 1.4549890756607056,
-                    "All Ablated": 13.02025032043457,
-                    "Two Features (N=50)": 1.8561286926269531,
-                    "Single Features (N=50)": 1.6255725622177124,
-                    "Current Token (N=50)": 1.4376294612884521,
-                    "Previous Token (N=50)": 1.483329176902771,
-                    "Context Neuron (N=50)": 1.7107512950897217
+                    "All Ablated": 5.161134243011475,
+                    "Two Features (N=50)": 1.797067642211914,
+                    "Single Features (N=50)": 1.696250081062317,
+                    "Current Token (N=50)": 1.474321961402893,
+                    "Previous Token (N=50)": 1.4681174755096436,
+                    "Context Neuron (N=50)": 1.598437786102295
                 },
                 "Positive and Negative (Top 25)": {
                     "Original": 1.4549890756607056,
-                    "All Ablated": 13.02025032043457,
-                    "Two Features (N=50)": 6.619462490081787,
-                    "Single Features (N=50)": 5.389190673828125,
-                    "Current Token (N=50)": 16.69232177734375,
-                    "Previous Token (N=50)": 4.342038631439209,
-                    "Context Neuron (N=50)": 4.346324443817139
+                    "All Ablated": 5.161134243011475,
+                    "Two Features (N=50)": 1.4274795055389404,
+                    "Single Features (N=50)": 1.5018796920776367,
+                    "Current Token (N=50)": 1.233864426612854,
+                    "Previous Token (N=50)": 0.581020176410675,
+                    "Context Neuron (N=50)": 0.9732992649078369
                 }
             },
             "Unscaled": {
@@ -342,84 +342,84 @@
             "Scaled": {
                 "All Positive": {
                     "Original": 0.091262586414814,
-                    "All Ablated": 0.43381527066230774,
-                    "Two Features (N=399)": 0.18248841166496277,
-                    "Single Features (N=398)": 0.1499089151620865,
-                    "Current Token (N=170)": 0.08270065486431122,
-                    "Previous Token (N=211)": 0.07654964178800583,
-                    "Context Neuron (N=402)": 0.1567610800266266
+                    "All Ablated": 0.7647987008094788,
+                    "Two Features (N=399)": 0.537283718585968,
+                    "Single Features (N=398)": 0.514545202255249,
+                    "Current Token (N=170)": 0.1210848018527031,
+                    "Previous Token (N=211)": 0.17206916213035583,
+                    "Context Neuron (N=402)": 0.5370946526527405
                 },
                 "Greater Positive": {
                     "Original": 0.091262586414814,
-                    "All Ablated": 0.43381527066230774,
-                    "Two Features (N=205)": 0.06031699478626251,
-                    "Single Features (N=203)": 0.06073255091905594,
-                    "Current Token (N=54)": 0.13279208540916443,
-                    "Previous Token (N=88)": 0.12625858187675476,
-                    "Context Neuron (N=205)": 0.06031699478626251
+                    "All Ablated": 0.7647987008094788,
+                    "Two Features (N=205)": 0.36212074756622314,
+                    "Single Features (N=203)": 0.3687478005886078,
+                    "Current Token (N=54)": 0.23398679494857788,
+                    "Previous Token (N=88)": 0.3193158209323883,
+                    "Context Neuron (N=205)": 0.36212074756622314
                 },
                 "All Positive (Top 50)": {
                     "Original": 0.091262586414814,
-                    "All Ablated": 0.43381527066230774,
-                    "Two Features (N=50)": 0.3453039526939392,
-                    "Single Features (N=50)": 0.06740911304950714,
-                    "Current Token (N=50)": 0.22935302555561066,
-                    "Previous Token (N=50)": 1.2933489084243774,
-                    "Context Neuron (N=50)": 0.10063918679952621
+                    "All Ablated": 0.7647987008094788,
+                    "Two Features (N=50)": 0.25083234906196594,
+                    "Single Features (N=50)": 0.07056152820587158,
+                    "Current Token (N=50)": 0.2861941456794739,
+                    "Previous Token (N=50)": 1.1675105094909668,
+                    "Context Neuron (N=50)": 0.09466661512851715
                 },
                 "Greater Positive (Top 50)": {
                     "Original": 0.091262586414814,
-                    "All Ablated": 0.43381527066230774,
-                    "Two Features (N=50)": 0.45916256308555603,
-                    "Single Features (N=50)": 0.39826881885528564,
-                    "Current Token (N=50)": 1.0643213987350464,
-                    "Previous Token (N=50)": 1.7091038227081299,
-                    "Context Neuron (N=50)": 0.5446614027023315
+                    "All Ablated": 0.7647987008094788,
+                    "Two Features (N=50)": 0.6194769144058228,
+                    "Single Features (N=50)": 0.34239423274993896,
+                    "Current Token (N=50)": 1.0206831693649292,
+                    "Previous Token (N=50)": 1.5972307920455933,
+                    "Context Neuron (N=50)": 0.49128860235214233
                 },
                 "All Negative": {
                     "Original": 0.091262586414814,
-                    "All Ablated": 0.43381527066230774,
-                    "Two Features (N=146)": 0.06624158471822739,
-                    "Single Features (N=146)": 0.07907678931951523,
-                    "Current Token (N=68)": 0.1948924958705902,
-                    "Previous Token (N=45)": 0.13242214918136597,
-                    "Context Neuron (N=148)": 0.07761187851428986
+                    "All Ablated": 0.7647987008094788,
+                    "Two Features (N=146)": 0.04995570331811905,
+                    "Single Features (N=146)": 0.0533686988055706,
+                    "Current Token (N=68)": 0.09946607798337936,
+                    "Previous Token (N=45)": 0.07650664448738098,
+                    "Context Neuron (N=148)": 0.05215223878622055
                 },
                 "Smaller Negative": {
                     "Original": 0.091262586414814,
-                    "All Ablated": 0.43381527066230774,
-                    "Two Features (N=19)": 0.09339551627635956,
-                    "Single Features (N=19)": 0.09339551627635956,
-                    "Current Token (N=4)": 0.0906202495098114,
-                    "Previous Token (N=5)": 0.08943010121583939,
-                    "Context Neuron (N=19)": 0.09339551627635956
+                    "All Ablated": 0.7647987008094788,
+                    "Two Features (N=19)": 0.09197850525379181,
+                    "Single Features (N=19)": 0.09197850525379181,
+                    "Current Token (N=4)": 0.09002481400966644,
+                    "Previous Token (N=5)": 0.08951563388109207,
+                    "Context Neuron (N=19)": 0.09197850525379181
                 },
                 "All Negative (Top 50)": {
                     "Original": 0.091262586414814,
-                    "All Ablated": 0.43381527066230774,
-                    "Two Features (N=50)": 0.16197821497917175,
-                    "Single Features (N=50)": 0.15899433195590973,
-                    "Current Token (N=50)": 0.378587007522583,
-                    "Previous Token (N=50)": 1.1193181276321411,
-                    "Context Neuron (N=50)": 0.11052372306585312
+                    "All Ablated": 0.7647987008094788,
+                    "Two Features (N=50)": 0.17923331260681152,
+                    "Single Features (N=50)": 0.18706929683685303,
+                    "Current Token (N=50)": 0.20340970158576965,
+                    "Previous Token (N=50)": 0.48464372754096985,
+                    "Context Neuron (N=50)": 0.13093456625938416
                 },
                 "Smaller Negative (Top 50)": {
                     "Original": 0.091262586414814,
-                    "All Ablated": 0.43381527066230774,
-                    "Two Features (N=19)": 0.12269623577594757,
-                    "Single Features (N=19)": 0.12199301272630692,
-                    "Current Token (N=19)": 0.11622438579797745,
-                    "Previous Token (N=19)": 0.11745114624500275,
-                    "Context Neuron (N=19)": 0.12199301272630692
+                    "All Ablated": 0.7647987008094788,
+                    "Two Features (N=19)": 0.15554465353488922,
+                    "Single Features (N=19)": 0.15539146959781647,
+                    "Current Token (N=19)": 0.1428525149822235,
+                    "Previous Token (N=19)": 0.15506669878959656,
+                    "Context Neuron (N=19)": 0.15539146959781647
                 },
                 "Positive and Negative (Top 25)": {
                     "Original": 0.091262586414814,
-                    "All Ablated": 0.43381527066230774,
-                    "Two Features (N=50)": 0.045928020030260086,
-                    "Single Features (N=50)": 0.07098963111639023,
-                    "Current Token (N=50)": 0.2884017825126648,
-                    "Previous Token (N=50)": 0.4448093771934509,
-                    "Context Neuron (N=50)": 0.14804260432720184
+                    "All Ablated": 0.7647987008094788,
+                    "Two Features (N=50)": 0.09056349843740463,
+                    "Single Features (N=50)": 0.1321122646331787,
+                    "Current Token (N=50)": 0.15898838639259338,
+                    "Previous Token (N=50)": 0.26283466815948486,
+                    "Context Neuron (N=50)": 0.18182094395160675
                 }
             },
             "Unscaled": {
@@ -510,84 +510,84 @@
             "Scaled": {
                 "All Positive": {
                     "Original": 0.091262586414814,
-                    "All Ablated": 10.149319648742676,
-                    "Two Features (N=391)": 3.711542844772339,
-                    "Single Features (N=389)": 4.1408371925354,
-                    "Current Token (N=304)": 0.3550647795200348,
-                    "Previous Token (N=320)": 0.294402152299881,
-                    "Context Neuron (N=391)": 5.376368045806885
+                    "All Ablated": 0.5779021978378296,
+                    "Two Features (N=391)": 0.5386344790458679,
+                    "Single Features (N=389)": 0.5932822823524475,
+                    "Current Token (N=304)": 0.5228716135025024,
+                    "Previous Token (N=320)": 0.4241522550582886,
+                    "Context Neuron (N=391)": 0.7346311211585999
                 },
                 "Greater Positive": {
                     "Original": 0.091262586414814,
-                    "All Ablated": 10.149319648742676,
-                    "Two Features (N=192)": 0.20756211876869202,
-                    "Single Features (N=192)": 0.20756211876869202,
-                    "Current Token (N=179)": 0.2186902016401291,
-                    "Previous Token (N=184)": 0.14508891105651855,
-                    "Context Neuron (N=190)": 0.17802897095680237
+                    "All Ablated": 0.5779021978378296,
+                    "Two Features (N=192)": 0.5045498609542847,
+                    "Single Features (N=192)": 0.5045498609542847,
+                    "Current Token (N=179)": 0.759928822517395,
+                    "Previous Token (N=184)": 0.7026700973510742,
+                    "Context Neuron (N=190)": 0.54750657081604
                 },
                 "All Positive (Top 50)": {
                     "Original": 0.091262586414814,
-                    "All Ablated": 10.149319648742676,
-                    "Two Features (N=50)": 1.4022374153137207,
-                    "Single Features (N=50)": 6.091856956481934,
-                    "Current Token (N=50)": 0.028330223634839058,
-                    "Previous Token (N=50)": 0.2968931496143341,
-                    "Context Neuron (N=50)": 6.526636123657227
+                    "All Ablated": 0.5779021978378296,
+                    "Two Features (N=50)": 0.049293238669633865,
+                    "Single Features (N=50)": 0.04851657152175903,
+                    "Current Token (N=50)": 0.21782304346561432,
+                    "Previous Token (N=50)": 0.30081960558891296,
+                    "Context Neuron (N=50)": 0.035725031048059464
                 },
                 "Greater Positive (Top 50)": {
                     "Original": 0.091262586414814,
-                    "All Ablated": 10.149319648742676,
-                    "Two Features (N=50)": 1.7023682594299316,
-                    "Single Features (N=50)": 1.6316546201705933,
-                    "Current Token (N=50)": 0.3106165826320648,
-                    "Previous Token (N=50)": 0.19462397694587708,
-                    "Context Neuron (N=50)": 1.1361143589019775
+                    "All Ablated": 0.5779021978378296,
+                    "Two Features (N=50)": 0.1966799646615982,
+                    "Single Features (N=50)": 0.49345242977142334,
+                    "Current Token (N=50)": 0.39380866289138794,
+                    "Previous Token (N=50)": 0.35634011030197144,
+                    "Context Neuron (N=50)": 0.716580331325531
                 },
                 "All Negative": {
                     "Original": 0.091262586414814,
-                    "All Ablated": 10.149319648742676,
-                    "Two Features (N=319)": 0.21525608003139496,
-                    "Single Features (N=325)": 0.20467941462993622,
-                    "Current Token (N=290)": 3.5661935806274414,
-                    "Previous Token (N=281)": 4.5259294509887695,
-                    "Context Neuron (N=297)": 0.21308644115924835
+                    "All Ablated": 0.5779021978378296,
+                    "Two Features (N=319)": 0.09414421021938324,
+                    "Single Features (N=325)": 0.09477373957633972,
+                    "Current Token (N=290)": 0.07058549672365189,
+                    "Previous Token (N=281)": 0.07551459968090057,
+                    "Context Neuron (N=297)": 0.08640310913324356
                 },
                 "Smaller Negative": {
                     "Original": 0.091262586414814,
-                    "All Ablated": 10.149319648742676,
-                    "Two Features (N=97)": 0.13301560282707214,
-                    "Single Features (N=96)": 0.13093195855617523,
-                    "Current Token (N=75)": 0.12702025473117828,
-                    "Previous Token (N=74)": 0.11878923326730728,
-                    "Context Neuron (N=84)": 0.1282089501619339
+                    "All Ablated": 0.5779021978378296,
+                    "Two Features (N=97)": 0.11694180965423584,
+                    "Single Features (N=96)": 0.12070275843143463,
+                    "Current Token (N=75)": 0.09915335476398468,
+                    "Previous Token (N=74)": 0.09812922775745392,
+                    "Context Neuron (N=84)": 0.12297596782445908
                 },
                 "All Negative (Top 50)": {
                     "Original": 0.091262586414814,
-                    "All Ablated": 10.149319648742676,
-                    "Two Features (N=50)": 0.04852081462740898,
-                    "Single Features (N=50)": 0.30902811884880066,
-                    "Current Token (N=50)": 0.5317919850349426,
-                    "Previous Token (N=50)": 1.2962729930877686,
-                    "Context Neuron (N=50)": 0.030483299866318703
+                    "All Ablated": 0.5779021978378296,
+                    "Two Features (N=50)": 0.027377882972359657,
+                    "Single Features (N=50)": 0.09559706598520279,
+                    "Current Token (N=50)": 0.11215027421712875,
+                    "Previous Token (N=50)": 0.1430167257785797,
+                    "Context Neuron (N=50)": 0.048314694315195084
                 },
                 "Smaller Negative (Top 50)": {
                     "Original": 0.091262586414814,
-                    "All Ablated": 10.149319648742676,
-                    "Two Features (N=50)": 0.11310555040836334,
-                    "Single Features (N=50)": 0.124266117811203,
-                    "Current Token (N=50)": 0.0909804105758667,
-                    "Previous Token (N=50)": 0.08506380021572113,
-                    "Context Neuron (N=50)": 0.11441589891910553
+                    "All Ablated": 0.5779021978378296,
+                    "Two Features (N=50)": 0.09062295407056808,
+                    "Single Features (N=50)": 0.08274421095848083,
+                    "Current Token (N=50)": 0.08707207441329956,
+                    "Previous Token (N=50)": 0.08546971529722214,
+                    "Context Neuron (N=50)": 0.12051494419574738
                 },
                 "Positive and Negative (Top 25)": {
                     "Original": 0.091262586414814,
-                    "All Ablated": 10.149319648742676,
-                    "Two Features (N=50)": 2.696280002593994,
-                    "Single Features (N=50)": 0.041008129715919495,
-                    "Current Token (N=50)": 0.13221384584903717,
-                    "Previous Token (N=50)": 0.12725944817066193,
-                    "Context Neuron (N=50)": 2.65146541595459
+                    "All Ablated": 0.5779021978378296,
+                    "Two Features (N=50)": 0.04994494095444679,
+                    "Single Features (N=50)": 0.13254129886627197,
+                    "Current Token (N=50)": 0.1039290800690651,
+                    "Previous Token (N=50)": 0.0662098377943039,
+                    "Context Neuron (N=50)": 0.13939908146858215
                 }
             },
             "Unscaled": {
@@ -680,84 +680,84 @@
             "Scaled": {
                 "All Positive": {
                     "Original": 4.870000839233398,
-                    "All Ablated": 10.85998249053955,
-                    "Two Features (N=326)": 8.69087028503418,
-                    "Single Features (N=323)": 8.667240142822266,
-                    "Current Token (N=281)": 8.166960716247559,
-                    "Previous Token (N=185)": 7.141736030578613,
-                    "Context Neuron (N=333)": 9.44347858428955
+                    "All Ablated": 8.352316856384277,
+                    "Two Features (N=326)": 6.978447437286377,
+                    "Single Features (N=323)": 7.217709541320801,
+                    "Current Token (N=281)": 7.704799652099609,
+                    "Previous Token (N=185)": 6.931150913238525,
+                    "Context Neuron (N=333)": 7.454414367675781
                 },
                 "Greater Positive": {
                     "Original": 4.870000839233398,
-                    "All Ablated": 10.85998249053955,
-                    "Two Features (N=173)": 5.670085430145264,
-                    "Single Features (N=169)": 5.714044094085693,
-                    "Current Token (N=113)": 5.544040203094482,
-                    "Previous Token (N=74)": 5.320886611938477,
-                    "Context Neuron (N=173)": 5.809377193450928
+                    "All Ablated": 8.352316856384277,
+                    "Two Features (N=173)": 5.779757976531982,
+                    "Single Features (N=169)": 6.035171031951904,
+                    "Current Token (N=113)": 5.300197601318359,
+                    "Previous Token (N=74)": 5.415989398956299,
+                    "Context Neuron (N=173)": 5.876592636108398
                 },
                 "All Positive (Top 50)": {
                     "Original": 4.870000839233398,
-                    "All Ablated": 10.85998249053955,
-                    "Two Features (N=50)": 4.2845025062561035,
-                    "Single Features (N=50)": 4.919107437133789,
-                    "Current Token (N=50)": 5.610191822052002,
-                    "Previous Token (N=50)": 5.688993453979492,
-                    "Context Neuron (N=50)": 4.6833624839782715
+                    "All Ablated": 8.352316856384277,
+                    "Two Features (N=50)": 4.668632984161377,
+                    "Single Features (N=50)": 5.274422645568848,
+                    "Current Token (N=50)": 5.897419452667236,
+                    "Previous Token (N=50)": 4.618692874908447,
+                    "Context Neuron (N=50)": 5.415496349334717
                 },
                 "Greater Positive (Top 50)": {
                     "Original": 4.870000839233398,
-                    "All Ablated": 10.85998249053955,
-                    "Two Features (N=50)": 4.894833087921143,
-                    "Single Features (N=50)": 5.291828632354736,
-                    "Current Token (N=50)": 4.980648517608643,
-                    "Previous Token (N=50)": 6.206939697265625,
-                    "Context Neuron (N=50)": 4.211696624755859
+                    "All Ablated": 8.352316856384277,
+                    "Two Features (N=50)": 4.59986686706543,
+                    "Single Features (N=50)": 5.164562225341797,
+                    "Current Token (N=50)": 5.147971153259277,
+                    "Previous Token (N=50)": 5.953615188598633,
+                    "Context Neuron (N=50)": 3.947042465209961
                 },
                 "All Negative": {
                     "Original": 4.870000839233398,
-                    "All Ablated": 10.85998249053955,
-                    "Two Features (N=114)": 4.8262481689453125,
-                    "Single Features (N=118)": 4.918902397155762,
-                    "Current Token (N=60)": 4.983442783355713,
-                    "Previous Token (N=68)": 5.491848945617676,
-                    "Context Neuron (N=122)": 4.265359401702881
+                    "All Ablated": 8.352316856384277,
+                    "Two Features (N=114)": 5.019967555999756,
+                    "Single Features (N=118)": 4.855002403259277,
+                    "Current Token (N=60)": 4.059292316436768,
+                    "Previous Token (N=68)": 4.707308769226074,
+                    "Context Neuron (N=122)": 4.777698516845703
                 },
                 "Smaller Negative": {
                     "Original": 4.870000839233398,
-                    "All Ablated": 10.85998249053955,
-                    "Two Features (N=13)": 4.935813903808594,
-                    "Single Features (N=13)": 4.935813903808594,
-                    "Current Token (N=7)": 4.879082202911377,
-                    "Previous Token (N=5)": 4.850063800811768,
-                    "Context Neuron (N=13)": 4.935813903808594
+                    "All Ablated": 8.352316856384277,
+                    "Two Features (N=13)": 4.748101234436035,
+                    "Single Features (N=13)": 4.748101234436035,
+                    "Current Token (N=7)": 4.873398780822754,
+                    "Previous Token (N=5)": 4.855350971221924,
+                    "Context Neuron (N=13)": 4.748101234436035
                 },
                 "All Negative (Top 50)": {
                     "Original": 4.870000839233398,
-                    "All Ablated": 10.85998249053955,
-                    "Two Features (N=50)": 6.426121711730957,
-                    "Single Features (N=50)": 4.937997341156006,
-                    "Current Token (N=50)": 4.736355781555176,
-                    "Previous Token (N=50)": 3.908433198928833,
-                    "Context Neuron (N=50)": 7.667364597320557
+                    "All Ablated": 8.352316856384277,
+                    "Two Features (N=50)": 8.280010223388672,
+                    "Single Features (N=50)": 7.214303970336914,
+                    "Current Token (N=50)": 4.86414909362793,
+                    "Previous Token (N=50)": 4.106204032897949,
+                    "Context Neuron (N=50)": 7.545213222503662
                 },
                 "Smaller Negative (Top 50)": {
                     "Original": 4.870000839233398,
-                    "All Ablated": 10.85998249053955,
-                    "Two Features (N=16)": 4.843531131744385,
-                    "Single Features (N=16)": 4.843531131744385,
-                    "Current Token (N=16)": 5.203886985778809,
-                    "Previous Token (N=16)": 4.979882717132568,
-                    "Context Neuron (N=16)": 4.845427513122559
+                    "All Ablated": 8.352316856384277,
+                    "Two Features (N=16)": 3.727724075317383,
+                    "Single Features (N=16)": 3.727724075317383,
+                    "Current Token (N=16)": 5.410811901092529,
+                    "Previous Token (N=16)": 5.498094081878662,
+                    "Context Neuron (N=16)": 3.721226453781128
                 },
                 "Positive and Negative (Top 25)": {
                     "Original": 4.870000839233398,
-                    "All Ablated": 10.85998249053955,
-                    "Two Features (N=50)": 6.018250465393066,
-                    "Single Features (N=50)": 6.536864757537842,
-                    "Current Token (N=50)": 3.8943333625793457,
-                    "Previous Token (N=50)": 1.6401729583740234,
-                    "Context Neuron (N=50)": 5.014312267303467
+                    "All Ablated": 8.352316856384277,
+                    "Two Features (N=50)": 6.560455322265625,
+                    "Single Features (N=50)": 6.742316722869873,
+                    "Current Token (N=50)": 4.131298065185547,
+                    "Previous Token (N=50)": 1.6667158603668213,
+                    "Context Neuron (N=50)": 5.980731010437012
                 }
             },
             "Unscaled": {
@@ -848,84 +848,84 @@
             "Scaled": {
                 "All Positive": {
                     "Original": 4.870000839233398,
-                    "All Ablated": 18.481998443603516,
-                    "Two Features (N=331)": 13.25801944732666,
-                    "Single Features (N=335)": 15.402372360229492,
-                    "Current Token (N=338)": 8.88588809967041,
-                    "Previous Token (N=368)": 9.289084434509277,
-                    "Context Neuron (N=337)": 18.62451171875
+                    "All Ablated": 9.265551567077637,
+                    "Two Features (N=331)": 6.493011474609375,
+                    "Single Features (N=335)": 6.783819675445557,
+                    "Current Token (N=338)": 8.64806842803955,
+                    "Previous Token (N=368)": 7.088089942932129,
+                    "Context Neuron (N=337)": 7.173422813415527
                 },
                 "Greater Positive": {
                     "Original": 4.870000839233398,
-                    "All Ablated": 18.481998443603516,
-                    "Two Features (N=184)": 7.86049747467041,
-                    "Single Features (N=184)": 7.86049747467041,
-                    "Current Token (N=170)": 6.722931861877441,
-                    "Previous Token (N=180)": 8.970465660095215,
-                    "Context Neuron (N=171)": 6.953634262084961
+                    "All Ablated": 9.265551567077637,
+                    "Two Features (N=184)": 6.0320634841918945,
+                    "Single Features (N=184)": 6.0320634841918945,
+                    "Current Token (N=170)": 6.330179214477539,
+                    "Previous Token (N=180)": 6.353649139404297,
+                    "Context Neuron (N=171)": 6.096604824066162
                 },
                 "All Positive (Top 50)": {
                     "Original": 4.870000839233398,
-                    "All Ablated": 18.481998443603516,
-                    "Two Features (N=50)": 7.905640125274658,
-                    "Single Features (N=50)": 12.689948081970215,
-                    "Current Token (N=50)": 8.125418663024902,
-                    "Previous Token (N=50)": 6.766319751739502,
-                    "Context Neuron (N=50)": 8.225013732910156
+                    "All Ablated": 9.265551567077637,
+                    "Two Features (N=50)": 5.4942097663879395,
+                    "Single Features (N=50)": 4.741098880767822,
+                    "Current Token (N=50)": 5.546144962310791,
+                    "Previous Token (N=50)": 5.60789680480957,
+                    "Context Neuron (N=50)": 5.122296333312988
                 },
                 "Greater Positive (Top 50)": {
                     "Original": 4.870000839233398,
-                    "All Ablated": 18.481998443603516,
-                    "Two Features (N=50)": 5.202184677124023,
-                    "Single Features (N=50)": 7.529366493225098,
-                    "Current Token (N=50)": 6.605031490325928,
-                    "Previous Token (N=50)": 7.893129825592041,
-                    "Context Neuron (N=50)": 5.625817775726318
+                    "All Ablated": 9.265551567077637,
+                    "Two Features (N=50)": 4.606008529663086,
+                    "Single Features (N=50)": 3.92427921295166,
+                    "Current Token (N=50)": 5.256712436676025,
+                    "Previous Token (N=50)": 6.405200958251953,
+                    "Context Neuron (N=50)": 4.22212028503418
                 },
                 "All Negative": {
                     "Original": 4.870000839233398,
-                    "All Ablated": 18.481998443603516,
-                    "Two Features (N=335)": 7.348409652709961,
-                    "Single Features (N=337)": 6.470290660858154,
-                    "Current Token (N=278)": 14.120807647705078,
-                    "Previous Token (N=259)": 10.748225212097168,
-                    "Context Neuron (N=310)": 4.465683937072754
+                    "All Ablated": 9.265551567077637,
+                    "Two Features (N=335)": 6.0646233558654785,
+                    "Single Features (N=337)": 5.890682697296143,
+                    "Current Token (N=278)": 4.670645713806152,
+                    "Previous Token (N=259)": 5.594901084899902,
+                    "Context Neuron (N=310)": 5.827500820159912
                 },
                 "Smaller Negative": {
                     "Original": 4.870000839233398,
-                    "All Ablated": 18.481998443603516,
-                    "Two Features (N=91)": 4.410825252532959,
-                    "Single Features (N=91)": 4.406248092651367,
-                    "Current Token (N=65)": 4.511839389801025,
-                    "Previous Token (N=61)": 4.3738694190979,
-                    "Context Neuron (N=76)": 4.353745937347412
+                    "All Ablated": 9.265551567077637,
+                    "Two Features (N=91)": 4.668854713439941,
+                    "Single Features (N=91)": 4.6701741218566895,
+                    "Current Token (N=65)": 4.937159061431885,
+                    "Previous Token (N=61)": 4.925292015075684,
+                    "Context Neuron (N=76)": 4.599682807922363
                 },
                 "All Negative (Top 50)": {
                     "Original": 4.870000839233398,
-                    "All Ablated": 18.481998443603516,
-                    "Two Features (N=50)": 6.418123245239258,
-                    "Single Features (N=50)": 5.754494667053223,
-                    "Current Token (N=50)": 9.632464408874512,
-                    "Previous Token (N=50)": 6.813934803009033,
-                    "Context Neuron (N=50)": 6.2801313400268555
+                    "All Ablated": 9.265551567077637,
+                    "Two Features (N=50)": 5.953604221343994,
+                    "Single Features (N=50)": 5.294851779937744,
+                    "Current Token (N=50)": 5.300406455993652,
+                    "Previous Token (N=50)": 4.823685646057129,
+                    "Context Neuron (N=50)": 6.512979030609131
                 },
                 "Smaller Negative (Top 50)": {
                     "Original": 4.870000839233398,
-                    "All Ablated": 18.481998443603516,
-                    "Two Features (N=50)": 4.7809343338012695,
-                    "Single Features (N=50)": 4.998034477233887,
-                    "Current Token (N=50)": 5.409604072570801,
-                    "Previous Token (N=50)": 4.693921089172363,
-                    "Context Neuron (N=50)": 5.339231491088867
+                    "All Ablated": 9.265551567077637,
+                    "Two Features (N=50)": 5.309571743011475,
+                    "Single Features (N=50)": 5.0600714683532715,
+                    "Current Token (N=50)": 5.046245574951172,
+                    "Previous Token (N=50)": 5.038976192474365,
+                    "Context Neuron (N=50)": 5.992016792297363
                 },
                 "Positive and Negative (Top 25)": {
                     "Original": 4.870000839233398,
-                    "All Ablated": 18.481998443603516,
-                    "Two Features (N=50)": 8.812397003173828,
-                    "Single Features (N=50)": 9.455530166625977,
-                    "Current Token (N=50)": 11.379895210266113,
-                    "Previous Token (N=50)": 10.86734676361084,
-                    "Context Neuron (N=50)": 7.8981499671936035
+                    "All Ablated": 9.265551567077637,
+                    "Two Features (N=50)": 5.680984020233154,
+                    "Single Features (N=50)": 5.419988632202148,
+                    "Current Token (N=50)": 5.443155765533447,
+                    "Previous Token (N=50)": 4.883045673370361,
+                    "Context Neuron (N=50)": 5.5667524337768555
                 }
             },
             "Unscaled": {

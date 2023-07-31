@@ -34,8 +34,15 @@ df_logits, df_loss = load_data()
 st.markdown("""
             ### Looking for non-linearities
 
-            We check if the whole model computes a non-linear function by comparing the correct token's logit or the loss with and without all features being active.
+            We check if the model computes a non-linear function by comparing the correct token's logit or the loss with and without specific input features.
             """)
+
+with st.expander("Show AND condition formulas"):
+    st.latex(r'''\text{Fix Current:}(YYY-NYN)-((YYN-NYN)+(NYY-NYN))''')
+    st.latex(r'''\text{Fix Previous:}(YYY-YNN)-((YYN-YNN)+(YNY-YNN))''')
+    st.latex(r'''\text{Fix Context:}(YYY-NNY)-((YNY-NNY)+(NYY-NNY))''')
+    st.latex(r'''\text{Single feature:}(YYY-NNN)-((YNN-NNN)+(NYN-NNN)+(NNY-NNN))''')
+    st.latex(r'''\text{Two features:}(YYY-NNN)-((YYN-NNN)+(YNY-NNN)+(NYY-NNN))/2''')
 
 data_select = st.sidebar.selectbox(label="Select which value to compare", 
              options=["Loss", "Correct Token Logit"], index=1)
@@ -48,11 +55,11 @@ features = ["Fix Current", "Fix Previous", "Fix Context", "Single Feature", "Two
 
 def create_grouped_barplot(df, values):
     df_long = df[df['Value'].isin(values)].melt(id_vars='Value', var_name='Category', value_name='Number')
-    fig = px.bar(df_long, x='Value', y='Number', color='Category', barmode='group', title='Grouped Barplots for Selected Values')
+    fig = px.bar(df_long, x='Value', y='Number', color='Category', barmode='group', title=f'{data_select} differences for conditions')
     
     fig.update_layout(
         xaxis_title="",
-        yaxis_title=data_select,)
+        yaxis_title=data_select + "diff",)
     
     return fig
 
