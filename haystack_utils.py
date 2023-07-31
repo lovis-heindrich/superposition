@@ -1127,7 +1127,7 @@ def get_direct_effect(prompt: str | list[str], model: HookedTransformer, context
     # 2. Activate context neuron, ablate deactivated_components, cache activations    
     def deactivate_components_hook(value, hook: HookPoint):
         value = ablated_cache[hook.name]
-        return value             
+        return value
     deactivate_components_hooks = [(freeze_act_name, deactivate_components_hook) for freeze_act_name in deactivated_components]
     with model.hooks(fwd_hooks=deactivate_components_hooks+context_activation_hooks):
         context_and_activated_metric, context_and_activated_cache = model.run_with_cache(prompt, return_type=metric_return_type, loss_per_token=True)
