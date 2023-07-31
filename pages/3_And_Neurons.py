@@ -84,7 +84,7 @@ st.markdown("""
             """)
 
 highlight_mode = st.selectbox(label="Select the type of AND neurons to highlight",
-                              options=["Two Features", "Single Features", "Current Token", "Previous Token", "Context Neuron"], index=0)
+                              options=["Two Features", "Single Features", "Current Token", "Previous Token", "Context Neuron", "Merge Tokens"], index=0)
 
 negative_and_neurons = st.checkbox("Show negative AND neurons", value=False)
 if negative_and_neurons:
