@@ -6,6 +6,7 @@ import haystack_utils
 import matplotlib.pyplot as plt
 import re
 from IPython.display import display, HTML
+import numpy as np
 
 
 ### Sparse probing utils
@@ -46,8 +47,8 @@ def ablation_effect(model, data, fwd_hooks):
         with model.hooks(fwd_hooks):
             ablated_losses.append(model(data[i * batch_size:i * batch_size + 50], return_type='loss').cpu())
 
-    original_loss = sum(original_losses) / len(original_losses)
-    ablated_loss = sum(ablated_losses) / len(ablated_losses)
+    original_loss = np.mean(original_losses)
+    ablated_loss = np.mean(ablated_losses)
 
     print(original_loss, ablated_loss)
     print(f'{(ablated_loss - original_loss) / original_loss * 100:2f}% loss increase')

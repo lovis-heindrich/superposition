@@ -31,6 +31,7 @@ torch.autograd.set_grad_enabled(False)
 torch.set_grad_enabled(False)
 
 from haystack_utils import get_mlp_activations
+from hook_utils import save_activation
 import haystack_utils
 import hook_utils
 import plotting_utils
@@ -93,7 +94,6 @@ def trimodal_interest_measure(activations):
     return diffs
 
 # %%
-from hook_utils import save_activation
 data = []
 for prompt in german_data:
     tokens = model.to_tokens(prompt)[0]
@@ -128,4 +128,175 @@ fig.update_layout(
 fig.show()
 # %%
 
+# %%
+def get_next_token_punctuation_mask(tokens: torch.LongTensor) -> torch.BoolTensor:
+    next_token_punctuation_mask = torch.zeros_like(tokens, dtype=torch.bool)
+    token_strs = model.to_str_tokens(tokens)
+    for i in range(tokens.shape[0] - 1):
+        next_token_str = token_strs[i + 1]
+        next_is_space = next_token_str[0] in [" ", ",", ".", ":", ";", "!", "?"]
+        next_token_punctuation_mask[i] = next_is_space
+    return next_token_punctuation_mask
+
+def get_ablate_at_mask_hooks(mask: torch.BoolTensor, act_value=3.2) -> list[tuple[str, callable]]:
+    def ablate_neuron_hook(value, hook):
+        value[:, mask, NEURON] = act_value
+    hook_name = f'blocks.{LAYER}.mlp.hook_post'
+    return [(hook_name, ablate_neuron_hook)]
+
+original_losses = []
+ablated_losses = []
+ablated_final_token_losses = []
+ablated_other_token_losses = []
+original_final_token_losses = []
+original_other_token_losses = []
+for prompt in tqdm(german_data):
+    tokens = model.to_tokens(prompt)[0]
+    mask = get_next_token_punctuation_mask(tokens)
+    with model.hooks(get_ablate_at_mask_hooks(mask)):
+        ablated_loss = model(prompt, return_type='loss', loss_per_token=True).flatten()
+
+        ablated_final_token_losses.extend(ablated_loss[mask[:-1]].tolist()[5:])
+        ablated_other_token_losses.extend(ablated_loss[~mask[:-1]].tolist()[5:])
+    
+    original_loss = model(prompt, return_type='loss', loss_per_token=True).flatten()
+
+    original_final_token_losses.extend(original_loss[mask[:-1]].tolist()[5:])
+    original_other_token_losses.extend(original_loss[~mask[:-1]].tolist()[5:])
+    original_losses.extend(original_loss.tolist()[5:])
+
+print(
+    np.mean(original_losses),
+    np.mean(original_other_token_losses),
+    np.mean(original_final_token_losses),
+    np.mean(ablated_final_token_losses))
+# %%
+
+original_losses = []
+ablated_losses = []
+ablated_final_token_losses = []
+ablated_other_token_losses = []
+original_final_token_losses = []
+original_other_token_losses = []
+for prompt in tqdm(german_data):
+    tokens = model.to_tokens(prompt)[0]
+    mask = get_next_token_punctuation_mask(tokens)
+
+    original_loss = model(prompt, return_type='loss', loss_per_token=True).flatten()
+    
+    original_final_token_losses.extend(original_loss[mask[:-1]].tolist()[5:])
+    original_other_token_losses.extend(original_loss[~mask[:-1]].tolist()[5:])
+    original_losses.extend(original_loss.tolist()[5:])
+
+    with model.hooks(get_ablate_at_mask_hooks(mask, act_value=neuron_activations.mean())):
+        ablated_loss = model(prompt, return_type='loss', loss_per_token=True).flatten()
+
+    ablated_final_token_losses.extend(ablated_loss[mask[:-1]].tolist()[5:])
+    ablated_other_token_losses.extend(ablated_loss[~mask[:-1]].tolist()[5:])
+    ablated_losses.extend(ablated_loss.tolist()[5:])
+
+
+print(
+    np.mean(original_losses),
+    np.mean(ablated_losses),
+    "\n original and ablated other token:",
+    np.mean(original_other_token_losses),
+    np.mean(ablated_other_token_losses),
+    "\n original and ablated final token:",
+    np.mean(original_final_token_losses),
+    np.mean(ablated_final_token_losses))
+
+# %%
+def interest_measure(original_loss, ablated_loss):
+    """Per-token measure, mixture of overall loss increase and loss increase from ablating MLP11"""
+    loss_diff = (ablated_loss - original_loss) # Loss increase from context neuron
+    loss_diff[original_loss > 6] = 0
+    loss_diff[original_loss > ablated_loss] = 0
+    return loss_diff
+
+# %%
+def print_prompt(prompt: str):
+    """Red/blue scale showing the interest measure for each token"""
+    tokens = model.to_tokens(prompt)[0]
+    str_token_prompt = model.to_str_tokens(tokens)
+    mask = get_next_token_punctuation_mask(tokens)
+    with model.hooks(get_ablate_at_mask_hooks(mask, 5.5)):
+        ablated_loss = model(prompt, return_type='loss', loss_per_token=True).flatten()
+    original_loss = model(prompt, return_type='loss', loss_per_token=True).flatten()
+    
+    pos_wise_diff = interest_measure(original_loss, ablated_loss).flatten().cpu().tolist()
+
+    loss_list = [loss.flatten().cpu().tolist() for loss in [original_loss, ablated_loss]]
+    loss_names = ["original_loss", "ablated_loss"]
+    haystack_utils.clean_print_strings_as_html(str_token_prompt[1:], pos_wise_diff, max_value=4, additional_measures=loss_list, additional_measure_names=loss_names)
+
+for prompt in german_data[:5]:
+    print_prompt(prompt)
+
+# %%
+def print_prompt(prompt: str):
+    """Red/blue scale showing the interest measure for each token"""
+    tokens = model.to_tokens(prompt)[0]
+    str_token_prompt = model.to_str_tokens(tokens)
+    mask = get_next_token_punctuation_mask(tokens)
+    with model.hooks(get_ablate_at_mask_hooks(~mask, 5.5)):
+        ablated_loss = model(prompt, return_type='loss', loss_per_token=True).flatten()
+    original_loss = model(prompt, return_type='loss', loss_per_token=True).flatten()
+    
+    pos_wise_diff = interest_measure(original_loss, ablated_loss).flatten().cpu().tolist()
+
+    loss_list = [loss.flatten().cpu().tolist() for loss in [original_loss, ablated_loss]]
+    loss_names = ["original_loss", "ablated_loss"]
+    haystack_utils.clean_print_strings_as_html(str_token_prompt[1:], pos_wise_diff, max_value=4, additional_measures=loss_list, additional_measure_names=loss_names)
+
+for prompt in german_data[:5]:
+    print_prompt(prompt)
+
+# %%
+def print_prompt(prompt: str, fwd_hooks):
+    """Red/blue scale showing the interest measure for each token"""
+    tokens = model.to_tokens(prompt)[0]
+    str_token_prompt = model.to_str_tokens(tokens)
+    mask = get_next_token_punctuation_mask(tokens)
+    with model.hooks(fwd_hooks):
+        ablated_loss = model(prompt, return_type='loss', loss_per_token=True).flatten()
+    original_loss = model(prompt, return_type='loss', loss_per_token=True).flatten()
+    
+    pos_wise_diff = interest_measure(original_loss, ablated_loss).flatten().cpu().tolist()
+
+    loss_list = [loss.flatten().cpu().tolist() for loss in [original_loss, ablated_loss]]
+    loss_names = ["original_loss", "ablated_loss"]
+    haystack_utils.clean_print_strings_as_html(str_token_prompt[1:], pos_wise_diff, max_value=4, additional_measures=loss_list, additional_measure_names=loss_names)
+
+for prompt in german_data[:5]:
+    print_prompt(prompt, [hook_utils.get_ablate_neuron_hook(LAYER, NEURON, 5.5)])
+
+# %%
+def trimodal_hook_1(value, hook):
+    first_mode, second_mode, third_mode = 0, 3.5, 5.5
+    neuron_act = value[:, :, NEURON]
+    diffs = torch.stack([neuron_act - first_mode, neuron_act - second_mode, neuron_act - third_mode]).cuda()
+    diffs = torch.abs(diffs)
+    _, min_indices = torch.min(diffs, dim=0)
+
+    value[:, :, NEURON] = torch.where(min_indices == 0, neuron_act, 
+                                      torch.where(min_indices == 1, third_mode, third_mode))
+    return value
+
+for prompt in german_data[:5]:
+    print_prompt(prompt, [(f'blocks.{LAYER}.mlp.hook_post', trimodal_hook_1)])
+# %%
+def trimodal_hook_2(value, hook):
+    first_mode, second_mode, third_mode = 0, 3.5, 5.5
+    neuron_act = value[:, :, NEURON]
+    diffs = torch.stack([neuron_act - first_mode, neuron_act - second_mode, neuron_act - third_mode]).cuda()
+    diffs = torch.abs(diffs)
+    _, min_indices = torch.min(diffs, dim=0)
+
+    value[:, :, NEURON] = torch.where(min_indices == 0, neuron_act, 
+                                      torch.where(min_indices == 1, second_mode, second_mode))
+    return value
+
+for prompt in german_data[:5]:
+    print_prompt(prompt, [(f'blocks.{LAYER}.mlp.hook_post', trimodal_hook_2)])
 # %%
