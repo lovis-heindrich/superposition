@@ -11,6 +11,8 @@ from IPython.display import display, clear_output
 import pandas as pd
 import numpy as np
 import plotly.express as px 
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from collections import defaultdict
 import matplotlib.pyplot as plt
 import re
@@ -45,23 +47,65 @@ model = HookedTransformer.from_pretrained("EleutherAI/pythia-160m",
     fold_ln=True,
     device=device)
 
-
-german_data = haystack_utils.load_json_data("data/german_europarl.json")[:200]
-english_data = haystack_utils.load_json_data("data/english_europarl.json")[:200]
-# %%
-
+with open("./data/wmt_europarl.pkl", "rb") as f:
+    data = pickle.load(f)
+#%% 
+# 2014: es, sv, de, en
+# 1819: de, nl, it, (en)
 LAYER, NEURON = 11, 2014
-neuron_activations = haystack_utils.get_mlp_activations(german_data, LAYER, model, neurons=torch.LongTensor([NEURON]), mean=False).flatten()
+languages = ["es", "sv", "de", "en"]
+
+# LAYER, NEURON = 11, 1819
+# languages = ["de", "nl", "it", "en"]
+
+# LAYER, NEURON = 8, 2994
+# languages = ["de", "nl", "it", "en", "sv"]
+
+
+#%%
+language_activations = []
+n = 200
+for language in tqdm(languages):
+    language_activation = haystack_utils.get_mlp_activations([x["text"] for x in data[language][:200]], LAYER, model, neurons=torch.LongTensor([NEURON]), mean=False).flatten()
+    language_activations.append(language_activation.cpu().numpy())
+
+#%%
+
+
+def plot_histograms(data, names, title=""):
+    fig = make_subplots()
+    for arr, name in zip(data, names):
+        fig.add_trace(go.Histogram(x=arr, name=name, nbinsx=500, opacity=0.5, histnorm='probability density'))
+    fig.update_layout(barmode='overlay', title=title)
+    fig.show()
+
+plot_histograms(language_activations, languages, title=f'L{LAYER}N{NEURON} activations on different languages')
+
 # %%
-px.histogram(neuron_activations.cpu().numpy())
+#mean_activation = np.mean(language_activations[languages.index("en")])
+mean_activation = np.mean(language_activations[languages.index("de")])
+print(mean_activation)
+# %%
+# print some high loss examples
+mean_ablate_hook = hook_utils.get_ablate_neuron_hook(LAYER, NEURON, float(mean_activation))
+
+prompts = [x["text"] for x in data["de"][:200]]
+
+def get_loss_diff(prompt):
+    loss = model(prompt, return_type="loss", loss_per_token=True)
+    with model.hooks(fwd_hooks=[mean_ablate_hook]):
+        ablated_loss = model(prompt, return_type="loss", loss_per_token=True)
+    return (ablated_loss - loss).flatten().tolist()
+
+for prompt in prompts[5:10]:
+    diff = get_loss_diff(prompt)
+    str_tokens = model.to_str_tokens(model.to_tokens(prompt).flatten())[1:]
+    haystack_utils.clean_print_strings_as_html(str_tokens, diff)
 
 # %%
 ranges = [(-10, 0.2), (1, 5), (9, 50)]
 labels = ['Inactive', 'Peak 1', 'Peak 2']
 plotting_utils.color_binned_histogram(neuron_activations.cpu().numpy(),  ranges, labels, title=f'L{LAYER}N{NEURON} activations on German data')
-
-
-# %%
 
 # %% 
 def trimodal_interest_measure(activations):
@@ -77,37 +121,4 @@ print(trimodal_interest_measure(neuron_activations[:10]))
 # prompt = german_data[0]
 for prompt in german_data[:10]:
     pythia_160m_utils.print_prompt(prompt, model, trimodal_interest_measure, LAYER, NEURON)
-# %%
-data = []
-counter = Counter()
-for prompt in german_data:
-    tokens = model.to_tokens(prompt)[0]
-    _, cache = model.run_with_cache(prompt)
-    pos_wise_diff = trimodal_interest_measure(cache['post', LAYER][0, :, NEURON])
-    for i in range(tokens.shape[0] - 1):
-        next_token_str = model.to_single_str_token(tokens[i + 1].item())
-        next_is_space = next_token_str[0] in [" ", ",", ".", ":", ";", "!", "?"]
-        if pos_wise_diff[i] == 1:
-            data.append(["Peak 1", next_is_space])
-        elif pos_wise_diff[i] == 2:
-            data.append(["Peak 2", next_is_space])
-        elif pos_wise_diff[i] == 0:
-            data.append(["Inactive", next_is_space])
-        else:
-            assert pos_wise_diff[i] == 3
-            data.append(["Unclear Peak", next_is_space])
-
-df = pd.DataFrame(data, columns=["Peak", "BeforeNewWord"])
-
-fig = px.histogram(df, x="Peak", color="BeforeNewWord", barmode="group", hover_data=df.columns, width=800)
-fig.update_layout(
-    title_text='Peak data, check if next token starts with [" ", ",", ".", ":", ";", "!", "?"]', # title of plot
-    xaxis_title_text='', # xaxis label
-    yaxis_title_text='Number of tokens', # yaxis label
-    bargap=0.2, # gap between bars of adjacent location coordinates
-    bargroupgap=0.1 # gap between bars of the same location coordinates
-)
-fig.show()
-# %%
-
 # %%
