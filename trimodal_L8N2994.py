@@ -172,6 +172,8 @@ print(
     np.mean(ablated_final_token_losses))
 # %%
 
+# %%
+
 original_losses = []
 ablated_losses = []
 ablated_final_token_losses = []
@@ -320,39 +322,50 @@ def snap_to_peak_2(value, hook):
 
 german_data = haystack_utils.load_json_data("data/german_europarl.json")
 
-closest_peak_losses = []
-for prompt in german_data:
-    with model.hooks([(f'blocks.{LAYER}.mlp.hook_post', snap_to_closest_peak)]):
-        loss = model(prompt, return_type='loss')
-    closest_peak_losses.append(loss.cpu())
-print("closest", np.mean(closest_peak_losses))
-
-peak_1_losses = []
-for prompt in german_data:
-    with model.hooks([(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_1)]):
-        loss = model(prompt, return_type='loss')
-    peak_1_losses.append(loss.cpu())
-print("peak 1", np.mean(peak_1_losses))
-
-peak_2_losses = []
-for prompt in german_data:
-    with model.hooks([(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_2)]):
-        loss = model(prompt, return_type='loss')
-    peak_2_losses.append(loss.cpu())
-print("peak 2", np.mean(peak_2_losses))
-
-original_losses = []
-for prompt in german_data:
-    loss = model(prompt, return_type='loss')
-    original_losses.append(loss.cpu())
-print("original", np.mean(original_losses))
 # %%
-plotting_utils.plot_barplot([original_losses, closest_peak_losses, peak_1_losses, peak_2_losses], 
-    names=["Original", "Snapped to closest peak", "Snapped to first peak", "Snapped to second peak"],
-    short_names=["Original", "Closest", "Peak 1", "Peak 2"], 
-    title=f"Zoomed in L{LAYER}N{NEURON} loss on German data",
-    yrange=[2.4, 2.5],
-    confidence_interval=True)
-# %%
+def get_peak_losses(model, data):
+    results = [] # loss snapping_mode mask
 
+    for prompt in tqdm(data):
+        tokens = model.to_tokens(prompt)[0]
+        mask = get_next_token_punctuation_mask(tokens)[:-1].cpu()
+
+        with model.hooks([(f'blocks.{LAYER}.mlp.hook_post', snap_to_closest_peak)]):
+            loss = model(prompt, return_type='loss', loss_per_token=True).flatten().cpu()
+        results.append([loss.mean().item(), "closest_peak", "all"])
+        results.append([loss[mask].mean().item(), "closest_peak", "final_token"])
+        results.append([loss[~mask].mean().item(), "closest_peak", "other_token"])
+    
+        with model.hooks([(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_1)]):
+            loss = model(prompt, return_type='loss', loss_per_token=True).flatten().cpu()
+            results.append([loss.mean().item(), "peak_1", "all"])
+        results.append([loss[mask].mean().item(), "peak_1", "final_token"])
+        results.append([loss[~mask].mean().item(), "peak_1", "other_token"])
+    
+
+        with model.hooks([(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_2)]):
+            loss = model(prompt, return_type='loss', loss_per_token=True).flatten().cpu()
+            results.append([loss.mean().item(), "peak_2", "all"])
+        results.append([loss[mask].mean().item(), "peak_2", "final_token"])
+        results.append([loss[~mask].mean().item(), "peak_2", "other_token"])
+
+        loss = model(prompt, return_type='loss', loss_per_token=True).flatten()
+        results.append([loss.mean().item(), "none", "all"])
+        results.append([loss[mask].mean().item(), "none", "final_token"])
+        results.append([loss[~mask].mean().item(), "none", "other_token"])
+    
+    return pd.DataFrame(results, columns=["Loss", "Snapping Mode", "Mask"])
+
+full_losses = get_peak_losses(model, german_data)
+# %%
+full_losses.groupby(["Snapping Mode", "Mask"]).mean()
+# %%
+px.barplot(full_losses, x="Snapping Mode", y="Loss", color="Mask", barmode="group", hover_data=full_losses.columns, width=800)
+
+# plotting_utils.plot_barplot([original_losses, closest_peak_losses, peak_1_losses, peak_2_losses], 
+#     names=["Original", "Snapped to closest peak", "Snapped to first peak", "Snapped to second peak"],
+#     short_names=["Original", "Closest", "Peak 1", "Peak 2"], 
+#     title=f"Zoomed in L{LAYER}N{NEURON} loss on German data",
+#     yrange=[2.4, 2.5],
+#     confidence_interval=True)
 # %%
