@@ -53,7 +53,7 @@ def ablation_effect(model, data, fwd_hooks):
     print(f'{(ablated_loss - original_loss) / original_loss * 100:2f}% loss increase')
 
 
-def color_strings_by_value(strings: list[str], color_values: list[float], max_value: float=None, additional_measures: list[list[float]] | None = None, additional_measure_names: list[str] | None = None):
+def color_strings_by_value(strings: list[str], color_values: list[float], max_value: float=None, additional_measures: list[list[float]] | None = None, additional_measure_names: list[str] | None = None, peak_names = None):
     """
     Magic GPT function that prints a string as HTML and colors it according to a list of color values. 
     Color values are normalized to the max value preserving the sign.
@@ -92,7 +92,10 @@ def color_strings_by_value(strings: list[str], color_values: list[float], max_va
         visible_string = re.sub(r'\s+', '_', strings[i])
         
         html += f'<span style="background-color: rgb({red}, {green}, {blue}); color: {text_color}; padding: 2px;" '
-        html += f'title="Difference: {color_values[i]:.4f}' 
+        if peak_names is not None:
+            html += f'title="{peak_names[int(color_values[i])]}'
+        else:
+            html += f'title="Difference: {color_values[i]:.4f}' 
         if additional_measure_names is not None:
             for j in range(len(additional_measure_names)):
                 html += f', {additional_measure_names[j]}: {additional_measures[j][i]:.4f}'
@@ -101,3 +104,11 @@ def color_strings_by_value(strings: list[str], color_values: list[float], max_va
 
     # Print the HTML in Jupyter Notebook
     display(HTML(html))
+
+
+def print_prompt(prompt, model, interest_measure, layer, neuron, names=["Inactive", "Peak 1", "Peak 2", "Unknown Peak"]):
+    str_tokens = model.to_str_tokens(model.to_tokens(prompt))
+    _, cache = model.run_with_cache(prompt)
+    activations = cache["post", layer][0, :, neuron]
+    interest = interest_measure(activations)
+    color_strings_by_value(str_tokens, interest, peak_names=names)
