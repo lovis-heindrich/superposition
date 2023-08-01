@@ -1,6 +1,7 @@
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+from plotly.colors import qualitative
 
 def line(x, xlabel="", ylabel="", title="", xticks=None, width=800, yaxis=None, hover_data=None, show_legend=True, plot=True):
     
@@ -76,3 +77,31 @@ def plot_barplot(data: list[list[float]], names: list[str], short_names = None, 
         fig.show()
     else: 
         return fig
+
+
+def color_binned_histogram(data, ranges, labels, title):
+    # Check that ranges and labels are of the same length
+    if len(ranges) != len(labels):
+        raise ValueError("Length of ranges and labels should be the same")
+
+    fig = go.Figure()
+
+    # Plot data in ranges with specific colors
+    for r, label, color in zip(ranges, labels, qualitative.Plotly):
+        hist_data = [i for i in data if r[0] <= i < r[1]]
+        fig.add_trace(go.Histogram(x=hist_data, 
+                                    name=label,
+                                    marker_color=color))
+    
+    # Plot data outside ranges with a gray color
+    out_range_data = [i for i in data if not any(r[0] <= i < r[1] for r in ranges)]
+    fig.add_trace(go.Histogram(x=out_range_data, 
+                                name='Outside Ranges',
+                                marker_color='gray'))
+
+    fig.update_layout(barmode='stack',
+                      xaxis_title='Value',
+                      yaxis_title='Count',
+                      title=title,
+                      width=1200)
+    fig.show()
