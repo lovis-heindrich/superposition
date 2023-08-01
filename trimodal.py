@@ -19,6 +19,7 @@ from datasets import load_dataset
 from collections import Counter
 import pickle
 import os
+from hook_utils import save_activation
 
 import sklearn
 from sklearn.model_selection import train_test_split
@@ -93,26 +94,36 @@ def trimodal_interest_measure(activations):
     return diffs
 
 # %%
-data = []
-counter = Counter()
-for prompt in german_data:
-    tokens = model.to_tokens(prompt)[0]
-    _, cache = model.run_with_cache(prompt)
-    pos_wise_diff = trimodal_interest_measure(cache['post', LAYER][0, :, NEURON])
-    for i in range(tokens.shape[0] - 1):
-        next_token_str = model.to_single_str_token(tokens[i + 1].item())
-        next_is_space = next_token_str[0] in [" ", ",", ".", ":", ";", "!", "?"]
-        if pos_wise_diff[i] == 1:
-            data.append(["Peak 1", next_is_space])
-        elif pos_wise_diff[i] == 2:
-            data.append(["Peak 2", next_is_space])
-        elif pos_wise_diff[i] == 0:
-            data.append(["Inactive", next_is_space])
-        else:
-            assert pos_wise_diff[i] == 3
-            data.append(["Unclear Peak", next_is_space])
+from typing import Callable
+def get_df_for_predicates(predicate: Callable[[HookedTransformer, Tensor, int], bool]):
+    data = []
+    for prompt in german_data:
+        tokens = model.to_tokens(prompt)[0]
+        hook_name = f'blocks.{LAYER}.mlp.hook_post'
+        with model.hooks([(hook_name, save_activation)]):
+            model(prompt)
+        pos_wise_diff = trimodal_interest_measure(model.hook_dict[hook_name].ctx['activation'][0, :, NEURON])
+        for i in range(tokens.shape[0] - 1):
+            result = predicate(model, tokens, i)
+            next_token_str = model.to_single_str_token(tokens[i + 1].item())
+            next_is_space = next_token_str[0] in [" ", ",", ".", ":", ";", "!", "?"]
+            if pos_wise_diff[i] == 1:
+                data.append(["Peak 1", next_is_space])
+            elif pos_wise_diff[i] == 2:
+                data.append(["Peak 2", next_is_space])
+            elif pos_wise_diff[i] == 0:
+                data.append(["Inactive", next_is_space])
+            else:
+                assert pos_wise_diff[i] == 3
+                data.append(["Unclear Peak", next_is_space])
 
-df = pd.DataFrame(data, columns=["Peak", "BeforeNewWord"])
+    return pd.DataFrame(data, columns=["Peak", "BeforeNewWord"])
+
+def predicate(model, tokens, token_index):
+    next_token_str = model.to_single_str_token(tokens[token_index + 1].item())
+    return next_token_str[0] in [" ", ",", ".", ":", ";", "!", "?"]
+    
+df = get_df_for_predicates(predicate)
 
 fig = px.histogram(df, x="Peak", color="BeforeNewWord", barmode="group", hover_data=df.columns, width=800)
 fig.update_layout(
