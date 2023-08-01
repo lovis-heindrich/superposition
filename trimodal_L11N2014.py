@@ -74,9 +74,9 @@ def trimodal_interest_measure(activations):
 # %% 
 print(trimodal_interest_measure(neuron_activations[:10]))
 # %% 
-prompt = german_data[0]
-
-pythia_160m_utils.print_prompt(prompt, model, trimodal_interest_measure, LAYER, NEURON)
+# prompt = german_data[0]
+for prompt in german_data[:10]:
+    pythia_160m_utils.print_prompt(prompt, model, trimodal_interest_measure, LAYER, NEURON)
 # %%
 data = []
 counter = Counter()
