@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 from plotly.colors import qualitative
 from haystack_utils import get_mlp_activations, get_neurons_by_layer
 from transformer_lens import HookedTransformer
+import scipy.stats as stats
 
 def line(x, xlabel="", ylabel="", title="", xticks=None, width=800, yaxis=None, hover_data=None, show_legend=True, plot=True):
     
@@ -36,9 +37,12 @@ def line(x, xlabel="", ylabel="", title="", xticks=None, width=800, yaxis=None, 
     
 
 def plot_barplot(data: list[list[float]], names: list[str], short_names = None, xlabel="", ylabel="", title="", 
-                 width=1000, yaxis=None, show=True, legend=True, yrange=None):
+                 width=1000, yaxis=None, show=True, legend=True, yrange=None, confidence_interval=False):
     means = np.mean(data, axis=1)
-    stds = np.std(data, axis=1)
+    if confidence_interval:
+        errors = [stats.sem(d)*stats.t.ppf((1+0.95)/2., len(d)-1) for d in data]
+    else:
+        errors = np.std(data, axis=1)
 
     fig = go.Figure()
     if short_names is None:
@@ -50,7 +54,7 @@ def plot_barplot(data: list[list[float]], names: list[str], short_names = None, 
                 y=[means[i]],
                 error_y=dict(
                     type='data',
-                    array=[stds[i]],
+                    array=[errors[i]],
                     visible=True
                 ),
                 name=names[i]

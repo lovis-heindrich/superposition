@@ -257,7 +257,6 @@ def print_prompt(prompt: str, fwd_hooks):
     """Red/blue scale showing the interest measure for each token"""
     tokens = model.to_tokens(prompt)[0]
     str_token_prompt = model.to_str_tokens(tokens)
-    mask = get_next_token_punctuation_mask(tokens)
     with model.hooks(fwd_hooks):
         ablated_loss = model(prompt, return_type='loss', loss_per_token=True).flatten()
     original_loss = model(prompt, return_type='loss', loss_per_token=True).flatten()
@@ -299,4 +298,61 @@ def trimodal_hook_2(value, hook):
 
 for prompt in german_data[:5]:
     print_prompt(prompt, [(f'blocks.{LAYER}.mlp.hook_post', trimodal_hook_2)])
+# %%
+
+def snap_to_closest_peak(value, hook):
+    neuron_act = value[:, :, NEURON]
+    value[:, :, NEURON][(neuron_act > 0.8) & (neuron_act < 4.1)] = 3.5
+    value[:, :, NEURON][(neuron_act > 4.8)] = 5.5
+    return value
+
+def snap_to_peak_1(value, hook):
+    neuron_act = value[:, :, NEURON]
+    value[:, :, NEURON][(neuron_act > 0.8) & (neuron_act < 4.1)] = 3.5
+    value[:, :, NEURON][(neuron_act > 4.8)] = 3.5
+    return value
+
+def snap_to_peak_2(value, hook):
+    neuron_act = value[:, :, NEURON]
+    value[:, :, NEURON][(neuron_act > 0.8) & (neuron_act < 4.1)] = 5.5
+    value[:, :, NEURON][(neuron_act > 4.8)] = 5.5
+    return value
+
+german_data = haystack_utils.load_json_data("data/german_europarl.json")
+
+closest_peak_losses = []
+for prompt in german_data:
+    with model.hooks([(f'blocks.{LAYER}.mlp.hook_post', snap_to_closest_peak)]):
+        loss = model(prompt, return_type='loss')
+    closest_peak_losses.append(loss.cpu())
+print("closest", np.mean(closest_peak_losses))
+
+peak_1_losses = []
+for prompt in german_data:
+    with model.hooks([(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_1)]):
+        loss = model(prompt, return_type='loss')
+    peak_1_losses.append(loss.cpu())
+print("peak 1", np.mean(peak_1_losses))
+
+peak_2_losses = []
+for prompt in german_data:
+    with model.hooks([(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_2)]):
+        loss = model(prompt, return_type='loss')
+    peak_2_losses.append(loss.cpu())
+print("peak 2", np.mean(peak_2_losses))
+
+original_losses = []
+for prompt in german_data:
+    loss = model(prompt, return_type='loss')
+    original_losses.append(loss.cpu())
+print("original", np.mean(original_losses))
+# %%
+plotting_utils.plot_barplot([original_losses, closest_peak_losses, peak_1_losses, peak_2_losses], 
+    names=["Original", "Snapped to closest peak", "Snapped to first peak", "Snapped to second peak"],
+    short_names=["Original", "Closest", "Peak 1", "Peak 2"], 
+    title=f"Zoomed in L{LAYER}N{NEURON} loss on German data",
+    yrange=[2.4, 2.5],
+    confidence_interval=True)
+# %%
+
 # %%
