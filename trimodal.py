@@ -93,12 +93,15 @@ def trimodal_interest_measure(activations):
     return diffs
 
 # %%
+from hook_utils import save_activation
 data = []
-counter = Counter()
 for prompt in german_data:
     tokens = model.to_tokens(prompt)[0]
     _, cache = model.run_with_cache(prompt)
-    pos_wise_diff = trimodal_interest_measure(cache['post', LAYER][0, :, NEURON])
+    hook_name = f'blocks.{LAYER}.mlp.hook_post'
+    with model.hooks([(hook_name, save_activation)]):
+        model(prompt)
+    pos_wise_diff = trimodal_interest_measure(model.hook_dict[hook_name].ctx['activation'][0, :, NEURON])
     for i in range(tokens.shape[0] - 1):
         next_token_str = model.to_single_str_token(tokens[i + 1].item())
         next_is_space = next_token_str[0] in [" ", ",", ".", ":", ";", "!", "?"]
