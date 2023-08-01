@@ -210,25 +210,71 @@ def interest_measure(original_loss, ablated_loss):
     loss_diff[original_loss > ablated_loss] = 0
     return loss_diff
 
+# %%
 def print_prompt(prompt: str):
     """Red/blue scale showing the interest measure for each token"""
     tokens = model.to_tokens(prompt)[0]
     str_token_prompt = model.to_str_tokens(tokens)
     mask = get_next_token_punctuation_mask(tokens)
-    with model.hooks(get_ablate_at_mask_hooks(mask)):
+    with model.hooks(get_ablate_at_mask_hooks(~mask, 5.5)):
         ablated_loss = model(prompt, return_type='loss', loss_per_token=True).flatten()
-        ablated_final_token_loss = ablated_loss[mask[:-1]].tolist()
-        ablated_other_token_loss = ablated_loss[~mask[:-1]].tolist()
-    
     original_loss = model(prompt, return_type='loss', loss_per_token=True).flatten()
-    original_final_token_loss = original_loss[mask[:-1]].tolist()
-    original_other_token_loss = original_loss[~mask[:-1]].tolist()
     
     pos_wise_diff = interest_measure(original_loss, ablated_loss).flatten().cpu().tolist()
 
     loss_list = [loss.flatten().cpu().tolist() for loss in [original_loss, ablated_loss]]
     loss_names = ["original_loss", "ablated_loss"]
-    haystack_utils.clean_print_strings_as_html(str_token_prompt[1:], pos_wise_diff, additional_measures=loss_list, additional_measure_names=loss_names)
+    haystack_utils.clean_print_strings_as_html(str_token_prompt[1:], pos_wise_diff, max_value=4, additional_measures=loss_list, additional_measure_names=loss_names)
 
-print_prompt(german_data[0])
+for prompt in german_data[:5]:
+    print_prompt(prompt)
+
+# %%
+def print_prompt(prompt: str, fwd_hooks):
+    """Red/blue scale showing the interest measure for each token"""
+    tokens = model.to_tokens(prompt)[0]
+    str_token_prompt = model.to_str_tokens(tokens)
+    mask = get_next_token_punctuation_mask(tokens)
+    # with model.hooks(get_ablate_at_mask_hooks(~mask, 5.5)):
+    with model.hooks(fwd_hooks):
+        ablated_loss = model(prompt, return_type='loss', loss_per_token=True).flatten()
+    original_loss = model(prompt, return_type='loss', loss_per_token=True).flatten()
+    
+    pos_wise_diff = interest_measure(original_loss, ablated_loss).flatten().cpu().tolist()
+
+    loss_list = [loss.flatten().cpu().tolist() for loss in [original_loss, ablated_loss]]
+    loss_names = ["original_loss", "ablated_loss"]
+    haystack_utils.clean_print_strings_as_html(str_token_prompt[1:], pos_wise_diff, max_value=4, additional_measures=loss_list, additional_measure_names=loss_names)
+
+for prompt in german_data[:5]:
+    print_prompt(prompt, [hook_utils.get_ablate_neuron_hook(LAYER, NEURON, 5.5)])
+
+# %%
+def trimodal_hook_1(value, hook):
+    first_mode, second_mode, third_mode = 0, 3.5, 5.5
+    neuron_act = value[:, :, NEURON]
+    diffs = torch.stack([neuron_act - first_mode, neuron_act - second_mode, neuron_act - third_mode]).cuda()
+    diffs = torch.abs(diffs)
+    _, min_indices = torch.min(diffs, dim=0)
+
+    value[:, :, NEURON] = torch.where(min_indices == 0, neuron_act, 
+                                      torch.where(min_indices == 1, third_mode, third_mode))
+    return value
+
+for prompt in german_data[:5]:
+    print_prompt(prompt, [(f'blocks.{LAYER}.mlp.hook_post', trimodal_hook_1)])
+# %%
+def trimodal_hook_2(value, hook):
+    first_mode, second_mode, third_mode = 0, 3.5, 5.5
+    neuron_act = value[:, :, NEURON]
+    diffs = torch.stack([neuron_act - first_mode, neuron_act - second_mode, neuron_act - third_mode]).cuda()
+    diffs = torch.abs(diffs)
+    _, min_indices = torch.min(diffs, dim=0)
+
+    value[:, :, NEURON] = torch.where(min_indices == 0, neuron_act, 
+                                      torch.where(min_indices == 1, second_mode, second_mode))
+    return value
+
+for prompt in german_data[:5]:
+    print_prompt(prompt, [(f'blocks.{LAYER}.mlp.hook_post', trimodal_hook_2)])
 # %%
