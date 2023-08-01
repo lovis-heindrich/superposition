@@ -1,0 +1,15 @@
+,orschlägen, häufig, beweglich
+NNN,10.29,14.57,14.82
+NNY,9.89,13.52,14.29
+NYN,3.67,10.33,9.25
+YNN,10.98,12.61,13.83
+NYY,3.93,8.7,7.92
+YNY,10.44,11.38,13.37
+YYN,3.38,1.24,7.72
+YYY,2.1,0.21,5.51
+Fix Current,1.55,-0.6,0.88
+Fix Previous,0.75,-0.2,1.74
+Fix Context,2.39,6.35,1.49
+Single Feature,1.85,7.12,2.23
+Two Features,1.63,3.17,1.58
+Merge Tokens,0.88,-0.01,1.68
