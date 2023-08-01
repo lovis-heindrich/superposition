@@ -16,7 +16,7 @@ run_select = st.sidebar.selectbox(
 )
 
 if run_select == "Run 1":
-    file_name_append = "_0"
+    file_name_append = "_0000"
 elif run_select == "Run 2":
     file_name_append = "_1000"
 else:
