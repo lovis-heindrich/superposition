@@ -18,7 +18,7 @@ import re
 from pathlib import Path
 import json
 import pandas as pd
-
+from collections import defaultdict
 import hook_utils
 
 
@@ -50,6 +50,7 @@ def get_mlp_activations(
     hook_pre = False,
     pos=None,
     neurons: Int[Tensor, "n_neurons"] | None = None,
+    disable_tqdm=False,
 ) -> Float[Tensor, "num_activations n_neurons"]:
     """Runs the model through a list of prompts and stores the mlp activations for a given layer. Might be slow for large batches as examples are run one by one.
 
@@ -62,7 +63,7 @@ def get_mlp_activations(
         context_crop_end (int, optional): Crops the end context position to avoid low neuron activations. Defaults to 400.
 
     Returns:
-        Float[Tensor, "num_activations d_mlp"]: Stacked activations for each prompt and position.
+        Float[Tensor, "num_activations n_neurons"]: Stacked activations for each prompt and position.
     """
     acts = []
     if mean:
@@ -72,11 +73,11 @@ def get_mlp_activations(
         act_label = f"blocks.{layer}.mlp.hook_pre"
     else:
         act_label = f"blocks.{layer}.mlp.hook_post"
-    neurons = neurons or torch.arange(model.cfg.d_mlp)
+    neurons = neurons if neurons is not None else torch.arange(model.cfg.d_mlp)
     if num_prompts == -1:
         num_prompts = len(prompts)
 
-    for i in tqdm(range(num_prompts)):
+    for i in tqdm(range(num_prompts), disable=disable_tqdm):
         tokens = model.to_tokens(prompts[i])
         with model.hooks([(act_label, save_activation)]):
             model(tokens)
@@ -1642,4 +1643,8 @@ def get_mean_neuron_activations(neurons: list[(int, int)], data: list[str], mode
         mean_activations.append(activations[layer][neuron])
     return mean_activations
 
-    
+def get_neurons_by_layer(neurons: list[(int, int)]) -> dict[int, list[int]]:
+    result = defaultdict(list)
+    for layer, neuron in neurons:
+        result[layer].append(neuron)
+    return result

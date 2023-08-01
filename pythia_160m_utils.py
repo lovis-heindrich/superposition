@@ -7,9 +7,9 @@ import matplotlib.pyplot as plt
 import re
 from IPython.display import display, HTML
 import numpy as np
+from torch.distributions import Normal
+import plotly.graph_objects as go
 
-
-### Sparse probing utils
 
 def run_single_neuron_lr(layer, neuron, german_activations, english_activations, num_samples=5000, ):
     """For German context neurons"""
@@ -24,6 +24,7 @@ def run_single_neuron_lr(layer, neuron, german_activations, english_activations,
     f1 = sklearn.metrics.f1_score(y_test, lr_model.predict(A_test))
     return train_acc, test_acc, f1
     
+
 def get_neuron_accuracy(layer, neuron, german_activations, english_activations, plot=False, print_f1s=True):
     """For German context neurons"""
     mean_english_activation = english_activations[layer][:,neuron].mean()
@@ -36,6 +37,7 @@ def get_neuron_accuracy(layer, neuron, german_activations, english_activations, 
         print(f"\nL{layer}N{neuron}: F1={f1:.2f}, Train acc={train_acc:.2f}, and test acc={test_acc:.2f}")
         print(f"Mean activation English={mean_english_activation:.2f}, German={mean_german_activation:.2f}")
     return f1
+
 
 def ablation_effect(model, data, fwd_hooks):
     """Full ablation accuracy"""
@@ -113,3 +115,66 @@ def print_prompt(prompt, model, interest_measure, layer, neuron, names=["Inactiv
     activations = cache["post", layer][0, :, neuron]
     interest = interest_measure(activations)
     color_strings_by_value(str_tokens, interest, peak_names=names)
+
+
+def em_gmm(data, n_clusters, n_iterations=100, eps=1e-8):
+    # Initialize parameters
+    mu = torch.randn(n_clusters)
+    sigma = torch.ones(n_clusters)
+    weights = torch.ones(n_clusters) / n_clusters
+    for _ in range(n_iterations):
+        # E-Step: compute responsibilities
+        norms = [Normal(mu[i], sigma[i]) for i in range(n_clusters)]
+        responsibilities = torch.stack([w * norm.log_prob(data).exp() for w, norm in zip(weights, norms)], dim=-1)
+        responsibilities /= (responsibilities.sum(dim=-1, keepdim=True) + eps)
+        # M-Step: update parameters
+        weights = responsibilities.mean(dim=0) + eps
+        for i in range(n_clusters):
+            weight_resp = responsibilities[:, i] / (weights[i] + eps)
+            mu[i] = (data * weight_resp).sum() / (weight_resp.sum() + eps)
+            sigma[i] = torch.sqrt((weight_resp * (data - mu[i])**2).sum() / (weight_resp.sum() + eps))
+    return mu, sigma, weights
+
+
+def plot_gaussians_with_histogram(data, mu, sigma, weights, x_range=(-10, 10), num_points=1000, nbins=50):
+    x = torch.linspace(*x_range, num_points)
+    fig = go.Figure()
+    # Add histogram
+    fig.add_trace(go.Histogram(x=data.numpy(), nbinsx=nbins, name='Data'))
+    # Calculate bin width for normalization
+    bin_width = (data.max() - data.min()) / nbins
+    # Add gaussians
+    for i in range(len(mu)):
+        y = weights[i] * Normal(mu[i], sigma[i]).log_prob(x).exp() * len(data) * bin_width
+        fig.add_trace(go.Scatter(x=x.numpy(), y=y.numpy(), mode='lines', name=f'Normal {i+1}'))
+    fig.update_layout(barmode='overlay', title='Normal Distributions Overlaid with Data Histogram',
+                      xaxis_title='x', yaxis_title='Count')
+    fig.data[0].marker.opacity = 0.5  # make the histogram semi-transparent
+    fig.show()
+    
+
+def plot_combined_gaussian_with_histogram(data, mu, sigma, weights, x_range=(-10, 10), num_points=1000, nbins=50):
+    x = torch.linspace(*x_range, num_points)
+    fig = go.Figure()
+    # Add histogram
+    fig.add_trace(go.Histogram(x=data.numpy(), nbinsx=nbins, name='Data'))
+    # Calculate bin width for normalization
+    bin_width = (data.max() - data.min()) / nbins
+    # Add gaussians
+    for i in range(len(mu)):
+        y = weights[i] * Normal(mu[i], sigma[i]).log_prob(x).exp() * len(data) * bin_width
+        fig.add_trace(go.Scatter(x=x.numpy(), y=y.numpy(), mode='lines', name=f'Normal {i+1}'))
+    # Combined Gaussian
+    y_comb = sum(weights[i] * Normal(mu[i], sigma[i]).log_prob(x).exp() for i in range(len(mu))) * len(data) * bin_width
+    fig.add_trace(go.Scatter(x=x.numpy(), y=y_comb.numpy(), mode='lines', name='Mixture of Gaussians'))
+    fig.update_layout(barmode='overlay', title='Normal Distributions Overlaid with Data Histogram',
+                      xaxis_title='x', yaxis_title='Count')
+    fig.data[0].marker.opacity = 0.5  # make the histogram semi-transparent
+    fig.show()
+
+
+def gmm_log_likelihood(data, mu, sigma, weights):
+    norms = [Normal(mu[i], sigma[i]) for i in range(len(mu))]
+    log_likelihoods = torch.stack([torch.log(w) + norm.log_prob(data) for w, norm in zip(weights, norms)], dim=-1)
+    log_likelihood = torch.logsumexp(log_likelihoods, dim=-1)
+    return log_likelihood.mean()

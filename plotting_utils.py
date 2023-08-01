@@ -1,7 +1,10 @@
+import torch
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.colors import qualitative
+from haystack_utils import get_mlp_activations, get_neurons_by_layer
+from transformer_lens import HookedTransformer
 
 def line(x, xlabel="", ylabel="", title="", xticks=None, width=800, yaxis=None, hover_data=None, show_legend=True, plot=True):
     
@@ -105,3 +108,16 @@ def color_binned_histogram(data, ranges, labels, title):
                       title=title,
                       width=1200)
     fig.show()
+
+
+def plot_neuron_acts(
+        model: HookedTransformer, data: list[str], neurons: list[tuple[int, int]], disable_tqdm=True
+) -> None:
+    '''Plot activation histograms for each neuron specified'''
+    neurons_by_layer = get_neurons_by_layer(neurons)
+    for layer, layer_neurons in neurons_by_layer.items():
+        acts = get_mlp_activations(data, layer, model, neurons=torch.tensor(layer_neurons), mean=False, 
+                                   disable_tqdm=disable_tqdm).cpu()
+        for i, neuron in enumerate(layer_neurons):
+            fig = px.histogram(acts[:, i], title=f"L{layer}N{neuron}")
+            fig.show()
