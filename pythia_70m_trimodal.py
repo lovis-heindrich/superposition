@@ -145,3 +145,16 @@ for i in range(100, 150):
 # %%
 # patent office, acronyms, symbols e.g. >
 # prompts of interest: 45, 148 others
+
+french_data = haystack_utils.load_json_data("data/french_data.json")[:200]
+print("blue is unclassified color")
+for prompt in french_data:
+    str_token_prompt = model.to_str_tokens(model.to_tokens(prompt))
+    activations = haystack_utils.get_mlp_activations([prompt], LAYER, model, neurons=torch.LongTensor([NEURON]), mean=False, context_crop_start=0, context_crop_end=20000).flatten()
+    interest = trimodal_interest_measure(activations)
+    pythia_160m_utils.color_strings_by_value(str_token_prompt, color_scale(interest), additional_measures=[interest])
+
+# %%
+# not a context neuron, activation
+# range is almost always positive
+# but shoudl maybe be normalized by the variance
