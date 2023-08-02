@@ -45,16 +45,13 @@ model = HookedTransformer.from_pretrained("EleutherAI/pythia-160m",
     fold_ln=True,
     device=device)
 
-
 german_data = haystack_utils.load_json_data("data/german_europarl.json")[:200]
 english_data = haystack_utils.load_json_data("data/english_europarl.json")[:200]
 # %%
-
 LAYER, NEURON = 8, 2994
 neuron_activations = haystack_utils.get_mlp_activations(german_data, LAYER, model, neurons=torch.LongTensor([NEURON]), mean=False).flatten()
 # %%
-px.histogram(neuron_activations.cpu().numpy())
-# %%
+# px.histogram(neuron_activations.cpu().numpy())
 ranges, labels = [(-10, 0.2), (0.8, 4.1), (4.8, 10)], ['Inactive', 'Peak 1', 'Peak 2']
 plotting_utils.color_binned_histogram(neuron_activations.cpu().numpy(),  ranges, labels, title=f'L{LAYER}N{NEURON} activations on German data')
 # %%
@@ -180,7 +177,7 @@ print(
     np.mean(ablated_final_token_losses))
 
 # %%
-def interest_measure(original_loss, ablated_loss):
+def interest_measure(original_loss: torch.FloatTensor, ablated_loss: torch.FloatTensor):
     """Per-token measure, mixture of overall loss increase and loss increase from ablating MLP11"""
     loss_diff = (ablated_loss - original_loss) # Loss increase from context neuron
     loss_diff[original_loss > 6] = 0
@@ -249,7 +246,7 @@ for prompt in german_data[:5]:
 german_data = haystack_utils.load_json_data("data/german_europarl.json")
 
 # %%
-def get_peak_losses(model, data):
+def get_peak_losses(model: HookedTransformer, data: list[str]):
     results = [] # loss snapping_mode mask
 
     for prompt in tqdm(data):
@@ -304,12 +301,8 @@ px.bar(df_diff_avg, x="Mask", y="Loss", color="Snapping Mode", barmode="group",
 
 # %%
 
-def get_tokenwise_high_loss_diffs(prompt, model):
-    results = [] # loss snapping_mode mask
-
-    # for prompt in tqdm(data):
-    tokens = model.to_tokens(prompt)[0]
-    mask = get_next_token_punctuation_mask(tokens)[:-1].cpu()
+def get_tokenwise_high_loss_diffs(prompt: str, model: HookedTransformer):
+    results = []
 
     with model.hooks([(f'blocks.{LAYER}.mlp.hook_post', snap_to_closest_peak)]):
         loss = model(prompt, return_type='loss', loss_per_token=True).flatten().cpu()
