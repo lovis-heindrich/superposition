@@ -4,7 +4,7 @@ import numpy as np
 from torch import einsum
 from tqdm.auto import tqdm
 import seaborn as sns
-from transformer_lens import HookedTransformer, ActivationCache, utils, patching
+from transformer_lens import HookedTransformer, ActivationCache, utils
 from datasets import load_dataset
 from einops import einsum
 import pandas as pd

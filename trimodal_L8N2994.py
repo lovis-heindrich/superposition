@@ -386,3 +386,19 @@ haystack_utils.plot_barplot([[item] for item in deactivate_final_token_data],
 # Think about circuits that use both peaks
 # check if can make tuple
 # %%
+
+# Check individual MLP10 neurons
+def pickle_path_patches(model, data, layer):
+    original_loss, ablated_loss = haystack_utils.compute_mlp_loss(data, model, df, torch.LongTensor([i for i in range(model.cfg.d_mlp)]).cuda(), compute_original_loss=True, ablate_mode="YYN")
+    print(original_loss, ablated_loss)
+
+    ablated_losses = []
+    for neuron in tqdm(range(model.cfg.d_mlp)):
+        ablated_loss = haystack_utils.compute_mlp_loss(data, model, df, torch.LongTensor([neuron]).cuda(), ablate_mode="YYN")
+        ablated_losses.append(ablated_loss)
+
+    ablation_loss_increase = np.array(ablated_losses) - original_loss
+    with open(f"data/pythia_160m/path_patching_neurons_layer_{layer}.pkl", "wb") as f:
+        pickle.dump(ablation_loss_increase, f)
+
+pickle_path_patches(model, german_data, 10, "")

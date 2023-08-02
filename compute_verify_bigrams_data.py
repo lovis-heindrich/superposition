@@ -2,7 +2,7 @@
 # %% 
 import torch
 from tqdm.auto import tqdm
-from transformer_lens import HookedTransformer, ActivationCache, utils, patching
+from transformer_lens import HookedTransformer, ActivationCache, utils
 from jaxtyping import Float, Int, Bool
 from torch import Tensor
 from tqdm.auto import tqdm

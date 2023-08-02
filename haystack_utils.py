@@ -1504,7 +1504,6 @@ def get_trigram_neuron_activations(prompt_tuple, model, activate_neurons_fwd_hoo
     def get_mean_activations(prompts):
         cache_ablated, cache_patched = get_direct_effect(prompts, model, 
             context_ablation_hooks=deactivate_neurons_fwd_hooks, context_activation_hooks=activate_neurons_fwd_hooks, return_type="cache")
-        
         act_original = cache_patched[mlp_hook][:, -2].mean(0)
         act_ablated = cache_ablated[mlp_hook][:, -2].mean(0)
         return act_original, act_ablated
