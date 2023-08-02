@@ -320,6 +320,25 @@ def get_tokenwise_high_loss_diffs(prompt: str, model: HookedTransformer):
     
     return results
 # %%
+def mlp_effects_german(prompt: str, index: int, activate_peak_hooks: list[tuple[str, callable]], 
+                       deactivate_peak_hooks: list[tuple[str, callable]], downstream_layers=[9, 10, 11]):
+        """Customised to L8 context neuron peaks"""
+        
+        downstream_components = [(f"blocks.{layer}.hook_{component}_out") for layer in downstream_layers for component in ['mlp', 'attn']]
+     
+        original, ablated, direct_effect, _ = haystack_utils.get_direct_effect(
+                prompt, model, pos=index, context_ablation_hooks=deactivate_peak_hooks, context_activation_hooks=activate_peak_hooks,
+                deactivated_components=tuple(downstream_components), activated_components=("blocks.8.hook_mlp_out",))
+        
+        data = [original, ablated, direct_effect]
+        for layer in downstream_layers:
+                _, _, _, activated_component_loss = haystack_utils.get_direct_effect(
+                        prompt, model, pos=index, context_ablation_hooks=deactivate_peak_hooks, context_activation_hooks=activate_peak_hooks,
+                        deactivated_components=tuple(component for component in downstream_components if component != f"blocks.{layer}.hook_mlp_out"),
+                        activated_components=(f"blocks.{layer}.hook_mlp_out",))
+                data.append(activated_component_loss)
+        return data
+
 def print_high_loss_prompts(model, german_data):
     german_losses = []
     for prompt in tqdm(german_data[:200]):
@@ -341,6 +360,27 @@ def print_high_loss_prompts(model, german_data):
         haystack_utils.clean_print_strings_as_html(str_token_prompt[1:], diff, max_value=3.5, 
                                                 additional_measures=[closest_loss, peak_1_loss, peak_2_loss, original_loss], 
                                                 additional_measure_names=["closest_loss", "peak_1_loss", "peak_2_loss", "original_loss"])
+
+        highest_loss_index = torch.argmax((peak_1_loss - peak_2_loss).abs()).item()
+        if peak_2_loss[highest_loss_index] > peak_1_loss[highest_loss_index]:
+            deactivate_final_token_data = mlp_effects_german(prompt, highest_loss_index, [(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_1)], deactivate_peak_hooks=[(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_2)])
+            haystack_utils.plot_barplot([[item] for item in deactivate_final_token_data],
+                                            names=['original', 'ablated', 'direct effect'] + [f'{i}{j}' for j in [9, 10, 11] for i in ["MLP"]], # + ["MLP9 + MLP11"]
+                                            title=f'Loss increases from ablating various MLP components at random position, final token')
+        else:
+            deactivate_other_token_data = mlp_effects_german(prompt, highest_loss_index, [(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_2)], deactivate_peak_hooks=[(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_1)])
+            haystack_utils.plot_barplot([[item] for item in deactivate_other_token_data], #.cpu().flatten().mean().item()
+                                            names=['original', 'ablated', 'direct effect'] + [f'{i}{j}' for j in [9, 10, 11] for i in ["MLP"]], # + ["MLP9 + MLP11"]
+                                            title=f'Loss increases from ablating various MLP components at random position, other token')
 # %%
 print_high_loss_prompts(model, german_data)
+# %%
+prompt = german_data[4]
+deactivate_final_token_data = mlp_effects_german(prompt, 5, [(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_1)], deactivate_peak_hooks=[(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_2)])
+haystack_utils.plot_barplot([[item] for item in deactivate_final_token_data],
+                                names=['original', 'ablated', 'direct effect'] + [f'{i}{j}' for j in [9, 10, 11] for i in ["MLP"]], # + ["MLP9 + MLP11"]
+                                title=f'Loss increases from ablating various MLP components at random position, final token')
+
+# Think about circuits that use both peaks
+# check if can make tuple
 # %%
