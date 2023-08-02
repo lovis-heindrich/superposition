@@ -200,6 +200,28 @@ def print_prompt(prompt: str, fwd_hooks: list[tuple[str, callable]]):
     loss_list = [loss.flatten().cpu().tolist() for loss in [original_loss, ablated_loss]]
     loss_names = ["original_loss", "ablated_loss"]
     haystack_utils.clean_print_strings_as_html(str_token_prompt[1:], pos_wise_diff, max_value=4, additional_measures=loss_list, additional_measure_names=loss_names)
+
+def snap_to_closest_peak(value, hook):
+    '''Doesn't snap disabled and ambiguous activations'''
+    neuron_act = value[:, :, NEURON]
+    value[:, :, NEURON][(neuron_act > 0.8) & (neuron_act < 4.1)] = 3.5
+    value[:, :, NEURON][(neuron_act > 4.8)] = 5.5
+    return value
+
+def snap_to_peak_1(value, hook):
+    '''Doesn't snap disabled and ambiguous activations'''
+    neuron_act = value[:, :, NEURON]
+    value[:, :, NEURON][(neuron_act > 0.8) & (neuron_act < 4.1)] = 3.5
+    value[:, :, NEURON][(neuron_act > 4.8)] = 3.5
+    return value
+
+def snap_to_peak_2(value, hook):
+    '''Doesn't snap disabled and ambiguous activations'''
+    neuron_act = value[:, :, NEURON]
+    value[:, :, NEURON][(neuron_act > 0.8) & (neuron_act < 4.1)] = 5.5
+    value[:, :, NEURON][(neuron_act > 4.8)] = 5.5
+    return value
+
 # %%
 for prompt in german_data[:5]:
     tokens = model.to_tokens(prompt)[0]
@@ -217,52 +239,12 @@ for prompt in german_data[:5]:
     print_prompt(prompt, [hook_utils.get_ablate_neuron_hook(LAYER, NEURON, 5.5)])
 
 # %%
-def trimodal_hook_1(value, hook):
-    first_mode, second_mode, third_mode = 0, 3.5, 5.5
-    neuron_act = value[:, :, NEURON]
-    diffs = torch.stack([neuron_act - first_mode, neuron_act - second_mode, neuron_act - third_mode]).cuda()
-    diffs = torch.abs(diffs)
-    _, min_indices = torch.min(diffs, dim=0)
-
-    value[:, :, NEURON] = torch.where(min_indices == 0, neuron_act, 
-                                      torch.where(min_indices == 1, third_mode, third_mode))
-    return value
-
 for prompt in german_data[:5]:
-    print_prompt(prompt, [(f'blocks.{LAYER}.mlp.hook_post', trimodal_hook_1)])
+    print_prompt(prompt, [(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_2)])
 # %%
-def trimodal_hook_2(value, hook):
-    first_mode, second_mode, third_mode = 0, 3.5, 5.5
-    neuron_act = value[:, :, NEURON]
-    diffs = torch.stack([neuron_act - first_mode, neuron_act - second_mode, neuron_act - third_mode]).cuda()
-    diffs = torch.abs(diffs)
-    _, min_indices = torch.min(diffs, dim=0)
-
-    value[:, :, NEURON] = torch.where(min_indices == 0, neuron_act, 
-                                      torch.where(min_indices == 1, second_mode, second_mode))
-    return value
-
 for prompt in german_data[:5]:
-    print_prompt(prompt, [(f'blocks.{LAYER}.mlp.hook_post', trimodal_hook_2)])
+    print_prompt(prompt, [(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_1)])
 # %%
-
-def snap_to_closest_peak(value, hook):
-    neuron_act = value[:, :, NEURON]
-    value[:, :, NEURON][(neuron_act > 0.8) & (neuron_act < 4.1)] = 3.5
-    value[:, :, NEURON][(neuron_act > 4.8)] = 5.5
-    return value
-
-def snap_to_peak_1(value, hook):
-    neuron_act = value[:, :, NEURON]
-    value[:, :, NEURON][(neuron_act > 0.8) & (neuron_act < 4.1)] = 3.5
-    value[:, :, NEURON][(neuron_act > 4.8)] = 3.5
-    return value
-
-def snap_to_peak_2(value, hook):
-    neuron_act = value[:, :, NEURON]
-    value[:, :, NEURON][(neuron_act > 0.8) & (neuron_act < 4.1)] = 5.5
-    value[:, :, NEURON][(neuron_act > 4.8)] = 5.5
-    return value
 
 german_data = haystack_utils.load_json_data("data/german_europarl.json")
 
