@@ -143,34 +143,6 @@ def get_ablate_at_mask_hooks(mask: torch.BoolTensor, act_value=3.2) -> list[tupl
     hook_name = f'blocks.{LAYER}.mlp.hook_post'
     return [(hook_name, ablate_neuron_hook)]
 
-original_losses = []
-ablated_losses = []
-ablated_final_token_losses = []
-ablated_other_token_losses = []
-original_final_token_losses = []
-original_other_token_losses = []
-for prompt in tqdm(german_data):
-    tokens = model.to_tokens(prompt)[0]
-    mask = get_next_token_punctuation_mask(tokens)
-    with model.hooks(get_ablate_at_mask_hooks(mask)):
-        ablated_loss = model(prompt, return_type='loss', loss_per_token=True).flatten()
-
-        ablated_final_token_losses.extend(ablated_loss[mask[:-1]].tolist()[5:])
-        ablated_other_token_losses.extend(ablated_loss[~mask[:-1]].tolist()[5:])
-    
-    original_loss = model(prompt, return_type='loss', loss_per_token=True).flatten()
-
-    original_final_token_losses.extend(original_loss[mask[:-1]].tolist()[5:])
-    original_other_token_losses.extend(original_loss[~mask[:-1]].tolist()[5:])
-    original_losses.extend(original_loss.tolist()[5:])
-
-print(
-    np.mean(original_losses),
-    np.mean(original_other_token_losses),
-    np.mean(original_final_token_losses),
-    np.mean(ablated_final_token_losses))
-# %%
-
 # %%
 
 original_losses = []
@@ -215,46 +187,7 @@ def interest_measure(original_loss, ablated_loss):
     loss_diff[original_loss > ablated_loss] = 0
     return loss_diff
 
-# %%
-def print_prompt(prompt: str):
-    """Red/blue scale showing the interest measure for each token"""
-    tokens = model.to_tokens(prompt)[0]
-    str_token_prompt = model.to_str_tokens(tokens)
-    mask = get_next_token_punctuation_mask(tokens)
-    with model.hooks(get_ablate_at_mask_hooks(mask, 5.5)):
-        ablated_loss = model(prompt, return_type='loss', loss_per_token=True).flatten()
-    original_loss = model(prompt, return_type='loss', loss_per_token=True).flatten()
-    
-    pos_wise_diff = interest_measure(original_loss, ablated_loss).flatten().cpu().tolist()
-
-    loss_list = [loss.flatten().cpu().tolist() for loss in [original_loss, ablated_loss]]
-    loss_names = ["original_loss", "ablated_loss"]
-    haystack_utils.clean_print_strings_as_html(str_token_prompt[1:], pos_wise_diff, max_value=4, additional_measures=loss_list, additional_measure_names=loss_names)
-
-for prompt in german_data[:5]:
-    print_prompt(prompt)
-
-# %%
-def print_prompt(prompt: str):
-    """Red/blue scale showing the interest measure for each token"""
-    tokens = model.to_tokens(prompt)[0]
-    str_token_prompt = model.to_str_tokens(tokens)
-    mask = get_next_token_punctuation_mask(tokens)
-    with model.hooks(get_ablate_at_mask_hooks(~mask, 5.5)):
-        ablated_loss = model(prompt, return_type='loss', loss_per_token=True).flatten()
-    original_loss = model(prompt, return_type='loss', loss_per_token=True).flatten()
-    
-    pos_wise_diff = interest_measure(original_loss, ablated_loss).flatten().cpu().tolist()
-
-    loss_list = [loss.flatten().cpu().tolist() for loss in [original_loss, ablated_loss]]
-    loss_names = ["original_loss", "ablated_loss"]
-    haystack_utils.clean_print_strings_as_html(str_token_prompt[1:], pos_wise_diff, max_value=4, additional_measures=loss_list, additional_measure_names=loss_names)
-
-for prompt in german_data[:5]:
-    print_prompt(prompt)
-
-# %%
-def print_prompt(prompt: str, fwd_hooks):
+def print_prompt(prompt: str, fwd_hooks: list[tuple[str, callable]]):
     """Red/blue scale showing the interest measure for each token"""
     tokens = model.to_tokens(prompt)[0]
     str_token_prompt = model.to_str_tokens(tokens)
@@ -267,7 +200,19 @@ def print_prompt(prompt: str, fwd_hooks):
     loss_list = [loss.flatten().cpu().tolist() for loss in [original_loss, ablated_loss]]
     loss_names = ["original_loss", "ablated_loss"]
     haystack_utils.clean_print_strings_as_html(str_token_prompt[1:], pos_wise_diff, max_value=4, additional_measures=loss_list, additional_measure_names=loss_names)
+# %%
+for prompt in german_data[:5]:
+    tokens = model.to_tokens(prompt)[0]
+    mask = get_next_token_punctuation_mask(tokens)
+    print_prompt(prompt, get_ablate_at_mask_hooks(mask, 5.5))
 
+# %%
+for prompt in german_data[:5]:
+    tokens = model.to_tokens(prompt)[0]
+    mask = get_next_token_punctuation_mask(tokens)
+    print_prompt(prompt, get_ablate_at_mask_hooks(~mask, 5.5))
+
+# %%
 for prompt in german_data[:5]:
     print_prompt(prompt, [hook_utils.get_ablate_neuron_hook(LAYER, NEURON, 5.5)])
 
