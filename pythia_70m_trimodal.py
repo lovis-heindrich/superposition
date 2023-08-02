@@ -1,6 +1,7 @@
 # - For many context neuron activations plot whether the next token is a new word.
 # - Investigate zero values of context neuron with 3+ act values for both English and German.
 #    - Could there be a meaning to the zero values too?
+#    - Wes say it's probably a meaningless bias neuron and not a context neuron
 
 # %%
 import torch
