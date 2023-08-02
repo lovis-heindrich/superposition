@@ -374,7 +374,3 @@ df_diff_sem['Loss'] = df_diff_sem['Loss'] * 1.96
 # %%
 px.bar(df_diff_avg, x="Mask", y="Loss", color="Snapping Mode", barmode="group", 
        hover_data=df_diff_avg.columns, width=800, error_y=df_diff_sem['Loss'])
-
-# %%
-
-# %%
