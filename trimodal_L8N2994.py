@@ -53,77 +53,84 @@ neuron_activations = haystack_utils.get_mlp_activations(german_data, LAYER, mode
 # %%
 # px.histogram(neuron_activations.cpu().numpy())
 ranges, labels = [(-10, 0.2), (0.8, 4.1), (4.8, 10)], ['Inactive', 'Peak 1', 'Peak 2']
-plotting_utils.color_binned_histogram(neuron_activations.cpu().numpy(),  ranges, labels, title=f'L{LAYER}N{NEURON} activations on German data')
+plotting_utils.color_binned_histogram(neuron_activations.cpu().numpy(), ranges, labels, title=f'L{LAYER}N{NEURON} activations on German data')
 # %%
-activations = []
-labels = []
-for prompt in german_data:
-    prompt_activations = []
-    prompt_labels = []
-    tokens = model.to_tokens(prompt)[0]
-    _, cache = model.run_with_cache(prompt)
-    prompt_activations = cache['post', LAYER][0, :-1, NEURON].flatten().tolist()
-    for i in range(tokens.shape[0] - 1):
-        next_token_str = model.to_single_str_token(tokens[i + 1].item())
-        next_is_space = next_token_str[0] in [" ", ",", ".", ":", ";", "!", "?"]#next_token_str.startswith(' ') or next_token_str.startswith('.') or next_token_str.startswith(','):
-        prompt_labels.append(next_is_space)
-    activations.extend(prompt_activations)
-    labels.extend(prompt_labels)
-    assert len(prompt_activations) == len(prompt_labels)
+def compute_new_word_f1(model, german_data, layer, neuron):
+    ''' Compute F1 of predicting word end from activation and plot performance of each peak'''
+    def get_new_word_labeled_activations():
+        '''Get activations and labels for predicting word end from activation'''
+        activations = []
+        labels = []
+        for prompt in german_data:
+            prompt_activations = []
+            prompt_labels = []
+            tokens = model.to_tokens(prompt)[0]
+            hook_name = f'blocks.{layer}.mlp.hook_post'
+            with model.hooks([(hook_name, save_activation)]):
+                model(prompt)
+            prompt_activations = model.hook_dict[hook_name].ctx['activation'][0, :-1, neuron].flatten().tolist()
+            for i in range(tokens.shape[0] - 1):
+                next_token_str = model.to_single_str_token(tokens[i + 1].item())
+                next_is_space = next_token_str[0] in [" ", ",", ".", ":", ";", "!", "?"]
+                prompt_labels.append(next_is_space)
+            activations.extend(prompt_activations)
+            labels.extend(prompt_labels)
+            assert len(prompt_activations) == len(prompt_labels)
+        return activations, labels
 
+    activations, labels = get_new_word_labeled_activations()
+    x = np.array(activations).reshape(-1, 1)
+    y = np.array(labels)
+    lr_model = LogisticRegression()
+    lr_model.fit(x[:8000], y[:8000])
+    preds = lr_model.predict(x[8000:])
+    score = f1_score(y[8000:], preds)
+    print(score)
+
+def plot_peak_new_word_accuracies(model, german_data, layer, neuron):
+    '''Plot % of each activation peak that corresponds to word end tokens'''
+    def trimodal_interest_measure(activations):
+        diffs = torch.zeros_like(activations) + 3
+        diffs[(activations < 0.2)] = 0
+        diffs[(activations > 0.8) & (activations < 4.1)] = 1
+        diffs[(activations > 4.8)] = 2
+        return diffs
+
+    hook_name = f'blocks.{layer}.mlp.hook_post'
+    data = []
+    for prompt in german_data:
+        tokens = model.to_tokens(prompt)[0]
+        
+        with model.hooks([(hook_name, save_activation)]):
+            model(prompt)
+        pos_wise_diff = trimodal_interest_measure(model.hook_dict[hook_name].ctx['activation'][0, :, neuron])
+        for i in range(tokens.shape[0] - 1):
+            next_token_str = model.to_single_str_token(tokens[i + 1].item())
+            next_is_space = next_token_str[0] in [" ", ",", ".", ":", ";", "!", "?"]
+            if pos_wise_diff[i] == 1:
+                data.append(["Peak 1", next_is_space])
+            elif pos_wise_diff[i] == 2:
+                data.append(["Peak 2", next_is_space])
+            elif pos_wise_diff[i] == 0:
+                data.append(["Inactive", next_is_space])
+            else:
+                assert pos_wise_diff[i] == 3
+                data.append(["Unclear Peak", next_is_space])
+
+    df = pd.DataFrame(data, columns=["Peak", "BeforeNewWord"])
+
+    fig = px.histogram(df, x="Peak", color="BeforeNewWord", barmode="group", hover_data=df.columns, width=800)
+    fig.update_layout(
+        title_text='Peak data, check if next token starts with [" ", ",", ".", ":", ";", "!", "?"]', # title of plot
+        xaxis_title_text='', # xaxis label
+        yaxis_title_text='Number of tokens', # yaxis label
+        bargap=0.2, # gap between bars of adjacent location coordinates
+        bargroupgap=0.1 # gap between bars of the same location coordinates
+    )
+    fig.show()
 # %%
-# Compute F1 of predicting word end from activation
-x = np.array(activations).reshape(-1, 1)
-y = np.array(labels)
-
-lr_model = LogisticRegression()
-lr_model.fit(x[:8000], y[:8000])
-preds = lr_model.predict(x[8000:])
-score = f1_score(y[8000:], preds)
-print(score)
-
-# %% 
-def trimodal_interest_measure(activations):
-    diffs = torch.zeros_like(activations) + 3
-    diffs[(activations < 0.2)] = 0
-    diffs[(activations > 0.8) & (activations < 4.1)] = 1
-    diffs[(activations > 4.8)] = 2
-    return diffs
-
-# %%
-data = []
-for prompt in german_data:
-    tokens = model.to_tokens(prompt)[0]
-    _, cache = model.run_with_cache(prompt)
-    hook_name = f'blocks.{LAYER}.mlp.hook_post'
-    with model.hooks([(hook_name, save_activation)]):
-        model(prompt)
-    pos_wise_diff = trimodal_interest_measure(model.hook_dict[hook_name].ctx['activation'][0, :, NEURON])
-    for i in range(tokens.shape[0] - 1):
-        next_token_str = model.to_single_str_token(tokens[i + 1].item())
-        next_is_space = next_token_str[0] in [" ", ",", ".", ":", ";", "!", "?"]
-        if pos_wise_diff[i] == 1:
-            data.append(["Peak 1", next_is_space])
-        elif pos_wise_diff[i] == 2:
-            data.append(["Peak 2", next_is_space])
-        elif pos_wise_diff[i] == 0:
-            data.append(["Inactive", next_is_space])
-        else:
-            assert pos_wise_diff[i] == 3
-            data.append(["Unclear Peak", next_is_space])
-
-df = pd.DataFrame(data, columns=["Peak", "BeforeNewWord"])
-
-fig = px.histogram(df, x="Peak", color="BeforeNewWord", barmode="group", hover_data=df.columns, width=800)
-fig.update_layout(
-    title_text='Peak data, check if next token starts with [" ", ",", ".", ":", ";", "!", "?"]', # title of plot
-    xaxis_title_text='', # xaxis label
-    yaxis_title_text='Number of tokens', # yaxis label
-    bargap=0.2, # gap between bars of adjacent location coordinates
-    bargroupgap=0.1 # gap between bars of the same location coordinates
-)
-fig.show()
-
+compute_new_word_f1(model, german_data, LAYER, NEURON)
+plot_peak_new_word_accuracies(model, german_data, LAYER, NEURON)
 # %%
 def get_next_token_punctuation_mask(tokens: torch.LongTensor) -> torch.BoolTensor:
     next_token_punctuation_mask = torch.zeros_like(tokens, dtype=torch.bool)
@@ -141,41 +148,41 @@ def get_ablate_at_mask_hooks(mask: torch.BoolTensor, act_value=3.2) -> list[tupl
     return [(hook_name, ablate_neuron_hook)]
 
 # %%
+def print_conditional_ablation_losses(model=model, german_data=german_data, neuron_activations=neuron_activations):
+    original_losses = []
+    ablated_losses = []
+    ablated_final_token_losses = []
+    ablated_other_token_losses = []
+    original_final_token_losses = []
+    original_other_token_losses = []
+    for prompt in tqdm(german_data):
+        tokens = model.to_tokens(prompt)[0]
+        mask = get_next_token_punctuation_mask(tokens)
 
-original_losses = []
-ablated_losses = []
-ablated_final_token_losses = []
-ablated_other_token_losses = []
-original_final_token_losses = []
-original_other_token_losses = []
-for prompt in tqdm(german_data):
-    tokens = model.to_tokens(prompt)[0]
-    mask = get_next_token_punctuation_mask(tokens)
+        original_loss = model(prompt, return_type='loss', loss_per_token=True).flatten()
+        
+        original_final_token_losses.extend(original_loss[mask[:-1]].tolist()[5:])
+        original_other_token_losses.extend(original_loss[~mask[:-1]].tolist()[5:])
+        original_losses.extend(original_loss.tolist()[5:])
 
-    original_loss = model(prompt, return_type='loss', loss_per_token=True).flatten()
-    
-    original_final_token_losses.extend(original_loss[mask[:-1]].tolist()[5:])
-    original_other_token_losses.extend(original_loss[~mask[:-1]].tolist()[5:])
-    original_losses.extend(original_loss.tolist()[5:])
+        with model.hooks(get_ablate_at_mask_hooks(mask, act_value=neuron_activations.mean())):
+            ablated_loss = model(prompt, return_type='loss', loss_per_token=True).flatten()
 
-    with model.hooks(get_ablate_at_mask_hooks(mask, act_value=neuron_activations.mean())):
-        ablated_loss = model(prompt, return_type='loss', loss_per_token=True).flatten()
+        ablated_final_token_losses.extend(ablated_loss[mask[:-1]].tolist()[5:])
+        ablated_other_token_losses.extend(ablated_loss[~mask[:-1]].tolist()[5:])
+        ablated_losses.extend(ablated_loss.tolist()[5:])
 
-    ablated_final_token_losses.extend(ablated_loss[mask[:-1]].tolist()[5:])
-    ablated_other_token_losses.extend(ablated_loss[~mask[:-1]].tolist()[5:])
-    ablated_losses.extend(ablated_loss.tolist()[5:])
+    print(
+        np.mean(original_losses),
+        np.mean(ablated_losses),
+        "\n original and ablated other token:",
+        np.mean(original_other_token_losses),
+        np.mean(ablated_other_token_losses),
+        "\n original and ablated final token:",
+        np.mean(original_final_token_losses),
+        np.mean(ablated_final_token_losses))
 
-
-print(
-    np.mean(original_losses),
-    np.mean(ablated_losses),
-    "\n original and ablated other token:",
-    np.mean(original_other_token_losses),
-    np.mean(ablated_other_token_losses),
-    "\n original and ablated final token:",
-    np.mean(original_final_token_losses),
-    np.mean(ablated_final_token_losses))
-
+print_conditional_ablation_losses()
 # %%
 def interest_measure(original_loss: torch.FloatTensor, ablated_loss: torch.FloatTensor):
     """Per-token measure, mixture of overall loss increase and loss increase from ablating MLP11"""
@@ -218,23 +225,19 @@ def snap_to_peak_2(value, hook):
     value[:, :, NEURON][(neuron_act > 0.8) & (neuron_act < 4.1)] = 5.5
     value[:, :, NEURON][(neuron_act > 4.8)] = 5.5
     return value
-
 # %%
 for prompt in german_data[:5]:
     tokens = model.to_tokens(prompt)[0]
     mask = get_next_token_punctuation_mask(tokens)
     print_prompt(prompt, get_ablate_at_mask_hooks(mask, 5.5))
-
 # %%
 for prompt in german_data[:5]:
     tokens = model.to_tokens(prompt)[0]
     mask = get_next_token_punctuation_mask(tokens)
     print_prompt(prompt, get_ablate_at_mask_hooks(~mask, 5.5))
-
 # %%
 for prompt in german_data[:5]:
     print_prompt(prompt, [hook_utils.get_ablate_neuron_hook(LAYER, NEURON, 5.5)])
-
 # %%
 for prompt in german_data[:5]:
     print_prompt(prompt, [(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_2)])
@@ -242,12 +245,10 @@ for prompt in german_data[:5]:
 for prompt in german_data[:5]:
     print_prompt(prompt, [(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_1)])
 # %%
-
 german_data = haystack_utils.load_json_data("data/german_europarl.json")
-
 # %%
-def get_peak_losses(model: HookedTransformer, data: list[str]):
-    results = [] # loss snapping_mode mask
+def get_peak_losses(model: HookedTransformer, data: list[str]) -> pd.DataFrame:
+    results = [] # cols: loss snapping_mode mask
 
     for prompt in tqdm(data):
         tokens = model.to_tokens(prompt)[0]
@@ -284,66 +285,62 @@ full_losses.groupby(["Mask", "Snapping Mode"]).mean()
 df = full_losses
 
 # %%
-df_diff = df.copy()
-for mask in ["all", "final_token", "other_token"]:
-    for item in ["peak_1", "peak_2", "closest_peak"]:
-        loss_item = df_diff.loc[(df_diff['Snapping Mode']==item) & (df_diff['Mask']==mask), 'Loss'].reset_index(drop=True)
-        loss_none = df_diff.loc[(df_diff['Mask']==mask) & (df_diff['Snapping Mode']=='none'), 'Loss'].reset_index(drop=True)
-        
-        df_diff.loc[(df_diff['Snapping Mode']==item) & (df_diff['Mask']==mask), 'Loss'] = loss_item - loss_none
-df_diff = df_diff[~(df_diff['Snapping Mode']=='none')]
-df_diff_avg = df_diff.groupby(['Mask', 'Snapping Mode'])['Loss'].mean().reset_index()
-df_diff_sem = df_diff.groupby(['Mask', 'Snapping Mode'])['Loss'].sem().reset_index()
-df_diff_sem['Loss'] = df_diff_sem['Loss'] * 1.96
-# %%
-px.bar(df_diff_avg, x="Mask", y="Loss", color="Snapping Mode", barmode="group", 
-       hover_data=df_diff_avg.columns, width=800, error_y=df_diff_sem['Loss'])
+def plot_loss_diffs(df):
+    df_diff = df.copy()
+    for mask in ["all", "final_token", "other_token"]:
+        for item in ["peak_1", "peak_2", "closest_peak"]:
+            loss_item = df_diff.loc[(df_diff['Snapping Mode']==item) & (df_diff['Mask']==mask), 'Loss'].reset_index(drop=True)
+            loss_none = df_diff.loc[(df_diff['Mask']==mask) & (df_diff['Snapping Mode']=='none'), 'Loss'].reset_index(drop=True)
+            
+            df_diff.loc[(df_diff['Snapping Mode']==item) & (df_diff['Mask']==mask), 'Loss'] = loss_item - loss_none
+    df_diff = df_diff[~(df_diff['Snapping Mode']=='none')]
+    df_diff_avg = df_diff.groupby(['Mask', 'Snapping Mode'])['Loss'].mean().reset_index()
+    df_diff_sem = df_diff.groupby(['Mask', 'Snapping Mode'])['Loss'].sem().reset_index()
+    df_diff_sem['Loss'] = df_diff_sem['Loss'] * 1.96
+    
+    px.bar(df_diff_avg, x="Mask", y="Loss", color="Snapping Mode", barmode="group", 
+        hover_data=df_diff_avg.columns, width=800, error_y=df_diff_sem['Loss'])
 
+plot_loss_diffs(df)
 # %%
-
 def get_tokenwise_high_loss_diffs(prompt: str, model: HookedTransformer):
     results = []
 
     with model.hooks([(f'blocks.{LAYER}.mlp.hook_post', snap_to_closest_peak)]):
         loss = model(prompt, return_type='loss', loss_per_token=True).flatten().cpu()
-    results.append(loss)
-
+        results.append(loss)
     with model.hooks([(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_1)]):
         loss = model(prompt, return_type='loss', loss_per_token=True).flatten().cpu()
-    results.append(loss)
-
+        results.append(loss)
     with model.hooks([(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_2)]):
         loss = model(prompt, return_type='loss', loss_per_token=True).flatten().cpu()
-    results.append(loss)
-
+        results.append(loss)
     loss = model(prompt, return_type='loss', loss_per_token=True).flatten().cpu()
     results.append(loss)
     
     return results
-
-closest_loss, peak_1_loss, peak_2_loss, original_loss = get_tokenwise_high_loss_diffs(prompt, model)
 # %%
-diff = (peak_1_loss - peak_2_loss).abs().max()
-# %%
-german_losses = []
-for prompt in tqdm(german_data[:200]):
-    closest_loss, peak_1_loss, peak_2_loss, original_loss = get_tokenwise_high_loss_diffs(prompt, model)
-    diff = (peak_1_loss - peak_2_loss).abs().max()
-    german_losses.append(diff)
+def print_high_loss_prompts(model, german_data):
+    german_losses = []
+    for prompt in tqdm(german_data[:200]):
+        closest_loss, peak_1_loss, peak_2_loss, original_loss = get_tokenwise_high_loss_diffs(prompt, model)
+        diff = (peak_1_loss - peak_2_loss).abs().max()
+        german_losses.append(diff)
 
-index = [i for i in range(len(german_losses))]
+    index = [i for i in range(len(german_losses))]
+    sorted_measure = list(zip(index, german_losses))
+    sorted_measure.sort(key=lambda x: x[1], reverse=True)
 
-sorted_measure = list(zip(index, german_losses))
-sorted_measure.sort(key=lambda x: x[1], reverse=True)
+    for i, measure in sorted_measure[:10]:
+        prompt = german_data[i]
+        print(measure)
+        tokens = model.to_tokens(prompt)[0]
+        str_token_prompt = model.to_str_tokens(tokens)
+        closest_loss, peak_1_loss, peak_2_loss, original_loss = get_tokenwise_high_loss_diffs(prompt, model)
+        diff = (peak_1_loss - peak_2_loss).abs().flatten().cpu().tolist()
+        haystack_utils.clean_print_strings_as_html(str_token_prompt[1:], diff, max_value=3.5, 
+                                                additional_measures=[closest_loss, peak_1_loss, peak_2_loss, original_loss], 
+                                                additional_measure_names=["closest_loss", "peak_1_loss", "peak_2_loss", "original_loss"])
 # %%
-for i, measure in sorted_measure[:10]:
-    prompt = german_data[i]
-    print(measure)
-    tokens = model.to_tokens(prompt)[0]
-    str_token_prompt = model.to_str_tokens(tokens)
-    closest_loss, peak_1_loss, peak_2_loss, original_loss = get_tokenwise_high_loss_diffs(prompt, model)
-    diff = (peak_1_loss - peak_2_loss).abs().flatten().cpu().tolist()
-    haystack_utils.clean_print_strings_as_html(str_token_prompt[1:], diff, max_value=3.5, 
-                                               additional_measures=[closest_loss, peak_1_loss, peak_2_loss, original_loss], 
-                                               additional_measure_names=["closest_loss", "peak_1_loss", "peak_2_loss", "original_loss"])
+print_high_loss_prompts(model, german_data)
 # %%
