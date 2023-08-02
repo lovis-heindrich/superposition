@@ -126,7 +126,6 @@ fig.update_layout(
     bargroupgap=0.1 # gap between bars of the same location coordinates
 )
 fig.show()
-# %%
 
 # %%
 def get_next_token_punctuation_mask(tokens: torch.LongTensor) -> torch.BoolTensor:
@@ -361,49 +360,18 @@ full_losses.groupby(["Mask", "Snapping Mode"]).mean()
 df = full_losses
 
 # %%
-full_losses.head()
-
-# %%
-df_sem = df.groupby(['Mask', 'Snapping Mode'])['Loss'].sem().reset_index()
-df_sem['Loss'] = df_sem['Loss'] * 1.96
-
-df_avg = df.groupby(['Mask', 'Snapping Mode'])['Loss'].mean().reset_index()
-px.bar(df_avg, x="Mask", y="Loss", color="Snapping Mode", barmode="group", 
-       hover_data=df_avg.columns, width=800, error_y=df_sem['Loss'])
-# %%
-
 df_diff = df.copy()
-
-# loss_all_mask = df_diff[df_diff['Mask'] == 'all'].groupby('Snapping Mode')['Loss'].mean()
-# df_diff['Loss Difference'] = df_diff.apply(lambda row: row['Loss'] - loss_all_mask.loc[row['Snapping Mode']], axis=1)
-
-# df_diff
-# %%
-
-# for item in ["peak_1", "peak_2", "closest_peak"]:
-#     loss_item = df_diff.loc[(df_diff['Snapping Mode']==item) & (df_diff['Mask']=='all'), 'Loss'].reset_index(drop=True)
-#     loss_none = df_diff.loc[(df_diff['Mask']=='all') & (df_diff['Snapping Mode']=='none'), 'Loss'].reset_index(drop=True)
-    
-#     df_diff.loc[(df_diff['Snapping Mode']==item) & (df_diff['Mask']=='all'), 'Loss'] = loss_item - loss_none
-
-
-# %%
 for mask in ["all", "final_token", "other_token"]:
     for item in ["peak_1", "peak_2", "closest_peak"]:
         loss_item = df_diff.loc[(df_diff['Snapping Mode']==item) & (df_diff['Mask']==mask), 'Loss'].reset_index(drop=True)
         loss_none = df_diff.loc[(df_diff['Mask']==mask) & (df_diff['Snapping Mode']=='none'), 'Loss'].reset_index(drop=True)
         
         df_diff.loc[(df_diff['Snapping Mode']==item) & (df_diff['Mask']==mask), 'Loss'] = loss_item - loss_none
-# %%
-
-df_diff.head()
-
 df_diff = df_diff[~(df_diff['Snapping Mode']=='none')]
-
-# px.bar(df_diff, x="Mask", y="Loss Difference", color="Snapping Mode", barmode="group",)
 df_diff_avg = df_diff.groupby(['Mask', 'Snapping Mode'])['Loss'].mean().reset_index()
 df_diff_sem = df_diff.groupby(['Mask', 'Snapping Mode'])['Loss'].sem().reset_index()
 df_diff_sem['Loss'] = df_diff_sem['Loss'] * 1.96
+# %%
 px.bar(df_diff_avg, x="Mask", y="Loss", color="Snapping Mode", barmode="group", 
        hover_data=df_diff_avg.columns, width=800, error_y=df_diff_sem['Loss'])
 
