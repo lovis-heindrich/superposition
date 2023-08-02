@@ -109,7 +109,8 @@ def color_strings_by_value(strings: list[str], color_values: list[float], max_va
     display(HTML(html))
 
 
-def print_prompt(prompt, model, interest_measure, layer, neuron, names=["Inactive", "Peak 1", "Peak 2", "Unknown Peak"]):
+def print_prompt(prompt: str, model, interest_measure: callable, layer: int, neuron: int, 
+                 names=["Inactive", "Peak 1", "Peak 2", "Unknown Peak"]):
     str_tokens = model.to_str_tokens(model.to_tokens(prompt))
     _, cache = model.run_with_cache(prompt)
     activations = cache["post", layer][0, :, neuron]

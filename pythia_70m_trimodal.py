@@ -1,3 +1,7 @@
+# - For many context neuron activations plot whether the next token is a new word.
+# - Investigate zero values of context neuron with 3+ act values for both English and German.
+#    - Could there be a meaning to the zero values too?
+
 # %%
 import torch
 from tqdm.auto import tqdm
@@ -35,6 +39,7 @@ from hook_utils import save_activation
 import haystack_utils
 import hook_utils
 import plotting_utils
+import pythia_160m_utils
 
 %reload_ext autoreload
 %autoreload 2
@@ -87,3 +92,56 @@ other_token = torch.cat(other_token).flatten()
 
 haystack_utils.two_histogram(next_token, other_token, x_label="Neuron activation", y_label="Count", title="Neuron activation for next token punctuation")
 # %%
+
+all_german_neurons = [
+    # (5, 1039), # en
+    (5, 407), # en and german
+    # (5, 1516), # en german
+    # (5,	250), # off for both
+    # (3, 1204), # off for german
+]
+for layer, neuron in all_german_neurons:
+    plotting_utils.plot_neuron_acts(model, german_data, [(layer, neuron)])
+    plotting_utils.plot_neuron_acts(model, english_data, [(layer, neuron)])
+
+# %%
+LAYER = 5
+NEURON = 407
+
+def trimodal_interest_measure(l5_n407_acts):
+    diffs = torch.zeros_like(l5_n407_acts) + 3
+    diffs[(l5_n407_acts < 0.2)] = 0
+    diffs[(l5_n407_acts > 1) & (l5_n407_acts < 3)] = 1
+    diffs[(l5_n407_acts > 5)] = 2
+    return diffs
+
+def color_scale(diffs):
+    diffs = diffs.float()
+    diffs[diffs == 0] = 0.2
+    diffs[diffs == 1] = 0.4
+    diffs[diffs == 2] = 0.8
+    diffs[diffs == 3] = 1.0
+    return diffs
+# %%
+for prompt in german_data[:5]:
+    str_token_prompt = model.to_str_tokens(model.to_tokens(prompt))
+    activations = haystack_utils.get_mlp_activations([prompt], LAYER, model, neurons=torch.LongTensor([NEURON]), mean=False, context_crop_start=0, context_crop_end=20000).flatten()
+    interest = trimodal_interest_measure(activations)
+    pythia_160m_utils.color_strings_by_value(str_token_prompt, color_scale(interest), additional_measures=[interest])
+# %%
+
+pile_sample = load_dataset("NeelNanda/pile-10k", split='train')
+# %%
+print(type(pile_sample[0]['text']))
+# %%
+print("blue is unclassified color")
+for i in range(100, 150):
+    print(i)
+    prompt = pile_sample[i]['text']
+    str_token_prompt = model.to_str_tokens(model.to_tokens(prompt))
+    activations = haystack_utils.get_mlp_activations([prompt], LAYER, model, neurons=torch.LongTensor([NEURON]), mean=False, context_crop_start=0, context_crop_end=20000).flatten()
+    interest = trimodal_interest_measure(activations)
+    pythia_160m_utils.color_strings_by_value(str_token_prompt, color_scale(interest), additional_measures=[interest])
+# %%
+# patent office, acronyms, symbols e.g. >
+# prompts of interest: 45, 148 others

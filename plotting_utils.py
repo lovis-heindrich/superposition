@@ -115,7 +115,8 @@ def color_binned_histogram(data, ranges, labels, title):
 
 
 def plot_neuron_acts(
-        model: HookedTransformer, data: list[str], neurons: list[tuple[int, int]], disable_tqdm=True
+        model: HookedTransformer, data: list[str], neurons: list[tuple[int, int]], disable_tqdm=True, 
+        width=700
 ) -> None:
     '''Plot activation histograms for each neuron specified'''
     neurons_by_layer = get_neurons_by_layer(neurons)
@@ -123,5 +124,5 @@ def plot_neuron_acts(
         acts = get_mlp_activations(data, layer, model, neurons=torch.tensor(layer_neurons), mean=False, 
                                    disable_tqdm=disable_tqdm).cpu()
         for i, neuron in enumerate(layer_neurons):
-            fig = px.histogram(acts[:, i], title=f"L{layer}N{neuron}")
+            fig = px.histogram(acts[:, i], title=f"L{layer}N{neuron}", width=width)
             fig.show()
