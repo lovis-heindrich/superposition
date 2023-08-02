@@ -86,6 +86,4 @@ other_token = torch.cat(other_token).flatten()
 
 
 haystack_utils.two_histogram(next_token, other_token, x_label="Neuron activation", y_label="Count", title="Neuron activation for next token punctuation")
-
-
 # %%

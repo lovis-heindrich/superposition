@@ -374,3 +374,56 @@ df_diff_sem['Loss'] = df_diff_sem['Loss'] * 1.96
 # %%
 px.bar(df_diff_avg, x="Mask", y="Loss", color="Snapping Mode", barmode="group", 
        hover_data=df_diff_avg.columns, width=800, error_y=df_diff_sem['Loss'])
+
+# %%
+
+def get_tokenwise_high_loss_diffs(prompt, model):
+    results = [] # loss snapping_mode mask
+
+    # for prompt in tqdm(data):
+    tokens = model.to_tokens(prompt)[0]
+    mask = get_next_token_punctuation_mask(tokens)[:-1].cpu()
+
+    with model.hooks([(f'blocks.{LAYER}.mlp.hook_post', snap_to_closest_peak)]):
+        loss = model(prompt, return_type='loss', loss_per_token=True).flatten().cpu()
+    results.append(loss)
+
+    with model.hooks([(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_1)]):
+        loss = model(prompt, return_type='loss', loss_per_token=True).flatten().cpu()
+    results.append(loss)
+
+    with model.hooks([(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_2)]):
+        loss = model(prompt, return_type='loss', loss_per_token=True).flatten().cpu()
+    results.append(loss)
+
+    loss = model(prompt, return_type='loss', loss_per_token=True).flatten().cpu()
+    results.append(loss)
+    
+    return results
+
+closest_loss, peak_1_loss, peak_2_loss, original_loss = get_tokenwise_high_loss_diffs(prompt, model)
+# %%
+diff = (peak_1_loss - peak_2_loss).abs().max()
+# %%
+german_losses = []
+for prompt in tqdm(german_data[:200]):
+    closest_loss, peak_1_loss, peak_2_loss, original_loss = get_tokenwise_high_loss_diffs(prompt, model)
+    diff = (peak_1_loss - peak_2_loss).abs().max()
+    german_losses.append(diff)
+
+index = [i for i in range(len(german_losses))]
+
+sorted_measure = list(zip(index, german_losses))
+sorted_measure.sort(key=lambda x: x[1], reverse=True)
+# %%
+for i, measure in sorted_measure[:10]:
+    prompt = german_data[i]
+    print(measure)
+    tokens = model.to_tokens(prompt)[0]
+    str_token_prompt = model.to_str_tokens(tokens)
+    closest_loss, peak_1_loss, peak_2_loss, original_loss = get_tokenwise_high_loss_diffs(prompt, model)
+    diff = (peak_1_loss - peak_2_loss).abs().flatten().cpu().tolist()
+    haystack_utils.clean_print_strings_as_html(str_token_prompt[1:], diff, max_value=3.5, 
+                                               additional_measures=[closest_loss, peak_1_loss, peak_2_loss, original_loss], 
+                                               additional_measure_names=["closest_loss", "peak_1_loss", "peak_2_loss", "original_loss"])
+# %%
