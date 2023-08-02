@@ -359,18 +359,31 @@ def get_peak_losses(model, data):
 full_losses = get_peak_losses(model, german_data)
 # %%
 full_losses.groupby(["Mask", "Snapping Mode"]).mean()
-full_losses = df
+df = full_losses
 
+# %%
+full_losses.head()
 # %%
 import seaborn
 
-seaborn.barplot(data=full_losses, x="Mask", y="Loss", hue="Snapping Mode")
-# px.bar(df.groupby(["Mask", "Snapping Mode"]).mean().reset_index(), x="Mask", y="Loss", color="Snapping Mode", barmode="group", hover_data=full_losses.columns, width=800)
-
+# seaborn.barplot(data=full_losses, x="Mask", y="Loss", hue="Snapping Mode")
+px.bar(df, x="Mask", y="Loss", color="Snapping Mode", barmode="group", hover_data=full_losses.columns, width=800)
+# .groupby(["Mask", "Snapping Mode"]).mean().reset_index()
 # plotting_utils.plot_barplot([original_losses, closest_peak_losses, peak_1_losses, peak_2_losses], 
 #     names=["Original", "Snapped to closest peak", "Snapped to first peak", "Snapped to second peak"],
 #     short_names=["Original", "Closest", "Peak 1", "Peak 2"], 
 #     title=f"Zoomed in L{LAYER}N{NEURON} loss on German data",
 #     yrange=[2.4, 2.5],
 #     confidence_interval=True)
+# %%
+df_avg = df.groupby(['Mask', 'Snapping Mode']).mean().reset_index()
+px.bar(df_avg, x="Mask", y="Loss", color="Snapping Mode", barmode="group", hover_data=df_avg.columns, width=800)
+
+# %%
+df_sem = df.groupby(['Mask', 'Snapping Mode'])['Loss'].sem().reset_index()
+df_sem['Loss'] = df_sem['Loss'] * 1.96
+
+df_avg = df.groupby(['Mask', 'Snapping Mode'])['Loss'].mean().reset_index()
+px.bar(df_avg, x="Mask", y="Loss", color="Snapping Mode", barmode="group", 
+       hover_data=df_avg.columns, width=800, error_y=df_sem['Loss'])
 # %%
