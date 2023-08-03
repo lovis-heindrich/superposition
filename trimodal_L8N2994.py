@@ -333,10 +333,12 @@ def mlp_effects_german(prompt: str, index: int, activate_peak_hooks: list[tuple[
                 data.append(activated_component_loss)
         return data
 
-def print_high_loss_prompts(model, german_data):
+from typing import Literal
+# %%
+def pickle_high_loss_prompt_tokens(model, german_data):
     german_losses = []
     for prompt in tqdm(german_data[:200]):
-        closest_loss, peak_1_loss, peak_2_loss, original_loss = get_tokenwise_high_loss_diffs(prompt, model)
+        _, peak_1_loss, peak_2_loss, _ = get_tokenwise_high_loss_diffs(prompt, model)
         diff = (peak_1_loss - peak_2_loss).abs().max()
         german_losses.append(diff)
 
@@ -344,6 +346,24 @@ def print_high_loss_prompts(model, german_data):
     sorted_measure = list(zip(index, german_losses))
     sorted_measure.sort(key=lambda x: x[1], reverse=True)
 
+    high_loss_prompt_tokens: list[tuple[int, int, float, Literal['first peak snapped', 'second peak snapped']]] = []
+    for i, measure in sorted_measure:
+        prompt = german_data[i]
+        _, peak_1_loss, peak_2_loss, original_loss = get_tokenwise_high_loss_diffs(prompt, model)
+        highest_loss_index = torch.argmax((peak_1_loss - peak_2_loss).abs()).item()
+        peak_snapped = 'first peak snapped' if peak_2_loss[highest_loss_index] > peak_1_loss[highest_loss_index] else 'second peak snapped'
+        high_loss_prompt_tokens.append((i, highest_loss_index, measure, peak_snapped))
+
+    with open(f"data/pythia_160m/high_loss_indices.pkl", "wb") as f:
+        pickle.dump(high_loss_prompt_tokens, f)
+
+# pickle_high_loss_prompt_tokens(model, german_data)
+# %%
+
+def print_high_loss_prompts(model, german_data):
+    with open(f"data/pythia_160m/high_loss_indices.pkl", "rb") as f:
+        high_loss_prompt_tokens = pickle.load(f)
+    sorted_measure = [(i, measure) for i, _, measure, _ in high_loss_prompt_tokens]
     for i, measure in sorted_measure[:10]:
         prompt = german_data[i]
         print(measure)
@@ -370,6 +390,13 @@ def print_high_loss_prompts(model, german_data):
 # %%
 print_high_loss_prompts(model, german_data)
 # %%
+def minimum_viable_prompt(model: HookedTransformer, prompt: str, high_loss_index: int, fwd_hooks: list[tuple[str, callable]]
+) -> str:
+    tokens = model.to_tokens(prompt)[0]
+
+    return "".join(model.to_str_tokens(tokens))
+
+# %%
 
 # MLP 10 important, snap to peak 2 loss high
 prompt = german_data[46]
@@ -387,18 +414,20 @@ haystack_utils.plot_barplot([[item] for item in deactivate_final_token_data],
 # check if can make tuple
 # %%
 
+
 # Check individual MLP10 neurons
-def pickle_path_patches(model, data, layer):
-    original_loss, ablated_loss = haystack_utils.compute_mlp_loss(data, model, df, torch.LongTensor([i for i in range(model.cfg.d_mlp)]).cuda(), compute_original_loss=True, ablate_mode="YYN")
-    print(original_loss, ablated_loss)
+# def pickle_path_patches(model, data, layer):
+#     # Get ablated cache, and MLP5 path patched cache, and MLP5 path patched loss.
+#     # For each neuron do a forward pass and patch in the neuron from the ablated cache. 
+#     # Record the loss increase relative to the MLP5 path patched loss.
+#     path_patched_loss, path_patched_cache = haystack_utils.get_direct_effect(data, model, pos=5, context_ablation_hooks=[(f'blocks.{layer}.mlp.hook_post', snap_to_peak_2)], context_activation_hooks=[(f'blocks.{layer}.mlp.hook_post', snap_to_peak_1)])
 
-    ablated_losses = []
-    for neuron in tqdm(range(model.cfg.d_mlp)):
-        ablated_loss = haystack_utils.compute_mlp_loss(data, model, df, torch.LongTensor([neuron]).cuda(), ablate_mode="YYN")
-        ablated_losses.append(ablated_loss)
+#     ablated_losses = []
+#     for neuron in tqdm(range(model.cfg.d_mlp)):
+        
 
-    ablation_loss_increase = np.array(ablated_losses) - original_loss
-    with open(f"data/pythia_160m/path_patching_neurons_layer_{layer}.pkl", "wb") as f:
-        pickle.dump(ablation_loss_increase, f)
+#     ablation_loss_increase = np.array(ablated_losses) - path_patched_loss
+#     with open(f"data/pythia_160m/path_patching_neurons_layer_{layer}.pkl", "wb") as f:
+#         pickle.dump(ablation_loss_increase, f)
 
-pickle_path_patches(model, german_data, 10, "")
+# pickle_path_patches(model, german_data, 10, "")
