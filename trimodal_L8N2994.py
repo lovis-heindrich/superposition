@@ -391,7 +391,7 @@ print_high_loss_prompts(model, german_data)
 with open(f"data/pythia_160m/high_loss_indices.pkl", "rb") as f:
         high_loss_prompt_tokens = pickle.load(f)
 # %%
-def final_loss_diff(model: HookedTransformer, tokens: torch.Tensor, fwd_hooks: list[tuple[str, callable]]):
+def final_token_loss_diff(model: HookedTransformer, tokens: torch.Tensor, fwd_hooks: list[tuple[str, callable]]):
     original_loss = model(tokens, return_type='loss', loss_per_token=True)
     with model.hooks(fwd_hooks):
         ablated_loss = model(tokens, return_type='loss', loss_per_token=True)
@@ -403,7 +403,7 @@ def plot_truncated_prompt_losses(model: HookedTransformer, fwd_hooks: list[tuple
     xticks = []
     stop = stop if stop is not None else tokens.shape[0]
     for i in range(-2, -stop, -1):
-        loss_diffs.append(final_loss_diff(model, tokens[i:], fwd_hooks))
+        loss_diffs.append(final_token_loss_diff(model, tokens[i:], fwd_hooks))
         xticks.append(str(i))
     plotting_utils.line(loss_diffs, xticks=xticks, xlabel='Starting left index', ylabel='Final token loss', title="Loss diff with different number of tokens before the high loss token")
 
@@ -418,8 +418,29 @@ plot_truncated_prompt_losses(model, hooks, truncated_tokens, stop=20)
 
 # %%
 left_cropped_tokens = truncated_tokens[-16:]
-print(final_loss_diff(model, left_cropped_tokens, hooks))
+print("".join(model.to_str_tokens(left_cropped_tokens)))
+print(final_token_loss_diff(model, left_cropped_tokens, hooks))
 
+str_token_prompt = model.to_str_tokens(tokens)
+closest_loss, peak_1_loss, peak_2_loss, original_loss = get_tokenwise_high_loss_diffs(german_data[i], model)
+diff = (peak_1_loss - peak_2_loss).abs().flatten().cpu().tolist()
+haystack_utils.clean_print_strings_as_html(str_token_prompt[1:], diff, max_value=3.5, 
+                                        additional_measures=[closest_loss, peak_1_loss, peak_2_loss, original_loss], 
+                                        additional_measure_names=["closest_loss", "peak_1_loss", "peak_2_loss", "original_loss"])
+
+# Activate and deactivate for fewer tokens
+# %% 
+# I checked whether the loss increases over 16+ tokens was due to the L5 context neuron not being fully on and it was unrelated,
+# the model just knows more than trigrams
+# Turn context neuron on for both original and ablated
+# act_value = haystack_utils.get_mlp_activations(german_data[:200], 5, model, neurons=torch.LongTensor([2649]), mean=True).flatten()
+# def activate_l5_context_neuron(value, hook):
+#     value[:, :, 2649] = act_value
+#     return value
+# activate_l5_context_hooks = [('blocks.5.mlp.hook_post', activate_l5_context_neuron)]
+
+
+# prompts = haystack_utils.generate_random_prompts()
 # %%
 # Think about circuits that use both peaks
 # check if can make tuple
