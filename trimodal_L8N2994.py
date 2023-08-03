@@ -346,12 +346,12 @@ def pickle_high_loss_prompt_tokens(model, german_data):
     sorted_measure = list(zip(index, german_losses))
     sorted_measure.sort(key=lambda x: x[1], reverse=True)
 
-    high_loss_prompt_tokens: list[tuple[int, int, float, Literal['first peak snapped', 'second peak snapped']]] = []
+    high_loss_prompt_tokens: list[tuple[int, int, float, Literal['first', 'second']]] = []
     for i, measure in sorted_measure:
         prompt = german_data[i]
         _, peak_1_loss, peak_2_loss, original_loss = get_tokenwise_high_loss_diffs(prompt, model)
         highest_loss_index = torch.argmax((peak_1_loss - peak_2_loss).abs()).item()
-        peak_snapped = 'first peak snapped' if peak_2_loss[highest_loss_index] > peak_1_loss[highest_loss_index] else 'second peak snapped'
+        peak_snapped = 'first' if peak_2_loss[highest_loss_index] > peak_1_loss[highest_loss_index] else 'second'
         high_loss_prompt_tokens.append((i, highest_loss_index, measure, peak_snapped))
 
     with open(f"data/pythia_160m/high_loss_indices.pkl", "wb") as f:
@@ -390,15 +390,36 @@ def print_high_loss_prompts(model, german_data):
 # %%
 print_high_loss_prompts(model, german_data)
 # %%
-def minimum_viable_prompt(model: HookedTransformer, prompt: str, high_loss_index: int, fwd_hooks: list[tuple[str, callable]]
-) -> str:
-    tokens = model.to_tokens(prompt)[0]
+with open(f"data/pythia_160m/high_loss_indices.pkl", "rb") as f:
+        high_loss_prompt_tokens = pickle.load(f)
+# %%
+def minimum_viable_prompt(model: HookedTransformer, fwd_hooks: list[tuple[str, callable]], prompt: str, 
+                          high_loss_index: int) -> str:
+    tokens = model.to_tokens(prompt)[0][:high_loss_index + 1]
+    loss_diffs = []
+    for i in range(high_loss_index - 1, -1, -1):
+        slice = tokens[i:]
+        original_loss = model(slice, return_type='loss', loss_per_token=True)
 
+        with model.hooks(fwd_hooks):
+            ablated_loss = model(slice, return_type='loss', loss_per_token=True)
+        print(ablated_loss[0], original_loss[0])
+        loss_diffs.append((ablated_loss[0] - original_loss[0]))
+        print(loss_diffs)
+        # if i == high_loss_index - 3: break
+    # plotting_utils.line(loss_diffs, title="Loss diff from ablation of tokens to the left of the high loss token")
     return "".join(model.to_str_tokens(tokens))
 
+i, highest_loss_index, measure, peak_snapped = high_loss_prompt_tokens[0]
+# %%
+hooks = [(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_1 if peak_snapped == 'first' else snap_to_peak_2)]
+peak_snapped
+# %%
+minimum_viable_prompt(model, hooks, german_data[i], highest_loss_index)
 # %%
 
 # MLP 10 important, snap to peak 2 loss high
+
 prompt = german_data[46]
 closest_loss, peak_1_loss, peak_2_loss, original_loss = get_tokenwise_high_loss_diffs(prompt, model)
 diff = (peak_1_loss - peak_2_loss).abs()
