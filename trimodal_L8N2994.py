@@ -50,6 +50,15 @@ english_data = haystack_utils.load_json_data("data/english_europarl.json")[:200]
 # %%
 LAYER, NEURON = 8, 2994
 neuron_activations = haystack_utils.get_mlp_activations(german_data, LAYER, model, neurons=torch.LongTensor([NEURON]), mean=False).flatten()
+
+def get_next_token_punctuation_mask(tokens: torch.LongTensor) -> torch.BoolTensor:
+    next_token_punctuation_mask = torch.zeros_like(tokens, dtype=torch.bool)
+    token_strs = model.to_str_tokens(tokens)
+    for i in range(tokens.shape[0] - 1):
+        next_token_str = token_strs[i + 1]
+        next_is_space = next_token_str[0] in [" ", ",", ".", ":", ";", "!", "?"]
+        next_token_punctuation_mask[i] = next_is_space
+    return next_token_punctuation_mask
 # %%
 # px.histogram(neuron_activations.cpu().numpy())
 ranges, labels = [(-10, 0.2), (0.8, 4.1), (4.8, 10)], ['Inactive', 'Peak 1', 'Peak 2']
@@ -131,16 +140,8 @@ def plot_peak_new_word_accuracies(model, german_data, layer, neuron):
 # %%
 compute_new_word_f1(model, german_data, LAYER, NEURON)
 plot_peak_new_word_accuracies(model, german_data, LAYER, NEURON)
-# %%
-def get_next_token_punctuation_mask(tokens: torch.LongTensor) -> torch.BoolTensor:
-    next_token_punctuation_mask = torch.zeros_like(tokens, dtype=torch.bool)
-    token_strs = model.to_str_tokens(tokens)
-    for i in range(tokens.shape[0] - 1):
-        next_token_str = token_strs[i + 1]
-        next_is_space = next_token_str[0] in [" ", ",", ".", ":", ";", "!", "?"]
-        next_token_punctuation_mask[i] = next_is_space
-    return next_token_punctuation_mask
 
+# %%
 def get_ablate_at_mask_hooks(mask: torch.BoolTensor, act_value=3.2) -> list[tuple[str, callable]]:
     def ablate_neuron_hook(value, hook):
         value[:, mask, NEURON] = act_value
@@ -366,7 +367,6 @@ def print_high_loss_prompts(model, german_data):
     sorted_measure = [(i, measure) for i, _, measure, _ in high_loss_prompt_tokens]
     for i, measure in sorted_measure[:10]:
         prompt = german_data[i]
-        print(measure)
         tokens = model.to_tokens(prompt)[0]
         str_token_prompt = model.to_str_tokens(tokens)
         closest_loss, peak_1_loss, peak_2_loss, original_loss = get_tokenwise_high_loss_diffs(prompt, model)
@@ -376,7 +376,6 @@ def print_high_loss_prompts(model, german_data):
                                                 additional_measure_names=["closest_loss", "peak_1_loss", "peak_2_loss", "original_loss"])
 
         highest_loss_index = torch.argmax((peak_1_loss - peak_2_loss).abs()).item()
-        print(i, highest_loss_index)
         if peak_2_loss[highest_loss_index] > peak_1_loss[highest_loss_index]:
             deactivate_final_token_data = mlp_effects_german(prompt, highest_loss_index, [(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_1)], deactivate_peak_hooks=[(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_2)])
             haystack_utils.plot_barplot([[item] for item in deactivate_final_token_data],
@@ -395,7 +394,7 @@ with open(f"data/pythia_160m/high_loss_indices.pkl", "rb") as f:
 # %%
 def minimum_viable_prompt(model: HookedTransformer, fwd_hooks: list[tuple[str, callable]], prompt: str, 
                           high_loss_index: int) -> str:
-    tokens = model.to_tokens(prompt)[0][:high_loss_index + 1]
+    tokens = model.to_tokens(prompt)[0][:high_loss_index + 2] # check for off by 1
     loss_diffs = []
     for i in range(high_loss_index - 1, -1, -1):
         slice = tokens[i:]
@@ -403,18 +402,15 @@ def minimum_viable_prompt(model: HookedTransformer, fwd_hooks: list[tuple[str, c
 
         with model.hooks(fwd_hooks):
             ablated_loss = model(slice, return_type='loss', loss_per_token=True)
-        print(ablated_loss[0], original_loss[0])
-        loss_diffs.append((ablated_loss[0] - original_loss[0]))
-        print(loss_diffs)
+        # print(ablated_loss[0], original_loss[0])
+        loss_diffs.append((ablated_loss[0, -1] - original_loss[0, -1]).cpu())
+        # print(loss_diffs)
         # if i == high_loss_index - 3: break
-    # plotting_utils.line(loss_diffs, title="Loss diff from ablation of tokens to the left of the high loss token")
+    plotting_utils.line(loss_diffs, title="Loss diff from ablation of tokens to the left of the high loss token")
     return "".join(model.to_str_tokens(tokens))
 
 i, highest_loss_index, measure, peak_snapped = high_loss_prompt_tokens[0]
-# %%
 hooks = [(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_1 if peak_snapped == 'first' else snap_to_peak_2)]
-peak_snapped
-# %%
 minimum_viable_prompt(model, hooks, german_data[i], highest_loss_index)
 # %%
 
