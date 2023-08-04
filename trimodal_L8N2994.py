@@ -395,17 +395,19 @@ def final_token_loss_diff(model: HookedTransformer, tokens: torch.Tensor, fwd_ho
     original_loss = model(tokens, return_type='loss', loss_per_token=True)
     with model.hooks(fwd_hooks):
         ablated_loss = model(tokens, return_type='loss', loss_per_token=True)
-    return (ablated_loss[0, -1] - original_loss[0, -1]).cpu()
+    # print(ablated_loss.shape, (ablated_loss[: -1] - original_loss[:, -1]).mean(dim=0))
+    return (ablated_loss[:, -1] - original_loss[:, -1]).mean(dim=0).cpu()
 
 def plot_truncated_prompt_losses(model: HookedTransformer, fwd_hooks: list[tuple[str, callable]], 
-                                 tokens: Int[Tensor, "n_tokens"], stop: int | None=None) -> None:
+                                 tokens: torch.LongTensor, stop: int | None=None, title: str | None=None) -> None:
     loss_diffs = []
     xticks = []
-    stop = stop if stop is not None else tokens.shape[0]
+    stop = stop if stop is not None else tokens.shape[-1]
     for i in range(-2, -stop, -1):
-        loss_diffs.append(final_token_loss_diff(model, tokens[i:], fwd_hooks))
+        loss_diffs.append(final_token_loss_diff(model, tokens[..., i:], fwd_hooks))
         xticks.append(str(i))
-    plotting_utils.line(loss_diffs, xticks=xticks, xlabel='Starting left index', ylabel='Final token loss', title="Loss diff with different number of tokens before the high loss token")
+    plotting_utils.line(loss_diffs, xticks=xticks, xlabel='Starting left index', ylabel='Final token loss', 
+                        title=title if title is not None else "Loss diff with different number of tokens before the high loss token")
 
 # %%
 # MLP 10 important, snap to peak 2 loss high
@@ -430,22 +432,76 @@ haystack_utils.clean_print_strings_as_html(str_token_prompt[1:], diff, max_value
 
 # Activate and deactivate for fewer tokens
 # %% 
-# I checked whether the loss increases over 16+ tokens was due to the L5 context neuron not being fully on and it was unrelated,
-# the model just knows more than trigrams
+# I checked whether the loss increases over 16+ tokens for the first high loss increase prompt was 
+# due to the L5 context neuron not being fully on and it was unrelated, the model just knows more 
+# than trigrams
 # Turn context neuron on for both original and ablated
 # act_value = haystack_utils.get_mlp_activations(german_data[:200], 5, model, neurons=torch.LongTensor([2649]), mean=True).flatten()
 # def activate_l5_context_neuron(value, hook):
 #     value[:, :, 2649] = act_value
 #     return value
 # activate_l5_context_hooks = [('blocks.5.mlp.hook_post', activate_l5_context_neuron)]
+# %% 
+# Random unigrams are impractical with so many important tokens. I can either swap out tokens
+# for random unigrams to find the true minimal reproducible example or I can find real examples
+# from the dataset and test them
+all_ignore, not_ignore = haystack_utils.get_weird_tokens(model, plot_norms=False)
+common_tokens = haystack_utils.get_common_tokens(german_data, model, all_ignore, k=100)
 
-
-# prompts = haystack_utils.generate_random_prompts()
 # %%
+# Doesn't include all 16 tokens
+# end_string = "Europäischen "
+for end_string in ["Europäischen Allian", "äischen Allian"]:
+    prompt_tokens = haystack_utils.generate_random_prompts(end_string, model, common_tokens)
+    plot_truncated_prompt_losses(model, hooks, prompt_tokens, title=end_string)
+
+# %%
+print(model.to_str_tokens(left_cropped_tokens[-5:]))
+# print("".join(model.to_str_tokens(left_cropped_tokens[-5:])))
+
+euro_prompts = []
+for prompt in german_data:
+    # if "Europäischen Allian" in prompt:
+    if " Allian" in prompt:
+        euro_prompts.append(prompt)
+print(len(euro_prompts))
+
+# # %%
 # Think about circuits that use both peaks
 # check if can make tuple
 # %%
+cosine_sim = torch.nn.CosineSimilarity(dim=1)
+l8_n2994_direction = model.W_out[8, 2994]
 
+def plot_direction_norm(model, prompts, direction=l8_n2994_direction):
+    norms = []
+    for prompt in prompts:
+        _, cache = model.run_with_cache(prompt)
+        direction_out = direction * cache['blocks.8.mlp.hook_post'][0, -1, 2994]
+        direction_out = direction_out.unsqueeze(0)
+        scaled_direction = cache.apply_ln_to_stack(direction_out, 9)[0, -1]
+
+        norms.append(torch.norm(scaled_direction).item())
+    fig = px.histogram(norms)
+    fig.show()
+
+plot_direction_norm(model, german_data[:2000])
+
+# _, cache = model.run_with_cache(left_cropped_tokens)
+
+# print(cache['blocks.8.mlp.hook_post'][0, -1, 2994])
+# l8_n2994_out = l8_n2994_direction * cache['blocks.8.mlp.hook_post'][0, -1, 2994]
+# l8_n2994_out = l8_n2994_out.unsqueeze(0)
+# scaled_l8_n2994_direction = cache.apply_ln_to_stack(l8_n2994_out, 9)[0, -1]
+
+# print(torch.norm(scaled_l8_n2994_direction)) # L2/Frobenius norm
+
+# cosine_sims = cosine_sim(scaled_l8_n2994_direction, model.W_in[9])
+
+# px.histogram(cosine_sims.cpu().numpy())
+
+# next_layer_biases = model.b_in[9]
+# print(next_layer_biases[next_layer_biases < 0].shape)
 
 # Check individual MLP10 neurons
 # def pickle_path_patches(model, data, layer):
@@ -463,3 +519,5 @@ haystack_utils.clean_print_strings_as_html(str_token_prompt[1:], diff, max_value
 #         pickle.dump(ablation_loss_increase, f)
 
 # pickle_path_patches(model, german_data, 10, "")
+
+# %%
