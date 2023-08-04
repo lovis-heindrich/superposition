@@ -70,6 +70,7 @@ continuation_tokens = torch.stack(continuation_tokens)
 with open("data/prompts.pkl", "rb") as f:
     all_prompts = pickle.load(f)
 
+options = ["orschlägen", " häufig", " beweglich"]
 # %%
 PROMPT_START, PROMPT_END = 2000, 3000
 file_name_append = "_2000"
@@ -167,8 +168,7 @@ def compute_and_conditions(option, type: Literal["logits", "loss"]):
 
     return result
 
-# %%
-options = ["orschlägen", " häufig", " beweglich"]
+
 #%%
 for type in ["loss", "logits"]:
     all_res = {}
@@ -273,9 +273,9 @@ with open(f"data/and_neurons/activation_dfs{file_name_append}.pkl", "rb") as f:
 #%%
 
 
-for PROMPT_START in [0]:#, 1000, 2000]:
-    PROMPT_END = PROMPT_START + 100#0
-    file_name_append = f"_{PROMPT_START}000"
+for PROMPT_START in [0, 1000, 2000]:
+    PROMPT_END = PROMPT_START + 1000
+    file_name_append = f"_{str(PROMPT_START)[0]}000"
 
     with open(f"data/and_neurons/activation_dfs{file_name_append}.pkl", "rb") as f:
         dfs = pickle.load(f)
@@ -293,7 +293,7 @@ for PROMPT_START in [0]:#, 1000, 2000]:
                 
                 for include_mode in ["All Positive", "Greater Positive", "All Negative", "Smaller Negative"]:
                     all_losses[option][hook_name]["Scaled" if scale else "Unscaled"][include_mode] = {}
-                    original_loss = haystack_utils.compute_path_patched_mlp_loss(prompts, model, torch.LongTensor([i for i in range(2048)]),
+                    original_loss = haystack_utils.compute_path_patched_mlp_loss(prompts, model, torch.LongTensor([]),
                                                         context_ablation_hooks=deactivate_neurons_fwd_hooks, context_activation_hooks=activate_neurons_fwd_hooks)
                     with model.hooks(deactivate_neurons_fwd_hooks):
                         all_ablated_loss = model(prompts, return_type="loss", loss_per_token=True)[:, -1].mean().item()
@@ -324,7 +324,7 @@ for PROMPT_START in [0]:#, 1000, 2000]:
 
                     for k in [5, 10, 25, 50]:
                         #original_loss, all_ablated_loss = haystack_utils.compute_mlp_loss(prompts, model, unscaled_df, torch.LongTensor([i for i in range(model.cfg.d_mlp)]), ablate_mode="YYN", compute_original_loss=True)
-                        original_loss = haystack_utils.compute_path_patched_mlp_loss(prompts, model, torch.LongTensor([i for i in range(2048)]),
+                        original_loss = haystack_utils.compute_path_patched_mlp_loss(prompts, model, torch.LongTensor([]),
                                                             context_ablation_hooks=deactivate_neurons_fwd_hooks, context_activation_hooks=activate_neurons_fwd_hooks)
                         with model.hooks(deactivate_neurons_fwd_hooks):
                             all_ablated_loss = model(prompts, return_type="loss", loss_per_token=True)[:, -1].mean().item()
@@ -354,8 +354,8 @@ for PROMPT_START in [0]:#, 1000, 2000]:
                                                             context_ablation_hooks=deactivate_neurons_fwd_hooks, context_activation_hooks=activate_neurons_fwd_hooks)
                             all_losses[option][hook_name]["Scaled" if scale else "Unscaled"][include_mode][str(k)][feature_mode+f" (N={neurons.shape[0]})"] = ablated_loss
 
-with open(f"data/and_neurons/ablation_losses{file_name_append}.json", "w") as f:
-    json.dump(all_losses, f, indent=4)
+    with open(f"data/and_neurons/ablation_losses{file_name_append}.json", "w") as f:
+        json.dump(all_losses, f, indent=4)
 # %%
 
 # Dataset prompts

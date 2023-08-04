@@ -1613,15 +1613,15 @@ def invert_index_tensor(index_tensor: Int[Tensor, "n"], size: int=2048) -> Int[T
 def compute_path_patched_mlp_loss(
     prompts: str | list[str] | Int[Tensor, "batch pos"], 
     model: HookedTransformer, 
-    neurons: Int[Tensor, "n_neurons"], 
+    ablate_neurons: Int[Tensor, "n_neurons"], 
     context_ablation_hooks: list,
     context_activation_hooks: list,
 ): 
     
     with model.hooks(context_ablation_hooks):
         _, ablated_cache = model.run_with_cache(prompts, return_type="loss")
-    ablated_neurons = invert_index_tensor(neurons)
-    ablate_top_neurons_hook = hook_utils.get_ablate_neurons_hook(ablated_neurons, ablated_cache)
+    #ablated_neurons = invert_index_tensor(neurons)
+    ablate_top_neurons_hook = hook_utils.get_ablate_neurons_hook(ablate_neurons, ablated_cache)
 
     _, _, _, patched_loss = get_direct_effect(prompts, model, context_ablation_hooks=context_ablation_hooks, 
                                               context_activation_hooks=context_activation_hooks + ablate_top_neurons_hook, 

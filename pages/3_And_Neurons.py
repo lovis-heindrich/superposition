@@ -128,11 +128,12 @@ st.markdown("""
 keys = list(ablation_losses[option][hook_select][scale_select].keys())
 select_mode = st.selectbox(label="Select whether to use all AND neurons or only the neurons where (YYY>others)",
                               options=keys, index=0)
+num_keys = ablation_losses[option][hook_select][scale_select][select_mode].keys()
+num_neurons = st.selectbox(label="Select the number of neurons to ablate", options=num_keys, index=0)
 
-
-names = list(ablation_losses[option][hook_select][scale_select][select_mode].keys())
+names = list(ablation_losses[option][hook_select][scale_select][select_mode][num_neurons].keys())
 short_names = [name.split(" ")[0] for name in names]
-loss_values = [[ablation_losses[option][hook_select][scale_select][select_mode][name]] for name in names]
+loss_values = [[ablation_losses[option][hook_select][scale_select][select_mode][num_neurons][name]] for name in names]
 plot = plotting_utils.plot_barplot(loss_values, names,
                             short_names=short_names, ylabel="Last token loss",
                             title=f"Loss increase when patching groups of neurons (ablation mode: YYN)",
