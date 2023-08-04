@@ -555,7 +555,6 @@ def get_context_reader_properties_df(model: HookedTransformer, unscaled_peak_1_n
             unscaled_peak_2_norm * sim])
 
     return pd.DataFrame(result, columns=["cosine_sim", "bias", "peak_midpoint_norm", "bias_diff_from_peak_midpoint", "scaled_peak_1_norm", "scaled_peak_2_norm"])
-
 # %%
 df = get_context_reader_properties_df(model, unscaled_peak_1_norm, unscaled_peak_2_norm, layer=9)
 print(df.sort_values(['cosine_sim'], ascending=True).head())
@@ -567,7 +566,7 @@ print(df[(df['cosine_sim'] > 0.05)].sort_values(['bias_diff_from_peak_midpoint']
 # Time to do neuron on/off stats
 
 # %% 
-def get_context_reader_activations_df(model, data) -> pd.DataFrame:
+def get_context_reader_activations_df(model: HookedTransformer, data: list[str]) -> pd.DataFrame:
     result = [] # context neuron on or off, downstream neuron on or off, neuron index
     
     for prompt in tqdm(data):
@@ -575,58 +574,45 @@ def get_context_reader_activations_df(model, data) -> pd.DataFrame:
         context_neuron_acts = cache[f'blocks.{LAYER}.mlp.hook_post'][0, 5:, NEURON]
         for neuron in range(model.cfg.d_mlp):
             neuron_act = cache[f'blocks.{LAYER+1}.mlp.hook_post'][0, 5:, neuron]
-            for position in range(context_neuron_acts.shape[0]):
-                context_neuron_peak_1 = (context_neuron_acts[position] > 0.8 and context_neuron_acts[position] < 4.1).item()
-                context_neuron_peak_2 = (context_neuron_acts[position] > 4.8 and context_neuron_acts[position] < 10).item()
-                result.append([neuron, context_neuron_peak_1, context_neuron_peak_2, neuron_act[position].item()])
-    
+            context_neuron_peak_1 = (context_neuron_acts > 0.8) & (context_neuron_acts < 4.1)
+            context_neuron_peak_2 = (context_neuron_acts > 4.8) & (context_neuron_acts < 10)
+            result.extend(zip([neuron]*len(neuron_act), context_neuron_peak_1.tolist(), context_neuron_peak_2.tolist(), neuron_act.tolist()))
+
     return pd.DataFrame(result, columns=["neuron", "context_neuron_peak_1", "context_neuron_peak_2", "neuron_act"])
 
-act_df = get_context_reader_activations_df(model, german_data[:5])
-
+act_df = get_context_reader_activations_df(model, german_data[:100])
 # %%
-# act_df.head()
-
-total = model.cfg.d_mlp
 grouped = act_df.groupby('neuron')
-df_result = grouped.apply(
-    lambda x: ((x['neuron_act'] > 0) & x['context_neuron_peak_2']).sum() / (x['neuron_act'] > 0).sum())
-df_result.fillna(0, inplace=True)
-print(df_result.sort_values(ascending=False).head())
+df['peak_1_fire_rate'] = grouped.apply(
+    lambda x: 
+        ((x['neuron_act'] > 0) & x['context_neuron_peak_1']).sum() / 
+        ((x['neuron_act'] > 0).sum() + 1e-10))
+
+df['peak_2_fire_rate'] = grouped.apply(
+    lambda x: 
+        ((x['neuron_act'] > 0) & x['context_neuron_peak_2']).sum() / 
+        ((x['neuron_act'] > 0).sum() + 1e-10))
+# Figure out whether there's a general boost of many German tokens middle of word / new word 
+# and/or an isolated circuit per prompt (e.g. an AND gate)
+# %%
+cols_of_interest = ["cosine_sim", "bias", "peak_1_fire_rate", "peak_2_fire_rate"]
+rows = df['bias_diff_from_peak_midpoint'].nsmallest(5).index
+print(df.loc[rows, cols_of_interest]) # cosine sim of 0.05 and bias cuts off mid peak 
+rows = df['cosine_sim'].nlargest(5).index
+print(df.loc[rows, cols_of_interest]) # high pos cosine sims
+rows = df['cosine_sim'].nsmallest(5).index
+print(df.loc[rows, cols_of_interest]) # high neg cosine sims
+# %%
+print(df.loc[df['peak_2_fire_rate'].nlargest(5).index, cols_of_interest])
 
 # %%
-
-# _, cache = model.run_with_cache(left_cropped_tokens)
-
-# print(cache['blocks.8.mlp.hook_post'][0, -1, 2994])
-# l8_n2994_out = l8_n2994_direction * cache['blocks.8.mlp.hook_post'][0, -1, 2994]
-# l8_n2994_out = l8_n2994_out.unsqueeze(0)
-# scaled_l8_n2994_direction = cache.apply_ln_to_stack(l8_n2994_out, 9)[0, -1]
-
-# print(torch.norm(scaled_l8_n2994_direction)) # L2/Frobenius norm
-
-# cosine_sims = cosine_sim(scaled_l8_n2994_direction, model.W_in[9])
-
-# px.histogram(cosine_sims.cpu().numpy())
-
-# next_layer_biases = model.b_in[9]
-# print(next_layer_biases[next_layer_biases < 0].shape)
-
-# Check individual MLP10 neurons
-# def pickle_path_patches(model, data, layer):
-#     # Get ablated cache, and MLP5 path patched cache, and MLP5 path patched loss.
-#     # For each neuron do a forward pass and patch in the neuron from the ablated cache. 
-#     # Record the loss increase relative to the MLP5 path patched loss.
-#     path_patched_loss, path_patched_cache = haystack_utils.get_direct_effect(data, model, pos=5, context_ablation_hooks=[(f'blocks.{layer}.mlp.hook_post', snap_to_peak_2)], context_activation_hooks=[(f'blocks.{layer}.mlp.hook_post', snap_to_peak_1)])
-
-#     ablated_losses = []
-#     for neuron in tqdm(range(model.cfg.d_mlp)):
-        
-
-#     ablation_loss_increase = np.array(ablated_losses) - path_patched_loss
-#     with open(f"data/pythia_160m/path_patching_neurons_layer_{layer}.pkl", "wb") as f:
-#         pickle.dump(ablation_loss_increase, f)
-
-# pickle_path_patches(model, german_data, 10, "")
+rows = df['cosine_sim'].nsmallest(100).index
+print(df.loc[rows, cols_of_interest]) # high neg cosine sims
 
 # %%
+with open(f"data/pythia_160m/reader_neurons.pkl", "wb") as f:
+    pickle.dump(df, f)
+with open(f"data/pythia_160m/reader_neurons.pkl", "rb") as f:
+    reader_neurons = pickle.load(f)
+# %%
+# Do we need to filter out acts from outside peak 1 and 2 from our df?
