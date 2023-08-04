@@ -47,7 +47,7 @@ model = HookedTransformer.from_pretrained("EleutherAI/pythia-160m",
 
 german_data = haystack_utils.load_json_data("data/german_europarl.json")[:200]
 english_data = haystack_utils.load_json_data("data/english_europarl.json")[:200]
-# %%
+
 LAYER, NEURON = 8, 2994
 neuron_activations = haystack_utils.get_mlp_activations(german_data, LAYER, model, neurons=torch.LongTensor([NEURON]), mean=False).flatten()
 
@@ -226,6 +226,17 @@ def snap_to_peak_2(value, hook):
     value[:, :, NEURON][(neuron_act > 0.8) & (neuron_act < 4.1)] = 5.5
     value[:, :, NEURON][(neuron_act > 4.8)] = 5.5
     return value
+
+def get_tokenwise_high_loss_diffs(prompt: str, model: HookedTransformer):
+    with model.hooks([(f'blocks.{LAYER}.mlp.hook_post', snap_to_closest_peak)]):
+        snap_to_closest_peak_loss = model(prompt, return_type='loss', loss_per_token=True).flatten().cpu()
+    with model.hooks([(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_1)]):
+        snap_to_peak_1_loss = model(prompt, return_type='loss', loss_per_token=True).flatten().cpu()
+    with model.hooks([(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_2)]):
+        snap_to_peak_2_loss = model(prompt, return_type='loss', loss_per_token=True).flatten().cpu()
+    original_loss = model(prompt, return_type='loss', loss_per_token=True).flatten().cpu()
+
+    return [snap_to_closest_peak_loss, snap_to_peak_1_loss, snap_to_peak_2_loss, original_loss]
 # %%
 for prompt in german_data[:5]:
     tokens = model.to_tokens(prompt)[0]
@@ -303,17 +314,6 @@ def plot_loss_diffs(df):
         hover_data=df_diff_avg.columns, width=800, error_y=df_diff_sem['Loss'])
 
 plot_loss_diffs(df)
-# %%
-def get_tokenwise_high_loss_diffs(prompt: str, model: HookedTransformer):
-    with model.hooks([(f'blocks.{LAYER}.mlp.hook_post', snap_to_closest_peak)]):
-        snap_to_closest_peak_loss = model(prompt, return_type='loss', loss_per_token=True).flatten().cpu()
-    with model.hooks([(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_1)]):
-        snap_to_peak_1_loss = model(prompt, return_type='loss', loss_per_token=True).flatten().cpu()
-    with model.hooks([(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_2)]):
-        snap_to_peak_2_loss = model(prompt, return_type='loss', loss_per_token=True).flatten().cpu()
-    original_loss = model(prompt, return_type='loss', loss_per_token=True).flatten().cpu()
-
-    return [snap_to_closest_peak_loss, snap_to_peak_1_loss, snap_to_peak_2_loss, original_loss]
 # %%
 def mlp_effects_german(prompt: str, index: int, activate_peak_hooks: list[tuple[str, callable]], 
                        deactivate_peak_hooks: list[tuple[str, callable]], downstream_layers=[9, 10, 11]):
@@ -470,23 +470,31 @@ print(len(euro_prompts))
 # Think about circuits that use both peaks
 # check if can make tuple
 # %%
+german_data = haystack_utils.load_json_data("data/german_europarl.json")
 cosine_sim = torch.nn.CosineSimilarity(dim=1)
 l8_n2994_direction = model.W_out[8, 2994]
-
+import einops
+# %%
 def plot_direction_norm(model, prompts, direction=l8_n2994_direction):
     norms = []
     for prompt in prompts:
         _, cache = model.run_with_cache(prompt)
-        direction_out = direction * cache['blocks.8.mlp.hook_post'][0, -1, 2994]
-        direction_out = direction_out.unsqueeze(0)
-        scaled_direction = cache.apply_ln_to_stack(direction_out, 9)[0, -1]
+        
+        direction_out = einops.einsum(direction, cache['blocks.8.mlp.hook_post'][0, :, 2994], 
+                                    'd_model, n_acts -> n_acts d_model')
 
-        norms.append(torch.norm(scaled_direction).item())
+        accumulated_residual = cache.accumulated_resid(layer=9, incl_mid=False, pos_slice=None, return_labels=False)
+        pos_means = accumulated_residual[-1, 0, :, :].mean(dim=-1).unsqueeze(-1) # pos d_model -> pos 1
+        pos_scaling_factor = cache[f"blocks.{9}.ln1.hook_scale"].squeeze(0)
+        # pos_scaling_factor makes it bimodal rather than trimodal
+        scaled_direction = (direction_out - pos_means)/ pos_scaling_factor
+        norms.extend(torch.norm(scaled_direction, dim=-1).cpu().tolist())
     fig = px.histogram(norms)
     fig.show()
 
-plot_direction_norm(model, german_data[:2000])
+plot_direction_norm(model, german_data[:400])
 
+# %%
 # _, cache = model.run_with_cache(left_cropped_tokens)
 
 # print(cache['blocks.8.mlp.hook_post'][0, -1, 2994])
