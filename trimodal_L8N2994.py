@@ -465,31 +465,43 @@ for prompt in german_data:
     if " Allian" in prompt:
         euro_prompts.append(prompt)
 print(len(euro_prompts))
+# No other data containing the "Europäischen Allian" string
 
 # # %%
 # Think about circuits that use both peaks
 # check if can make tuple
 # %%
-german_data = haystack_utils.load_json_data("data/german_europarl.json")
 cosine_sim = torch.nn.CosineSimilarity(dim=1)
 l8_n2994_direction = model.W_out[8, 2994]
 import einops
 # %%
 def plot_direction_norm(model, prompts, direction=l8_n2994_direction):
-    norms = []
+    final_token_norms = []
+    other_token_norms = []
     for prompt in prompts:
         _, cache = model.run_with_cache(prompt)
         
-        direction_out = einops.einsum(direction, cache['blocks.8.mlp.hook_post'][0, :, 2994], 
-                                    'd_model, n_acts -> n_acts d_model')
+        act_values = cache['blocks.8.mlp.hook_post'][0, :, 2994]
+        direction_out = einops.einsum(direction, act_values, 'd_model, n_acts -> n_acts d_model')
 
         accumulated_residual = cache.accumulated_resid(layer=9, incl_mid=False, pos_slice=None, return_labels=False)
         pos_means = accumulated_residual[-1, 0, :, :].mean(dim=-1).unsqueeze(-1) # pos d_model -> pos 1
+
         pos_scaling_factor = cache[f"blocks.{9}.ln1.hook_scale"].squeeze(0)
+        
         # pos_scaling_factor makes it bimodal rather than trimodal
-        scaled_direction = (direction_out - pos_means)/ pos_scaling_factor
-        norms.extend(torch.norm(scaled_direction, dim=-1).cpu().tolist())
-    fig = px.histogram(norms)
+        final_token_scaled_direction = ((direction_out - pos_means)/ pos_scaling_factor)[(act_values > 4.8) & (act_values < 10)]
+        other_token_scaled_direction = ((direction_out - pos_means)/ pos_scaling_factor)[(act_values > 0.8) & (act_values < 4.1)]
+        final_token_norms.extend(torch.norm(final_token_scaled_direction, dim=-1).cpu().tolist())
+        other_token_norms.extend(torch.norm(other_token_scaled_direction, dim=-1).cpu().tolist())
+
+    fig = px.histogram(other_token_norms, title="L5N2994 W_out norms when the context neuron is at the first peak")
+    fig.show()
+    fig = px.histogram(final_token_norms, title="Norms when the context neuron is at the second peak")
+    fig.show()
+    fig = px.histogram(other_token_norms + final_token_norms, title="Norms when the context neuron is at either peak (excludes ambiguous values)")
+    fig.show()
+    fig = px.histogram(((direction_out - pos_means)/ pos_scaling_factor), title="All norms")
     fig.show()
 
 plot_direction_norm(model, german_data[:400])
