@@ -94,26 +94,36 @@ print(len(german_news_data))
 
 
 # %% 
-DATA = german_news_data
+DATA = german_data
 german_losses = []
-for prompt in tqdm(DATA[:5000]):
-    original_loss, ablated_loss, context_and_activated_loss, only_activated_loss = haystack_utils.get_direct_effect(prompt, model, pos=None, context_ablation_hooks=deactivate_neurons_fwd_hooks, context_activation_hooks=activate_neurons_fwd_hooks)
-    german_losses.append((original_loss, ablated_loss, context_and_activated_loss, only_activated_loss))
+deactivated_components=("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.4.hook_mlp_out", "blocks.5.hook_mlp_out")
+activated_components=[]
 
+for prompt in tqdm(DATA[:200]):
+    original_loss, ablated_loss, context_and_activated_loss, only_activated_loss = \
+    haystack_utils.get_direct_effect(prompt, model, pos=None,
+        activated_components=activated_components, deactivated_components=deactivated_components,
+        context_ablation_hooks=deactivate_neurons_fwd_hooks, context_activation_hooks=activate_neurons_fwd_hooks)
+    german_losses.append((original_loss, ablated_loss, context_and_activated_loss, only_activated_loss))
 # %%
+
+# def interest_measure(original_loss, ablated_loss, context_and_activated_loss, only_activated_loss):
+#     loss_diff = (ablated_loss - original_loss) # High ablation loss increase
+#     mlp_5_power = (only_activated_loss - original_loss) # High loss increase from MLP5
+#     mlp_5_power[mlp_5_power < 0] = 0
+#     percent_explained = mlp_5_power / loss_diff
+#     percent_explained[percent_explained < 0] = 0
+#     percent_explained[percent_explained > 1] = 1
+#     percent_explained = 1 - percent_explained
+#     combined = loss_diff * percent_explained
+#     combined[original_loss > 4] = 0
+#     combined[original_loss > ablated_loss] = 0
+#     return combined
 
 def interest_measure(original_loss, ablated_loss, context_and_activated_loss, only_activated_loss):
     loss_diff = (ablated_loss - original_loss) # High ablation loss increase
-    mlp_5_power = (only_activated_loss - original_loss) # High loss increase from MLP5
-    mlp_5_power[mlp_5_power < 0] = 0
-    percent_explained = mlp_5_power / loss_diff
-    percent_explained[percent_explained < 0] = 0
-    percent_explained[percent_explained > 1] = 1
-    percent_explained = 1 - percent_explained
-    combined = loss_diff * percent_explained
-    combined[original_loss > 4] = 0
-    combined[original_loss > ablated_loss] = 0
-    return combined
+    direct_effect = (context_and_activated_loss - original_loss) # High loss increase from MLP5
+    return torch.min(loss_diff, direct_effect)
 
 def get_mlp5_decrease_measure(losses: list[tuple[Float[Tensor, "pos"], Float[Tensor, "pos"], Float[Tensor, "pos"], Float[Tensor, "pos"]]]):
     measure = []
@@ -130,7 +140,10 @@ sorted_measure.sort(key=lambda x: x[1], reverse=True)
 
 def print_prompt(prompt: str):
     str_token_prompt = model.to_str_tokens(model.to_tokens(prompt))
-    original_loss, ablated_loss, context_and_activated_loss, only_activated_loss = haystack_utils.get_direct_effect(prompt, model, pos=None, context_ablation_hooks=deactivate_neurons_fwd_hooks, context_activation_hooks=activate_neurons_fwd_hooks)
+    original_loss, ablated_loss, context_and_activated_loss, only_activated_loss = \
+        haystack_utils.get_direct_effect(prompt, model, pos=None, 
+                                         activated_components=activated_components, deactivated_components=deactivated_components,
+                                         context_ablation_hooks=deactivate_neurons_fwd_hooks, context_activation_hooks=activate_neurons_fwd_hooks)
 
     pos_wise_diff = interest_measure(original_loss, ablated_loss, context_and_activated_loss, only_activated_loss).flatten().cpu().tolist()
 
@@ -139,9 +152,20 @@ def print_prompt(prompt: str):
     haystack_utils.clean_print_strings_as_html(str_token_prompt[1:], pos_wise_diff, max_value=5, additional_measures=loss_list, additional_measure_names=loss_names)
 
 # %% 
-for i, measure in sorted_measure[25:30]:
+for i, measure in sorted_measure[10:20]:
     print_prompt(DATA[i])
 
+#%%
+def search_for_token_examples(token, data, model):
+    example_prompts = []
+    for prompt in data:
+        str_tokens = model.to_str_tokens(model.to_tokens(prompt).flatten())
+        if token in str_tokens:
+            prompt_index = str_tokens.index(token)
+            print(str_tokens[max(0, prompt_index-3):min(len(str_tokens), prompt_index)])
+
+
+search_for_token_examples(" Ans", english_data, model)
 
 # %%
 
