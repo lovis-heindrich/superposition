@@ -523,32 +523,48 @@ unscaled_peak_2_norm = 8.57
 # is the bias term * the cosine sim
 # e.g. a reader neuron with a cosine sim of 0.5 gets the direction at half the magnitude
 
-# required bias term = unscaled_peak_2_bias - cosine_sim * norm(ctx_neuron_direction)
-def get_context_reader_df(model: HookedTransformer, unscaled_peak_1_norm, unscaled_peak_2_norm) -> pd.DataFrame:
-    """Returns a dataframe with columns: context neuron on, reader neuron on, reader neuron index"""
-    cosine_sim = torch.nn.CosineSimilarity(dim=1)
+# %%
+
+# required bias term to cut off at peak:
+#   unscaled_peak_2_norm * cosine_sim(neuron_in, ctx_neuron_direction)
+#   
+# to get anything above the mid point between peaks:
+def get_context_reader_df(model: HookedTransformer, unscaled_peak_1_norm, unscaled_peak_2_norm, layer=9) -> pd.DataFrame:
+    """Returns a dataframe with columns: context neuron on, reader neuron on, reader neuron index
+    Only reliable for layer 9 because it needs extra layer norm processing otherwise"""
+    cosine_sim = torch.nn.CosineSimilarity(dim=0)
     l8_n2994_direction = model.W_out[8, 2994]
     result = []
     for neuron in range(model.cfg.d_mlp):
-        sim = cosine_sim(l8_n2994_direction, model.W_in[9, neuron])
-        neuron_bias = model.b_in[9, neuron]
+        sim = cosine_sim(l8_n2994_direction, model.W_in[layer, :, neuron]).item()
 
-        scaled_peak_1_norm = unscaled_peak_1_norm * sim
-        scaled_peak_2_norm = unscaled_peak_2_norm * sim
+
+        unscaled_peak_midpoint = (unscaled_peak_1_norm + unscaled_peak_2_norm) / 2
+        scaled_peak_midpoint = unscaled_peak_midpoint * sim
+        
+
+        neuron_bias = model.b_in[layer, neuron].item()
+
+        bias_diff_from_midpoint = abs(scaled_peak_midpoint - neuron_bias)
 
         # to select peak 2 use a bias of cosine_sim * -8.57
         result.append([
             sim, 
             neuron_bias, 
-            scaled_peak_1_norm + neuron_bias, 
-            scaled_peak_2_norm + neuron_bias])
+            scaled_peak_midpoint,
+            bias_diff_from_midpoint,
+            unscaled_peak_1_norm * sim,
+            unscaled_peak_2_norm * sim])
 
-    return pd.DataFrame(result, columns=["Cosine Sim", "Bias", "Bias for peak 2", "Bias for peak 1"])
-
-get_context_reader_df(model, unscaled_peak_1_norm, unscaled_peak_2_norm)
+    return pd.DataFrame(result, columns=["Cosine Sim", "Bias", "Peak midpoint", "Bias diff from peak midpoint", "Scaled peak 1 norm", "Scaled peak 2 norm"])
 
 # %%
-
+df = get_context_reader_df(model, unscaled_peak_1_norm, unscaled_peak_2_norm, layer=9)
+print(df.sort_values(['Cosine Sim'], ascending=True).head())
+print(df.sort_values(['Cosine Sim'], ascending=False).head())
+# %%
+px.histogram(df['Cosine Sim']).show()
+print(df[(df['Cosine Sim'] > 0.05)].sort_values(['Bias diff from peak midpoint'], ascending=True).head())
 
 # _, cache = model.run_with_cache(left_cropped_tokens)
 
