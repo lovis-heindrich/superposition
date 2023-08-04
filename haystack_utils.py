@@ -1302,11 +1302,11 @@ def clean_print_strings_as_html(strings: list[str], color_values: list[float], m
         min_value = abs(min_value)
         normalized = [value / max_value if value > 0 else value / min_value for value in values]
         return normalized
-    
-    html = "<div>"
-    
+        
     # Normalize color values
     normalized_values = normalize(color_values, max_value, max_value)
+
+    html = "<div style='white-space: normal; overflow-wrap: break-word;'>"
 
     for i in range(len(strings)):
         color = color_values[i]
@@ -1330,7 +1330,7 @@ def clean_print_strings_as_html(strings: list[str], color_values: list[float], m
         #visible_string = re.sub(r'\s+', '&nbsp;', strings[i])
         visible_string = re.sub(r'\s+', '_', strings[i])
         # visible_string = re.sub(r"[\n\t\s\r]*", "", visible_string)
-        
+
         html += f'<span style="background-color: rgb({red}, {green}, {blue}); color: {text_color}; padding: 2px;" '
         html += f'title="Difference: {color_values[i]:.4f}' 
         if additional_measure_names is not None:
