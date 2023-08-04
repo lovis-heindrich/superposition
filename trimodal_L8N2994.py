@@ -465,45 +465,136 @@ for prompt in german_data:
     if " Allian" in prompt:
         euro_prompts.append(prompt)
 print(len(euro_prompts))
+# No other data containing the "Europäischen Allian" string
 
 # # %%
 # Think about circuits that use both peaks
 # check if can make tuple
 # %%
-german_data = haystack_utils.load_json_data("data/german_europarl.json")
-cosine_sim = torch.nn.CosineSimilarity(dim=1)
-l8_n2994_direction = model.W_out[8, 2994]
 import einops
 # %%
-def plot_direction_norm(model, prompts, direction=l8_n2994_direction):
-    norms = []
+# Show that peak 2 readers must use a bias scaled from -8.57, 
+# and peak 1 readers from -5.7
+def plot_direction_norm(model, prompts, layer, neuron):
+    '''Not generalizable - need to pass in ranges'''
+    direction = model.W_out[layer, neuron]
+    final_token_norms = []
+    other_token_norms = []
+    all_norms = []
+
     for prompt in prompts:
         _, cache = model.run_with_cache(prompt)
         
-        direction_out = einops.einsum(direction, cache['blocks.8.mlp.hook_post'][0, :, 2994], 
-                                    'd_model, n_acts -> n_acts d_model')
+        act_values = cache[f'blocks.{layer}.mlp.hook_post'][0, :, neuron]
+        direction_out = einops.einsum(direction, act_values, 'd_model, n_acts -> n_acts d_model')
 
         accumulated_residual = cache.accumulated_resid(layer=9, incl_mid=False, pos_slice=None, return_labels=False)
         pos_means = accumulated_residual[-1, 0, :, :].mean(dim=-1).unsqueeze(-1) # pos d_model -> pos 1
-        pos_scaling_factor = cache[f"blocks.{9}.ln1.hook_scale"].squeeze(0)
+
+        pos_scaling_factor = cache[f"blocks.{layer + 1}.ln1.hook_scale"].squeeze(0)
+        
         # pos_scaling_factor makes it bimodal rather than trimodal
-        scaled_direction = (direction_out - pos_means)/ pos_scaling_factor
-        norms.extend(torch.norm(scaled_direction, dim=-1).cpu().tolist())
-    fig = px.histogram(norms)
+        scaled_direction = ((direction_out - pos_means)/ pos_scaling_factor)
+        final_token_scaled_direction = scaled_direction[(act_values > 4.8) & (act_values < 10)]
+        other_token_scaled_direction = scaled_direction[(act_values > 0.8) & (act_values < 4.1)]
+        final_token_norms.extend(torch.norm(final_token_scaled_direction, dim=-1).cpu().tolist())
+        other_token_norms.extend(torch.norm(other_token_scaled_direction, dim=-1).cpu().tolist())
+        all_norms.extend(torch.norm(scaled_direction, dim=-1).cpu().tolist())
+
+    fig = px.histogram(other_token_norms, title=f"L{layer}N{neuron} W_out norms when the context neuron is at the first peak")
+    fig.show()
+    fig = px.histogram(final_token_norms, title="Norms when the context neuron is at the second peak")
+    fig.show()
+    fig = px.histogram(other_token_norms + final_token_norms, title="Norms when the context neuron is at either peak (excludes ambiguous values)")
+    fig.show()
+    fig = px.histogram(all_norms, title="All norms")
     fig.show()
 
-plot_direction_norm(model, german_data[:400])
+plot_direction_norm(model, german_data[:400], layer=8, neuron=2994)
+
+unscaled_peak_1_norm = 5.7
+unscaled_peak_2_norm = 8.57
+# %%
+
+# For each neuron in L9 and L10, look at its cosine sim with the ctx neuron direction
+# and its bias. 
+# We know the magnitude (/+- acceptable error) and direction of some information
+# The project of the direction onto a reader neuron is the cosine sim * the magnitude, so the necessary bias term
+# is the bias term * the cosine sim
+# e.g. a reader neuron with a cosine sim of 0.5 gets the direction at half the magnitude
 
 # %%
 
-def get_context_reader_df(model: HookedTransformer, prompts: list[str]) -> pd.DataFrame:
-    """Returns a dataframe with columns: context neuron on, reader neuron on, reader neuron index"""
+# required bias term to cut off at peak:
+#   unscaled_peak_2_norm * cosine_sim(neuron_in, ctx_neuron_direction)
+#   
+# to get anything above the mid point between peaks:
+def get_context_reader_properties_df(model: HookedTransformer, unscaled_peak_1_norm, unscaled_peak_2_norm, layer=9) -> pd.DataFrame:
+    """Returns a dataframe with columns: context neuron on, reader neuron on, reader neuron index
+    Only reliable for layer 9 because it needs extra layer norm processing otherwise"""
+    cosine_sim = torch.nn.CosineSimilarity(dim=0)
+    l8_n2994_direction = model.W_out[8, 2994]
     result = []
-    for prompt in tqdm(prompts):
-        
+    for neuron in range(model.cfg.d_mlp):
+        sim = cosine_sim(l8_n2994_direction, model.W_in[layer, :, neuron]).item()
 
-    return pd.DataFrame(result)
+        unscaled_peak_midpoint = (unscaled_peak_1_norm + unscaled_peak_2_norm) / 2
+        scaled_peak_midpoint = unscaled_peak_midpoint * sim        
 
+        neuron_bias = model.b_in[layer, neuron].item()
+
+        bias_diff_from_midpoint = abs(scaled_peak_midpoint - neuron_bias)
+
+        # to select peak 2 use a bias of cosine_sim * -8.57
+        result.append([
+            sim, 
+            neuron_bias, 
+            scaled_peak_midpoint,
+            bias_diff_from_midpoint,
+            unscaled_peak_1_norm * sim,
+            unscaled_peak_2_norm * sim])
+
+    return pd.DataFrame(result, columns=["cosine_sim", "bias", "peak_midpoint_norm", "bias_diff_from_peak_midpoint", "scaled_peak_1_norm", "scaled_peak_2_norm"])
+
+# %%
+df = get_context_reader_properties_df(model, unscaled_peak_1_norm, unscaled_peak_2_norm, layer=9)
+print(df.sort_values(['cosine_sim'], ascending=True).head())
+print(df.sort_values(['cosine_sim'], ascending=False).head())
+# %%
+px.histogram(df['cosine_sim']).show()
+print(df[(df['cosine_sim'] > 0.05)].sort_values(['bias_diff_from_peak_midpoint'], ascending=True))
+# Many neurons take the peak 2 range with cosine sims < 0.06
+# Time to do neuron on/off stats
+
+# %% 
+def get_context_reader_activations_df(model, data) -> pd.DataFrame:
+    result = [] # context neuron on or off, downstream neuron on or off, neuron index
+    
+    for prompt in tqdm(data):
+        _, cache = model.run_with_cache(prompt)
+        context_neuron_acts = cache[f'blocks.{LAYER}.mlp.hook_post'][0, 5:, NEURON]
+        for neuron in range(model.cfg.d_mlp):
+            neuron_act = cache[f'blocks.{LAYER+1}.mlp.hook_post'][0, 5:, neuron]
+            for position in range(context_neuron_acts.shape[0]):
+                context_neuron_peak_1 = (context_neuron_acts[position] > 0.8 and context_neuron_acts[position] < 4.1).item()
+                context_neuron_peak_2 = (context_neuron_acts[position] > 4.8 and context_neuron_acts[position] < 10).item()
+                result.append([neuron, context_neuron_peak_1, context_neuron_peak_2, neuron_act[position].item()])
+    
+    return pd.DataFrame(result, columns=["neuron", "context_neuron_peak_1", "context_neuron_peak_2", "neuron_act"])
+
+act_df = get_context_reader_activations_df(model, german_data[:5])
+
+# %%
+# act_df.head()
+
+total = model.cfg.d_mlp
+grouped = act_df.groupby('neuron')
+df_result = grouped.apply(
+    lambda x: ((x['neuron_act'] > 0) & x['context_neuron_peak_2']).sum() / (x['neuron_act'] > 0).sum())
+df_result.fillna(0, inplace=True)
+print(df_result.sort_values(ascending=False).head())
+
+# %%
 
 # _, cache = model.run_with_cache(left_cropped_tokens)
 
