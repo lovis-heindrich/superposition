@@ -77,6 +77,23 @@ for column in select_names:
 
 st.dataframe(display_df.round(2))
 
+
+# Diffs plot
+diff_select = st.selectbox(label="Select the type of differences to display",
+                        options=["Two Features", "Single Features", "Current Token", "Previous Token", "Context Neuron", "Merge Tokens"], index=0)
+
+
+sort = st.checkbox("Sort by difference", value=True)
+
+neuron_loss_diffs = df[diff_select + " (diff)"].tolist()
+
+if sort:
+    neuron_loss_diffs.sort()
+
+plot = plotting_utils.line(neuron_loss_diffs, width=650, xlabel="Neuron", ylabel="Loss change", title="Loss change from ablating individual MLP5 neurons", show_legend=False, plot=False)
+st.plotly_chart(plot)
+
+
 st.markdown("""
             ### Comparing neuron-wise ablation loss increase
 
@@ -121,3 +138,5 @@ plot = plotting_utils.plot_barplot(loss_values, names,
                             title=f"Loss increase when patching groups of neurons (ablation mode: YYN)",
                             width=750, show=False)
 st.plotly_chart(plot)
+
+

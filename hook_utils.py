@@ -37,3 +37,10 @@ def get_ablate_context_neurons_hooks(context_neurons: list[tuple[int, int]], act
         activations = torch.Tensor(activations).cuda()
         hooks.append(get_ablate_neuron_hook(layer, neurons, activations))
     return hooks
+
+
+def get_ablate_neurons_hook(neuron: int | list[int], ablated_cache, layer=5, hook_point="hook_post"):
+    def ablate_neurons_hook(value, hook):
+        value[:, :, neuron] = ablated_cache[f'blocks.{layer}.mlp.{hook_point}'][:, :, neuron]
+        return value
+    return [(f'blocks.{layer}.mlp.{hook_point}', ablate_neurons_hook)]
