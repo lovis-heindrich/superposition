@@ -495,6 +495,16 @@ def plot_direction_norm(model, prompts, direction=l8_n2994_direction):
 plot_direction_norm(model, german_data[:400])
 
 # %%
+
+def get_context_reader_df(model: HookedTransformer, prompts: list[str]) -> pd.DataFrame:
+    """Returns a dataframe with columns: context neuron on, reader neuron on, reader neuron index"""
+    result = []
+    for prompt in tqdm(prompts):
+        
+
+    return pd.DataFrame(result)
+
+
 # _, cache = model.run_with_cache(left_cropped_tokens)
 
 # print(cache['blocks.8.mlp.hook_post'][0, -1, 2994])
