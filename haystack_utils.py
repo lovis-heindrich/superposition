@@ -1672,3 +1672,176 @@ def get_neurons_by_layer(neurons: list[(int, int)]) -> dict[int, list[int]]:
     for layer, neuron in neurons:
         result[layer].append(neuron)
     return result
+
+
+def compute_and_conditions(prompts, model, option, type: Literal["logits", "loss"], common_tokens, activate_context_hook, deactivate_context_hooks):
+    ANSWER_TOKEN_ID = model.to_tokens(option).flatten()[-1].item()
+    multiplier = 1 if type == "loss" else -1
+
+    def get_value(prompts, activated=False):
+        if activated:
+            if type == "logits":
+                _, _, _, value = get_direct_effect(prompts, model, 
+                        context_ablation_hooks=deactivate_context_hooks, context_activation_hooks=activate_context_hook,
+                        return_type=type, pos=-2)
+                return value[:, ANSWER_TOKEN_ID].mean().item()
+            elif type == "loss":
+                _, _, _, value = get_direct_effect(prompts, model, 
+                        context_ablation_hooks=deactivate_context_hooks, context_activation_hooks=activate_context_hook,
+                        return_type=type, pos=-1)
+                return value.mean().item()
+        with model.hooks(fwd_hooks=deactivate_context_hooks):
+            if type == "logits":
+                return model(prompts, return_type="logits", loss_per_token=True)[:, -2, ANSWER_TOKEN_ID].mean().item()
+            elif type == "loss":
+                return model(prompts, return_type="loss", loss_per_token=True)[:, -1].mean().item()
+
+    
+    # COMPUTE AND CONDITIONS
+    ablated_prompts_ny = create_ablation_prompts(prompts, "NYY", common_tokens)
+    ablated_prompts_yn = create_ablation_prompts(prompts, "YNY", common_tokens)
+    ablated_prompts_nn = create_ablation_prompts(prompts, "NNY", common_tokens)
+
+    yyy_value = get_value(prompts, activated=True)
+    nyy_value = get_value(ablated_prompts_ny, activated=True)
+    yny_value = get_value(ablated_prompts_yn, activated=True)
+    nny_value = get_value(ablated_prompts_nn, activated=True)
+
+    yyn_value = get_value(prompts, activated=False)
+    nyn_value = get_value(ablated_prompts_ny, activated=False)
+    ynn_value = get_value(ablated_prompts_yn, activated=False)
+    nnn_value = get_value(ablated_prompts_nn, activated=False)
+
+    # Fix current token
+    yyn_nyn_diff = (nyn_value - yyn_value) * multiplier
+    nyy_nyn_diff = (nyn_value - nyy_value) * multiplier
+    yyy_nyn_diff =  (nyn_value - yyy_value) * multiplier
+    current_diffs = yyy_nyn_diff - (yyn_nyn_diff + nyy_nyn_diff)
+
+    # Fix previous token
+    yyn_ynn_diff = (ynn_value - yyn_value) * multiplier
+    yny_ynn_diff = (ynn_value - yny_value) * multiplier
+    yyy_ynn_diff =  (ynn_value - yyy_value) * multiplier
+    previous_diffs = yyy_ynn_diff - (yyn_ynn_diff + yny_ynn_diff)
+
+    # Fix context neuron
+    yyy_nny_diff = (nny_value - yyy_value) * multiplier
+    nyy_nny_diff = (nny_value - nyy_value) * multiplier 
+    yny_nny_diff =  (nny_value - yny_value) * multiplier
+    context_diffs = yyy_nny_diff - (nyy_nny_diff + yny_nny_diff)
+
+    # All groups of two features
+    nyy_nnn_diff = (nnn_value - nyy_value) * multiplier
+    yny_nnn_diff = (nnn_value - yny_value) * multiplier
+    yyn_nnn_diff = (nnn_value - yyn_value) * multiplier
+    # Individual features
+    nny_nnn_diff = (nnn_value - nny_value) * multiplier
+    nyn_nnn_diff = (nnn_value - nyn_value) * multiplier
+    ynn_nnn_diff = (nnn_value - ynn_value) * multiplier
+    # Loss increase for all features
+    yyy_nnn_diff = (nnn_value - yyy_value) * multiplier
+
+    individual_diffs = yyy_nnn_diff - (nny_nnn_diff + nyn_nnn_diff + ynn_nnn_diff)
+    two_feature_diffs = yyy_nnn_diff - (nyy_nnn_diff + yny_nnn_diff + yyn_nnn_diff)/2
+
+    # Merge current and previous tokens
+    merged_tokens_diff = yyy_nnn_diff - (yyn_nnn_diff + nny_nnn_diff)
+
+    result = {
+        "NNN": nnn_value,
+        "NNY": nny_value,
+        "NYN": nyn_value,
+        "YNN": ynn_value,
+        "NYY": nyy_value,
+        "YNY": yny_value,
+        "YYN": yyn_value,
+        "YYY": yyy_value,
+        "Fix Current": current_diffs,
+        "Fix Previous": previous_diffs,
+        "Fix Context": context_diffs,
+        "Single Feature": individual_diffs,
+        "Two Features": two_feature_diffs,
+        "Merge Tokens": merged_tokens_diff,
+    }
+
+    return result
+
+def compute_and_feature_diffs(df):
+    df["Two Features (diff)"] = (df["YYY"] - df["NNN"]) - ((df["YNY"] - df["NNN"]) + (df["NYY"] - df["NNN"]) + (df["YYN"] - df["NNN"]))/2
+    df["Single Features (diff)"] = (df["YYY"] - df["NNN"]) - ((df["YNN"] - df["NNN"]) + (df["NYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))
+    df["Current Token (diff)"] = ((df["YYY"] - df["NYN"]) - ((df["YYN"] - df["NYN"]) + (df["NYY"] - df["NYN"])))
+    df["Previous Token (diff)"] = ((df["YYY"] - df["YNN"]) - ((df["YYN"] - df["YNN"]) + (df["YNY"] - df["YNN"])))
+    df["Context Neuron (diff)"] = ((df["YYY"] - df["NNY"]) - ((df["YNY"] - df["NNY"]) + (df["NYY"] - df["NNY"])))
+    df["Merge Tokens (diff)"] = ((df["YYY"] - df["NNN"]) - ((df["YYN"] - df["NNN"]) + (df["NNY"] - df["NNN"])))
+    df["Two Features (AND)"] = ((df["YYY"] - df["NNN"]) > ((df["YNY"] - df["NNN"]) + (df["NYY"] - df["NNN"]) + (df["YYN"] - df["NNN"]))/2) & (df["YYY"]>0)
+    df["Single Features (AND)"] = ((df["YYY"] - df["NNN"]) > ((df["YNN"] - df["NNN"]) + (df["NYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))) & (df["YYY"]>0)
+    df["Current Token (AND)"] = ((df["YYY"] - df["NYN"]) > ((df["YYN"] - df["NYN"]) + (df["NYY"] - df["NYN"]))) & (df["YYY"]>0)
+    df["Previous Token (AND)"] = ((df["YYY"] - df["YNN"]) > ((df["YYN"] - df["YNN"]) + (df["YNY"] - df["YNN"]))) & (df["YYY"]>0)
+    df["Context Neuron (AND)"] = ((df["YYY"] - df["NNY"]) > ((df["YNY"] - df["NNY"]) + (df["NYY"] - df["NNY"]))) & (df["YYY"]>0)
+    df["Merge Tokens (AND)"] = ((df["YYY"] - df["NNN"]) > ((df["YYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))) & (df["YYY"]>0)
+    df["Two Features (NEG AND)"] = ((df["YYY"] - df["NNN"]) < ((df["YNY"] - df["NNN"]) + (df["NYY"] - df["NNN"]) + (df["YYN"] - df["NNN"]))/2) & (df["NNN"]>0)
+    df["Single Features (NEG AND)"] = ((df["YYY"] - df["NNN"]) < ((df["YNN"] - df["NNN"]) + (df["NYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))) & (df["NNN"]>0)
+    df["Current Token (NEG AND)"] = ((df["YYY"] - df["NYN"]) < ((df["YYN"] - df["NYN"]) + (df["NYY"] - df["NYN"]))) & (df["NNN"]>0)
+    df["Previous Token (NEG AND)"] = ((df["YYY"] - df["YNN"]) < ((df["YYN"] - df["YNN"]) + (df["YNY"] - df["YNN"]))) & (df["NNN"]>0)
+    df["Context Neuron (NEG AND)"] =((df["YYY"] - df["NNY"]) < ((df["YNY"] - df["NNY"]) + (df["NYY"] - df["NNY"]))) & (df["NNN"]>0)
+    df["Merge Tokens (NEG AND)"] = ((df["YYY"] - df["NNN"]) < ((df["YYN"] - df["NNN"]) + (df["NNY"] - df["NNN"]))) & (df["NNN"]>0)
+    df["Greater Than All"] = (df["YYY"] > df["NNN"]) & (df["YYY"] > df["YNN"]) & (df["YYY"] > df["NYN"]) & (df["YYY"] > df["NNY"]) & (df["YYY"] > df["YYN"]) & (df["YYY"] > df["NYY"]) & (df["YYY"] > df["YNY"])
+    df["Smaller Than All"] = (df["YYY"] < df["NNN"]) & (df["YYY"] < df["YNN"]) & (df["YYY"] < df["NYN"]) & (df["YYY"] < df["NNY"]) & (df["YYY"] < df["YYN"]) & (df["YYY"] < df["NYY"]) & (df["YYY"] < df["YNY"])
+    return df
+
+def get_and_neuron_ablation_losses(prompts: list[str], model: HookedTransformer, df, num_neurons: Literal["all"] | int, 
+                include_mode: Literal["Greater Positive", "All Positive", "Smaller Negative", "All Negative", "Positive and Negative"],
+                context_ablation_hooks, context_activation_hooks):
+    all_losses = {}
+    original_loss = compute_path_patched_mlp_loss(prompts, model, torch.LongTensor([]),
+                                        context_ablation_hooks=context_ablation_hooks, context_activation_hooks=context_activation_hooks)
+    with model.hooks(context_ablation_hooks):
+        all_ablated_loss = model(prompts, return_type="loss", loss_per_token=True)[:, -1].mean().item()
+    all_losses = {
+        "Original": original_loss,
+        "All Ablated": all_ablated_loss,
+    }
+    assert include_mode in ["Greater Positive", "All Positive", "Smaller Negative", "All Negative", "Positive and Negative"], "Invalid include mode"
+    if isinstance(num_neurons, str) and (num_neurons.lower()=="all"):
+        for feature_mode in ["Two Features", "Single Features", "Current Token", "Previous Token", "Context Neuron", "Merge Tokens"]:
+            if include_mode == "Greater Positive":
+                neurons = df[df[feature_mode + " (AND)"] & df["Greater Than All"]].index
+            elif include_mode == "All Positive":
+                neurons = df[df[feature_mode + " (AND)"]].index
+            elif include_mode == "Smaller Negative":
+                neurons = df[df[feature_mode + " (NEG AND)"] & df["Smaller Than All"]].index
+            elif include_mode == "All Negative":
+                neurons = df[df[feature_mode + " (NEG AND)"]].index
+            elif include_mode == f"Positive and Negative":
+                neurons_top = get_top_k_neurons(df, (df["NNN"]>0), feature_mode + " (diff)", k//2, ascending=True)
+                neurons_bottom = get_top_k_neurons(df, (df["YYY"]>0), feature_mode + " (diff)", k//2)
+                neurons = np.concatenate([neurons_top, neurons_bottom])
+            neurons = torch.LongTensor(neurons.tolist())
+
+            ablated_loss = compute_path_patched_mlp_loss(prompts, model, neurons,
+                                            context_ablation_hooks=context_ablation_hooks, context_activation_hooks=context_activation_hooks)
+            all_losses[feature_mode+f" (N={neurons.shape[0]})"] = ablated_loss
+    elif isinstance(num_neurons, int):
+        k = num_neurons
+        for feature_mode in ["Two Features", "Single Features", "Current Token", "Previous Token", "Context Neuron", "Merge Tokens"]:
+            if include_mode == f"Greater Positive":
+                neurons = get_top_k_neurons(df, (df["YYY"]>0)&(df["Greater Than All"]), feature_mode + " (diff)", k)
+            elif include_mode == f"All Positive":
+                neurons = get_top_k_neurons(df, (df["YYY"]>0), feature_mode + " (diff)", k)
+            elif include_mode == f"Smaller Negative":
+                neurons = get_top_k_neurons(df, (df["NNN"]>0)&(df["Smaller Than All"]), feature_mode + " (diff)", k, ascending=True)
+            elif include_mode == f"All Negative":
+                neurons = get_top_k_neurons(df, (df["NNN"]>0), feature_mode + " (diff)", k, ascending=True)
+            elif include_mode == f"Positive and Negative":
+                neurons_top = get_top_k_neurons(df, (df["NNN"]>0), feature_mode + " (diff)", k//2, ascending=True)
+                neurons_bottom = get_top_k_neurons(df, (df["YYY"]>0), feature_mode + " (diff)", k//2)
+                neurons = np.concatenate([neurons_top, neurons_bottom])
+            neurons = torch.LongTensor(neurons.tolist())
+
+            #ablated_loss = haystack_utils.compute_mlp_loss(prompts, model, unscaled_df, neurons, ablate_mode="YYN")
+            ablated_loss = compute_path_patched_mlp_loss(prompts, model, neurons,
+                                            context_ablation_hooks=context_ablation_hooks, context_activation_hooks=context_activation_hooks)
+            all_losses[feature_mode+f" (N={neurons.shape[0]})"] = ablated_loss
+    else:
+        assert False, f"Invalid num_neurons: {num_neurons}"
+    return all_losses
