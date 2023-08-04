@@ -471,50 +471,83 @@ print(len(euro_prompts))
 # Think about circuits that use both peaks
 # check if can make tuple
 # %%
-cosine_sim = torch.nn.CosineSimilarity(dim=1)
-l8_n2994_direction = model.W_out[8, 2994]
 import einops
 # %%
-def plot_direction_norm(model, prompts, direction=l8_n2994_direction):
+# Show that peak 2 readers must use a bias scaled from -8.57, 
+# and peak 1 readers from -5.7
+def plot_direction_norm(model, prompts, layer, neuron):
+    '''Not generalizable - need to pass in ranges'''
+    direction = model.W_out[layer, neuron]
     final_token_norms = []
     other_token_norms = []
+    all_norms = []
+
     for prompt in prompts:
         _, cache = model.run_with_cache(prompt)
         
-        act_values = cache['blocks.8.mlp.hook_post'][0, :, 2994]
+        act_values = cache[f'blocks.{layer}.mlp.hook_post'][0, :, neuron]
         direction_out = einops.einsum(direction, act_values, 'd_model, n_acts -> n_acts d_model')
 
         accumulated_residual = cache.accumulated_resid(layer=9, incl_mid=False, pos_slice=None, return_labels=False)
         pos_means = accumulated_residual[-1, 0, :, :].mean(dim=-1).unsqueeze(-1) # pos d_model -> pos 1
 
-        pos_scaling_factor = cache[f"blocks.{9}.ln1.hook_scale"].squeeze(0)
+        pos_scaling_factor = cache[f"blocks.{layer + 1}.ln1.hook_scale"].squeeze(0)
         
         # pos_scaling_factor makes it bimodal rather than trimodal
-        final_token_scaled_direction = ((direction_out - pos_means)/ pos_scaling_factor)[(act_values > 4.8) & (act_values < 10)]
-        other_token_scaled_direction = ((direction_out - pos_means)/ pos_scaling_factor)[(act_values > 0.8) & (act_values < 4.1)]
+        scaled_direction = ((direction_out - pos_means)/ pos_scaling_factor)
+        final_token_scaled_direction = scaled_direction[(act_values > 4.8) & (act_values < 10)]
+        other_token_scaled_direction = scaled_direction[(act_values > 0.8) & (act_values < 4.1)]
         final_token_norms.extend(torch.norm(final_token_scaled_direction, dim=-1).cpu().tolist())
         other_token_norms.extend(torch.norm(other_token_scaled_direction, dim=-1).cpu().tolist())
+        all_norms.extend(torch.norm(scaled_direction, dim=-1).cpu().tolist())
 
-    fig = px.histogram(other_token_norms, title="L5N2994 W_out norms when the context neuron is at the first peak")
+    fig = px.histogram(other_token_norms, title=f"L{layer}N{neuron} W_out norms when the context neuron is at the first peak")
     fig.show()
     fig = px.histogram(final_token_norms, title="Norms when the context neuron is at the second peak")
     fig.show()
     fig = px.histogram(other_token_norms + final_token_norms, title="Norms when the context neuron is at either peak (excludes ambiguous values)")
     fig.show()
-    fig = px.histogram(((direction_out - pos_means)/ pos_scaling_factor), title="All norms")
+    fig = px.histogram(all_norms, title="All norms")
     fig.show()
 
-plot_direction_norm(model, german_data[:400])
+plot_direction_norm(model, german_data[:400], layer=8, neuron=2994)
 
+unscaled_peak_1_norm = 5.7
+unscaled_peak_2_norm = 8.57
 # %%
 
-def get_context_reader_df(model: HookedTransformer, prompts: list[str]) -> pd.DataFrame:
-    """Returns a dataframe with columns: context neuron on, reader neuron on, reader neuron index"""
-    result = []
-    for prompt in tqdm(prompts):
-        
+# For each neuron in L9 and L10, look at its cosine sim with the ctx neuron direction
+# and its bias. 
+# We know the magnitude (/+- acceptable error) and direction of some information
+# The project of the direction onto a reader neuron is the cosine sim * the magnitude, so the necessary bias term
+# is the bias term * the cosine sim
+# e.g. a reader neuron with a cosine sim of 0.5 gets the direction at half the magnitude
 
-    return pd.DataFrame(result)
+# required bias term = unscaled_peak_2_bias - cosine_sim * norm(ctx_neuron_direction)
+def get_context_reader_df(model: HookedTransformer, unscaled_peak_1_norm, unscaled_peak_2_norm) -> pd.DataFrame:
+    """Returns a dataframe with columns: context neuron on, reader neuron on, reader neuron index"""
+    cosine_sim = torch.nn.CosineSimilarity(dim=1)
+    l8_n2994_direction = model.W_out[8, 2994]
+    result = []
+    for neuron in range(model.cfg.d_mlp):
+        sim = cosine_sim(l8_n2994_direction, model.W_in[9, neuron])
+        neuron_bias = model.b_in[9, neuron]
+
+        scaled_peak_1_norm = unscaled_peak_1_norm * sim
+        scaled_peak_2_norm = unscaled_peak_2_norm * sim
+
+        # to select peak 2 use a bias of cosine_sim * -8.57
+        result.append([
+            sim, 
+            neuron_bias, 
+            scaled_peak_1_norm + neuron_bias, 
+            scaled_peak_2_norm + neuron_bias])
+
+    return pd.DataFrame(result, columns=["Cosine Sim", "Bias", "Bias for peak 2", "Bias for peak 1"])
+
+get_context_reader_df(model, unscaled_peak_1_norm, unscaled_peak_2_norm)
+
+# %%
 
 
 # _, cache = model.run_with_cache(left_cropped_tokens)
