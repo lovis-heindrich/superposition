@@ -1604,6 +1604,30 @@ def compute_mlp_loss(
         return loss, ablated_loss
     return ablated_loss
 
+def invert_index_tensor(index_tensor: Int[Tensor, "n"], size: int=2048) -> Int[Tensor, "m"]:
+    """Inverts a tensor of indices, i.e. returns all indices not present in the tensor."""
+    inverted = torch.ones(size, dtype=torch.bool, device=index_tensor.device)
+    inverted[index_tensor] = 0
+    return torch.where(inverted)[0]
+
+def compute_path_patched_mlp_loss(
+    prompts: str | list[str] | Int[Tensor, "batch pos"], 
+    model: HookedTransformer, 
+    neurons: Int[Tensor, "n_neurons"], 
+    context_ablation_hooks: list,
+    context_activation_hooks: list,
+): 
+    
+    with model.hooks(context_ablation_hooks):
+        _, ablated_cache = model.run_with_cache(prompts, return_type="loss")
+    ablated_neurons = invert_index_tensor(neurons)
+    ablate_top_neurons_hook = hook_utils.get_ablate_neurons_hook(ablated_neurons, ablated_cache)
+
+    _, _, _, patched_loss = get_direct_effect(prompts, model, context_ablation_hooks=context_ablation_hooks, 
+                                              context_activation_hooks=context_activation_hooks + ablate_top_neurons_hook, 
+                                              pos=-1, return_type="loss")
+    return patched_loss.mean().item()
+
 def get_top_k_neurons(df, condition, sortby, k=10, ascending=False):
     tmp_df = df[condition].copy()
     tmp_df = tmp_df.sort_values(by=sortby, ascending=ascending)
