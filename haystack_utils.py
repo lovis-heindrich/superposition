@@ -1552,7 +1552,7 @@ def union_where(tensors: list[Float[Tensor, "n"]], cutoff: float, greater: bool 
     return torch.LongTensor(union).cuda()
 
 
-def get_boosted_tokens(prompts, model, ablation_hooks: list, all_ignore: Float[Tensor, "n"], logit_pos=-2, threshold=-7, deboost=False, log=True):
+def get_boosted_tokens(prompts, model, ablation_hooks: list, all_ignore: Float[Tensor, "n"], logit_pos=-2, threshold=-7, deboost=False, log=True, k=5):
     original_logprobs = model(prompts, return_type="logits", loss_per_token=True).log_softmax(-1)[:, logit_pos]
     with model.hooks(fwd_hooks=ablation_hooks):
         deactivated_logprobs = model(prompts, return_type="logits", loss_per_token=True).log_softmax(-1)[:, logit_pos]
@@ -1570,11 +1570,30 @@ def get_boosted_tokens(prompts, model, ablation_hooks: list, all_ignore: Float[T
 
     boost_amounts = top_diffs[:num_meaningful_diffs]
     boosted_tokens = model.to_str_tokens(top_tokens[:num_meaningful_diffs])
+
+    if deboost:
+        return boosted_tokens, boost_amounts
+
     if log:
-        boost_str = "Boosted" if not deboost else "Deboosted"
-        sign = "+" if not deboost else "-"
+        deboosted_tokens, deboost_amounts = get_boosted_tokens(prompts, model, ablation_hooks, all_ignore, logit_pos, threshold, deboost=True, log=False, k=k)
+    
+        _, top_original_tokens = torch.topk(original_logprobs.mean(0), k)
+        _, top_deactivated_tokens = torch.topk(deactivated_logprobs.mean(0), k)
+        top_original_tokens = model.to_str_tokens(top_original_tokens)
+        top_deactivated_tokens = model.to_str_tokens(top_deactivated_tokens)
+
+        boost_str = "Boosted"
+        sign = "+"
         token_str = [f"{token} ({sign}{boost:.2f})" for token, boost in zip(boosted_tokens, boost_amounts)]
         print(f"{boost_str} tokens: " + ", ".join(token_str))
+
+        boost_str = "Deboosted"
+        sign = "-"
+        token_str = [f"{token} ({sign}{boost:.2f})" for token, boost in zip(deboosted_tokens, deboost_amounts)]
+        print(f"{boost_str} tokens: " + ", ".join(token_str))
+        
+        print("Top original tokens: " + ", ".join(top_original_tokens))
+        print("Top deactivated tokens: " + ", ".join(top_deactivated_tokens))
     else:
         return top_diffs[:num_meaningful_diffs], top_tokens[:num_meaningful_diffs]
 
@@ -1845,3 +1864,6 @@ def get_and_neuron_ablation_losses(prompts: list[str], model: HookedTransformer,
     else:
         assert False, f"Invalid num_neurons: {num_neurons}"
     return all_losses
+
+def print_tokenized_word(prompt: str, model: HookedTransformer):
+    print(model.to_str_tokens(model.to_tokens(prompt, prepend_bos=False).flatten()))

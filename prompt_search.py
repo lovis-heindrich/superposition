@@ -123,7 +123,9 @@ for prompt in tqdm(DATA[:200]):
 def interest_measure(original_loss, ablated_loss, context_and_activated_loss, only_activated_loss):
     loss_diff = (ablated_loss - original_loss) # High ablation loss increase
     direct_effect = (context_and_activated_loss - original_loss) # High loss increase from MLP5
-    return torch.min(loss_diff, direct_effect)
+    min_effect = torch.min(loss_diff, direct_effect)
+    min_effect[original_loss > 4] = 0
+    return min_effect
 
 def get_mlp5_decrease_measure(losses: list[tuple[Float[Tensor, "pos"], Float[Tensor, "pos"], Float[Tensor, "pos"], Float[Tensor, "pos"]]]):
     measure = []
@@ -152,7 +154,7 @@ def print_prompt(prompt: str):
     haystack_utils.clean_print_strings_as_html(str_token_prompt[1:], pos_wise_diff, max_value=5, additional_measures=loss_list, additional_measure_names=loss_names)
 
 # %% 
-for i, measure in sorted_measure[10:20]:
+for i, measure in sorted_measure[:10]:
     print_prompt(DATA[i])
 
 #%%
@@ -162,16 +164,33 @@ def search_for_token_examples(token, data, model):
         str_tokens = model.to_str_tokens(model.to_tokens(prompt).flatten())
         if token in str_tokens:
             prompt_index = str_tokens.index(token)
-            print(str_tokens[max(0, prompt_index-3):min(len(str_tokens), prompt_index)])
+            print(str_tokens[max(0, prompt_index-3):min(len(str_tokens), prompt_index+2)])
 
 
-search_for_token_examples(" Ans", english_data, model)
+search_for_token_examples(" nim", english_data, model)
+
+
+# %%
+
+prompt = " Ich bin der Ansicht"
+haystack_utils.get_boosted_tokens(prompt, model, deactivate_neurons_fwd_hooks, all_ignore)
+
+#%%
+haystack_utils.print_tokenized_word(" Ansicht", model)
+
+
+
+
+
+
+
 
 # %%
 
 ngram = " statt"
 ngram_str_tokens = model.to_str_tokens(model.to_tokens(ngram, prepend_bos=False))
 prompts = haystack_utils.generate_random_prompts(ngram, model, common_tokens, 100)
+
 
 #  %%
 

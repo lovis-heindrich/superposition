@@ -58,11 +58,29 @@ continuation_tokens = torch.stack(continuation_tokens)
 
 # %%
 # SETUP
-option = " deinen Vorschlägen"
+option = " Genehmig"
 prompts = haystack_utils.generate_random_prompts(option, model, common_tokens, 500, length=20).cpu()
 normalize_diffs = False
 hook_name = "hook_post"
 type = "logits"
+
+#%%
+original_loss, ablated_loss, _, mlp_5_loss = \
+    haystack_utils.get_direct_effect(prompts, model, context_ablation_hooks=deactivate_neurons_fwd_hooks, context_activation_hooks=activate_neurons_fwd_hooks,
+                                    deactivated_components=("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.4.hook_mlp_out"),
+                                    activated_components=("blocks.5.hook_mlp_out",))
+
+_, _, _, mlp_4_loss = \
+    haystack_utils.get_direct_effect(prompts, model, context_ablation_hooks=deactivate_neurons_fwd_hooks, context_activation_hooks=activate_neurons_fwd_hooks,
+                                    deactivated_components=("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.5.hook_mlp_out"),
+                                    activated_components=("blocks.4.hook_mlp_out",))
+
+_, _, _, mlp_4_5_loss = \
+    haystack_utils.get_direct_effect(prompts, model, context_ablation_hooks=deactivate_neurons_fwd_hooks, context_activation_hooks=activate_neurons_fwd_hooks,
+                                    deactivated_components=("blocks.4.hook_attn_out", "blocks.5.hook_attn_out"),
+                                    activated_components=("blocks.4.hook_mlp_out", "blocks.5.hook_mlp_out"))
+
+print(f"{original_loss.mean(0).item():.2f}, {ablated_loss.mean(0).item():.2f}, {mlp_5_loss.mean(0).item():.2f}, {mlp_4_loss.mean(0).item():.2f}, {mlp_4_5_loss.mean(0).item():.2f}")
 # %%
 data = haystack_utils.compute_and_conditions(prompts, model, option, type=type, common_tokens=common_tokens, activate_context_hook=activate_neurons_fwd_hooks, deactivate_context_hooks=deactivate_neurons_fwd_hooks)
 data["Prompt"] = [option]
