@@ -1,23 +1,11 @@
 
 #%% 
 
-import pickle
-from typing import Literal
 import torch
-from tqdm.auto import tqdm
-from transformer_lens import HookedTransformer, ActivationCache, utils
-from jaxtyping import Float, Int, Bool
-from torch import Tensor
-from tqdm.auto import tqdm
+from transformer_lens import HookedTransformer
 import plotly.io as pio
-import ipywidgets as widgets
-from IPython.display import display, clear_output
-import plotly.graph_objects as go
-import numpy as np
 import pandas as pd
-import json
 import plotting_utils
-import hook_utils
 import plotly.express as px
 
 
@@ -58,11 +46,15 @@ continuation_tokens = torch.stack(continuation_tokens)
 
 # %%
 # SETUP
-option = " Genehmig"
+option = " Herr Präsident"
+haystack_utils.print_tokenized_word(option, model)
 prompts = haystack_utils.generate_random_prompts(option, model, common_tokens, 500, length=20).cpu()
 normalize_diffs = False
 hook_name = "hook_post"
 type = "logits"
+
+deactivated_components=("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.5.hook_mlp_out")
+activated_components=("blocks.4.hook_mlp_out",)
 
 #%%
 original_loss, ablated_loss, _, mlp_5_loss = \

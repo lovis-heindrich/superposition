@@ -96,8 +96,8 @@ print(len(german_news_data))
 # %% 
 DATA = german_data
 german_losses = []
-deactivated_components=("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.4.hook_mlp_out", "blocks.5.hook_mlp_out")
-activated_components=[]
+deactivated_components=("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.5.hook_mlp_out")
+activated_components=("blocks.4.hook_mlp_out",)
 
 for prompt in tqdm(DATA[:200]):
     original_loss, ablated_loss, context_and_activated_loss, only_activated_loss = \
@@ -120,12 +120,20 @@ for prompt in tqdm(DATA[:200]):
 #     combined[original_loss > ablated_loss] = 0
 #     return combined
 
+
 def interest_measure(original_loss, ablated_loss, context_and_activated_loss, only_activated_loss):
     loss_diff = (ablated_loss - original_loss) # High ablation loss increase
-    direct_effect = (context_and_activated_loss - original_loss) # High loss increase from MLP5
+    direct_effect = (ablated_loss - only_activated_loss) # High loss increase from MLP5
     min_effect = torch.min(loss_diff, direct_effect)
     min_effect[original_loss > 4] = 0
     return min_effect
+
+# def interest_measure(original_loss, ablated_loss, context_and_activated_loss, only_activated_loss):
+#     loss_diff = (ablated_loss - original_loss) # High ablation loss increase
+#     direct_effect = (context_and_activated_loss - original_loss) # High loss increase from MLP5
+#     min_effect = torch.min(loss_diff, direct_effect)
+#     min_effect[original_loss > 4] = 0
+#     return min_effect
 
 def get_mlp5_decrease_measure(losses: list[tuple[Float[Tensor, "pos"], Float[Tensor, "pos"], Float[Tensor, "pos"], Float[Tensor, "pos"]]]):
     measure = []
@@ -154,7 +162,7 @@ def print_prompt(prompt: str):
     haystack_utils.clean_print_strings_as_html(str_token_prompt[1:], pos_wise_diff, max_value=5, additional_measures=loss_list, additional_measure_names=loss_names)
 
 # %% 
-for i, measure in sorted_measure[:10]:
+for i, measure in sorted_measure[30:40]:
     print_prompt(DATA[i])
 
 #%%
@@ -167,7 +175,7 @@ def search_for_token_examples(token, data, model):
             print(str_tokens[max(0, prompt_index-3):min(len(str_tokens), prompt_index+2)])
 
 
-search_for_token_examples(" nim", english_data, model)
+search_for_token_examples(" Pr", english_data, model)
 
 
 # %%
