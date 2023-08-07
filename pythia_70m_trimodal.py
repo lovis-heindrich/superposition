@@ -103,6 +103,11 @@ all_german_neurons = [
     (5, 1516), # en german
     (5,	250), # off for both
     (3, 1204), # off for german
+    # (4, 482),
+    # (5, 1336),
+    # (4, 326),
+    # (3, 669),
+    # (4, 1903),
 ]
 for layer, neuron in all_german_neurons:
     plotting_utils.plot_neuron_acts(model, german_data, [(layer, neuron)])
