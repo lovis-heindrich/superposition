@@ -1,7 +1,9 @@
-# - For many context neuron activations plot whether the next token is a new word.
-# - Investigate zero values of context neuron with 3+ act values for both English and German.
-#    - Could there be a meaning to the zero values too?
-#    - Wes say it's probably a meaningless bias neuron and not a context neuron
+# For many L3N669 context neuron activations plot whether the next token is a new word. This tests whether there's a
+# correlation between "is German" and "is German new word" that could have eventually developed into the trimodal direction.
+# - No visible correlation
+# Investigate zero values of another context neuron with 3+ peaks, with the positive ones coding for both English and German.
+# - Could there be a meaning to the zero values too?
+# - Wes say it's probably a meaningless bias neuron and not a context neuron
 
 # %%
 import torch
@@ -94,12 +96,13 @@ other_token = torch.cat(other_token).flatten()
 haystack_utils.two_histogram(next_token, other_token, x_label="Neuron activation", y_label="Count", title="Neuron activation for next token punctuation")
 # %%
 
+# Investigate 70m context neurons for weirdness
 all_german_neurons = [
-    # (5, 1039), # en
+    (5, 1039), # en
     (5, 407), # en and german
-    # (5, 1516), # en german
-    # (5,	250), # off for both
-    # (3, 1204), # off for german
+    (5, 1516), # en german
+    (5,	250), # off for both
+    (3, 1204), # off for german
 ]
 for layer, neuron in all_german_neurons:
     plotting_utils.plot_neuron_acts(model, german_data, [(layer, neuron)])
