@@ -61,7 +61,6 @@ languages = ["es", "sv", "de", "en"]
 # LAYER, NEURON = 8, 2994
 # languages = ["de", "nl", "it", "en", "sv"]
 
-
 #%%
 language_activations = []
 n = 200
@@ -70,8 +69,6 @@ for language in tqdm(languages):
     language_activations.append(language_activation.cpu().numpy())
 
 #%%
-
-
 def plot_histograms(data, names, title=""):
     fig = make_subplots()
     for arr, name in zip(data, names):
