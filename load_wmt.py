@@ -61,7 +61,7 @@ for record in tqdm(records):
 
 print(language_counter)
 # %%
-
+records = map(json.loads, read_lines_from_zst_file(file))
 languages = ["de", "nl", "it", "en", "es", "sv"]
 
 language_data = {lang:[] for lang in languages}
@@ -69,6 +69,9 @@ for record in tqdm(records):
     language = record["meta"]["language"]
     if language in languages:
         language_data[language].append(record)
+# %%
+language_data
+
 # %%
 import pickle
 with open("./data/wmt_europarl.pkl", "wb") as f:
