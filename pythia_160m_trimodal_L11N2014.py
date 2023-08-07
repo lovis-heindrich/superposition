@@ -102,7 +102,7 @@ for prompt in prompts[5:10]:
 # %%
 ranges = [(-10, 0.2), (1, 5), (9, 50)]
 labels = ['Inactive', 'Peak 1', 'Peak 2']
-plotting_utils.color_binned_histogram(neuron_activations.cpu().numpy(),  ranges, labels, title=f'L{LAYER}N{NEURON} activations on German data')
+plotting_utils.color_binned_histogram(language_activations[languages.index("de")],  ranges, labels, title=f'L{LAYER}N{NEURON} activations on German data')
 
 # %% 
 def trimodal_interest_measure(activations):
@@ -112,10 +112,11 @@ def trimodal_interest_measure(activations):
     diffs[(activations > 9)] = 2
     return diffs
 
+# %%
+neuron_activations = language_activations[languages.index("de")][:10]
+print(trimodal_interest_measure(torch.tensor(neuron_activations)))
 # %% 
-print(trimodal_interest_measure(neuron_activations[:10]))
-# %% 
-# prompt = german_data[0]
-for prompt in german_data[:10]:
+for prompt in data["de"][:10]:
+    prompt = prompt["text"]
     pythia_160m_utils.print_prompt(prompt, model, trimodal_interest_measure, LAYER, NEURON)
 # %%
