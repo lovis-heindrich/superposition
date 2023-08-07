@@ -81,7 +81,6 @@ plot_histograms(language_activations, languages, title=f'L{LAYER}N{NEURON} activ
 # %%
 #mean_activation = np.mean(language_activations[languages.index("en")])
 mean_activation = np.mean(language_activations[languages.index("de")])
-print(mean_activation)
 # %%
 # print some high loss examples
 mean_ablate_hook = hook_utils.get_ablate_neuron_hook(LAYER, NEURON, float(mean_activation))
@@ -120,3 +119,12 @@ for prompt in data["de"][:10]:
     prompt = prompt["text"]
     pythia_160m_utils.print_prompt(prompt, model, trimodal_interest_measure, LAYER, NEURON)
 # %%
+pile = load_dataset('NeelNanda/pile-10k', split='train')
+
+acts = haystack_utils.get_mlp_activations(pile['text'][:400], LAYER, model, neurons=torch.LongTensor([NEURON]), mean=False).flatten()
+px.histogram(acts.cpu(), title=f'L{LAYER}N{NEURON} activations on different languages')
+# %%
+
+
+# Probe over whole layer for middle/end token and compare with single neuron
+# 

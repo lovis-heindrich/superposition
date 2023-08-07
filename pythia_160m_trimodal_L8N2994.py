@@ -616,3 +616,124 @@ with open(f"data/pythia_160m/reader_neurons.pkl", "rb") as f:
     reader_neurons = pickle.load(f)
 # %%
 # Do we need to filter out acts from outside peak 1 and 2 from our df?
+print("Outliers")
+print(df.loc[[908, 890, 1473], cols_of_interest]) # high neg cosine sims
+# %%
+
+# Linear probe over MLP8 - likely better F1
+
+# %%
+def get_context_reader_activations_df(model: HookedTransformer, data: list[str], layer=9) -> pd.DataFrame:
+    result = [] # context neuron on or off, downstream neuron on or off, neuron index
+    
+    for prompt in tqdm(data):
+        _, cache = model.run_with_cache(prompt)
+        context_neuron_acts = cache[f'blocks.{LAYER}.mlp.hook_post'][0, 5:, NEURON]
+        for neuron in range(model.cfg.d_mlp):
+            neuron_act = cache[f'blocks.{layer}.mlp.hook_post'][0, 5:, neuron]
+            context_neuron_peak_1 = (context_neuron_acts > 0.8) & (context_neuron_acts < 4.1)
+            context_neuron_peak_2 = (context_neuron_acts > 4.8) & (context_neuron_acts < 10)
+            result.extend(zip([neuron]*len(neuron_act), context_neuron_peak_1.tolist(), context_neuron_peak_2.tolist(), neuron_act.tolist()))
+
+    return pd.DataFrame(result, columns=["neuron", "context_neuron_peak_1", "context_neuron_peak_2", "neuron_act"])
+
+df_11 = get_context_reader_activations_df(model, german_data[:100], layer=11)
+# %%
+grouped = df_11.groupby('neuron')
+
+# new_df = pd.DataFrame([i for i in range(model.cfg.d_mlp)], columns=["neuron"])
+
+peak_1_precision = []
+peak_2_precision = []
+peak_1_precision_between_peaks = []
+peak_2_precision_between_peaks = []
+peak_1_fire_rate = []
+peak_2_fire_rate = []
+for neuron in range(model.cfg.d_mlp):
+    neuron_acts = df_11[df_11['neuron']==neuron]
+    peak_1_precision.append(((neuron_acts['neuron_act'] > 0) & (neuron_acts['context_neuron_peak_1'])).sum() / ((neuron_acts['neuron_act'] > 0).sum() + 1e-10))
+    peak_2_precision.append(((neuron_acts['neuron_act'] > 0) & (neuron_acts['context_neuron_peak_2'])).sum() / ((neuron_acts['neuron_act'] > 0).sum() + 1e-10))
+    
+    peak_1_precision_between_peaks.append(((neuron_acts['neuron_act'] > 0) & (neuron_acts['context_neuron_peak_1'])).sum() / (((neuron_acts['context_neuron_peak_1'] | neuron_acts['context_neuron_peak_2'])).sum() + 1e-10))
+    peak_2_precision_between_peaks.append(((neuron_acts['neuron_act'] > 0) & (neuron_acts['context_neuron_peak_2'])).sum() / (((neuron_acts['context_neuron_peak_1'] | neuron_acts['context_neuron_peak_2'])).sum() + 1e-10))
+    
+    peak_1_fire_rate.append(((neuron_acts['neuron_act'] > 0) & (neuron_acts['context_neuron_peak_1'])).sum() / ((neuron_acts['context_neuron_peak_1']).sum() + 1e-10))
+    peak_2_fire_rate.append(((neuron_acts['neuron_act'] > 0) & (neuron_acts['context_neuron_peak_2'])).sum() / ((neuron_acts['context_neuron_peak_2']).sum() + 1e-10))
+    
+# %%
+firing_rate_df = pd.DataFrame({
+    "neuron": [i for i in range(model.cfg.d_mlp)],
+    "peak_1_precision": peak_1_precision,
+    "peak_2_precision": peak_2_precision,
+    "peak_1_precision_between_peaks": peak_1_precision_between_peaks,
+    "peak_2_precision_between_peaks": peak_2_precision_between_peaks,
+    "peak_1_fire_rate": peak_1_fire_rate,
+    "peak_2_fire_rate": peak_2_fire_rate
+})
+
+px.scatter(firing_rate_df, x="peak_1_fire_rate", y="peak_2_fire_rate", hover_data=firing_rate_df.columns)
+
+# %%
+print(firing_rate_df.loc[firing_rate_df['peak_1_fire_rate'].nlargest(5).index])
+print(firing_rate_df.loc[firing_rate_df['peak_2_fire_rate'].nlargest(5).index])
+
+# %%
+
+
+
+# %%
+firing_rate_df = pd.DataFrame([i for i in range(model.cfg.d_mlp)], columns=["neuron"])
+
+# firing_rate_df['peak_1_precision'] = grouped.apply(
+#     lambda x: 
+#         ((x['neuron_act'] > 0) & x['context_neuron_peak_1']).sum() / 
+#         (((x['neuron_act'] > 0)).sum() + 1e-10))
+
+# firing_rate_df['peak_2_precision'] = grouped.apply(
+#     lambda x: 
+#         ((x['neuron_act'] > 0) & x['context_neuron_peak_2']).sum() / 
+#         ((x['neuron_act'] > 0).sum() + 1e-10))
+
+# # %%
+# firing_rate_df['peak_1_precision_between_peaks'] = grouped.apply(
+#     lambda x: 
+#         ((x['neuron_act'] > 0) & x['context_neuron_peak_1']).sum() / 
+#         (((x['neuron_act'] > 0) & (x['context_neuron_peak_1'] | x['context_neuron_peak_2'])).sum() + 1e-10))
+
+# firing_rate_df['peak_2_precision_between_peaks'] = grouped.apply(
+#     lambda x: 
+#         ((x['neuron_act'] > 0) & x['context_neuron_peak_2']).sum() / 
+#         ((x['neuron_act'] > 0 & (x['context_neuron_peak_1'] | x['context_neuron_peak_2'])).sum() + 1e-10))
+
+# %%
+firing_rate_df['peak_1_fire_rate'] = grouped.apply(
+    lambda x: 
+        ((x['neuron_act'] > 0) & x['context_neuron_peak_1']).sum() / 
+        (((x['context_neuron_peak_1'])).sum() + 1e-10))
+
+firing_rate_df['peak_2_fire_rate'] = grouped.apply(
+    lambda x: 
+        ((x['neuron_act'] > 0) & x['context_neuron_peak_2']).sum() / 
+        ((x['context_neuron_peak_2']).sum() + 1e-10))
+# %%
+px.scatter(firing_rate_df, x="peak_1_fire_rate", y="peak_2_fire_rate", hover_data=firing_rate_df.columns)
+
+# %%
+print(firing_rate_df.loc[firing_rate_df['peak_1_fire_rate'].nlargest(5).index])
+print(firing_rate_df.loc[firing_rate_df['peak_2_fire_rate'].nlargest(5).index])
+# %%
+
+grouped.head()
+# %%
+df_11.head()
+# %%
+df = df_11.copy()
+df['peak_1_fire_rate'] = df.apply(
+    lambda x: 
+        ((x['neuron_act'] > 0) & x['context_neuron_peak_1']) / 
+        (((x['context_neuron_peak_1'])).sum() + 1e-10))
+
+firing_rate_df['peak_2_fire_rate'] = grouped.apply(
+    lambda x: 
+        ((x['neuron_act'] > 0) & x['context_neuron_peak_2']).sum() / 
+        ((x['context_neuron_peak_2']).sum() + 1e-10))
