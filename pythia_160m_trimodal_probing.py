@@ -56,7 +56,7 @@ def get_new_word_labels(model: HookedTransformer, tokens: torch.Tensor) -> list[
     prompt_labels = []
     for i in range(tokens.shape[0] - 1):
         next_token_str = model.to_single_str_token(tokens[i + 1].item())
-        next_is_space = next_token_str[0] in [" "] # [" ", ",", ".", ":", ";", "!", "?"]
+        next_is_space = next_token_str[0] in [" ", ",", ".", ":", ";", "!", "?"] # [" "] # 
         prompt_labels.append(next_is_space)
     return prompt_labels
 
@@ -88,22 +88,34 @@ def get_new_word_labels_and_activations(
     return activations, labels
 
 def get_new_word_dense_probe_f1(x: np.ndarray, y: np.ndarray) -> float:
+    lr_model = get_new_word_dense_probe(x, y)
+    preds = lr_model.predict(x[20000:])
+    score = f1_score(y[20000:], preds)
+    return score
+
+def get_new_word_dense_probe(x: np.ndarray, y: np.ndarray) -> float:
     # z-scoring can help with convergence
     scaler = preprocessing.StandardScaler().fit(x)
     x = scaler.transform(x)
     
     lr_model = LogisticRegression(max_iter=1200)
     lr_model.fit(x[:20000], y[:20000])
-    preds = lr_model.predict(x[20000:])
-    score = f1_score(y[20000:], preds)
-    return score
-
+    return lr_model
 # %%
+# Check out the learned weights
+# hook_name = f'blocks.{LAYER}.mlp.hook_post'
+# activation_slice = np.s_[0, :-1, [neuron for neuron in range(model.cfg.d_mlp) if neuron != NEURON]]
+# x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
+# probe = get_new_word_dense_probe(x, y)
+# haystack_utils.line(np.sort(np.absolute(probe.coef_[0])), title="Probe Coefficients", xlabel="Neuron", ylabel="Coefficient")
+# %%
+# Trimodal neuron only
 hook_name = f'blocks.{LAYER}.mlp.hook_post'
 x, y = get_new_word_labels_and_activations(model, german_data, hook_name)
 score = get_new_word_dense_probe_f1(x, y)
 print(score)
 # %%
+# The final position's activation has no label and is excluded
 activation_slice = np.s_[0, :-1, [neuron for neuron in range(model.cfg.d_mlp) if neuron != NEURON]]
 x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
 score = get_new_word_dense_probe_f1(x, y)
@@ -165,4 +177,62 @@ for component in activations_dict.values():
 print(projections)
 haystack_utils.line(projections, xticks=component_labels, title="F1 Score of L8N2994 input direction in residual stream by layer", xlabel="Layer", ylabel="F1 Score")
 
+# %%
+
+# Other good context neuron == L5N2649
+cosine_sim = torch.nn.CosineSimilarity(dim=0)
+ctx_neuron_sims = []
+ctx_neuron_sims.append(cosine_sim(model.W_out[LAYER, NEURON, :], model.W_in[LAYER, :, NEURON]).item())
+ctx_neuron_sims.append(cosine_sim(model.W_out[5, 2649, :], model.W_in[5, :, 2649]).item())
+
+ctx_neuron_sims.append(cosine_sim(model.W_in[5, :, 2649], model.W_in[LAYER, :, NEURON]).item())
+ctx_neuron_sims.append(cosine_sim(model.W_out[5, 2649, :], model.W_out[LAYER, NEURON, :]).item())
+ctx_neuron_sims.append(cosine_sim(model.W_out[5, 2649, :], model.W_in[LAYER, :, NEURON]).item())
+ctx_neuron_sims.append(cosine_sim(model.W_in[5, :, 2649], model.W_out[LAYER, NEURON, :]).item())
+
+# %%
+
+sims = []
+
+for neuron_i in range(model.cfg.d_mlp):
+    sims.append(cosine_sim(model.W_out[5, 2649, :], model.W_in[LAYER, :, neuron_i]).item())
+    sims.append(cosine_sim(model.W_out[5, 2649, :], model.W_out[LAYER, neuron_i, :]).item())
+    sims.append(cosine_sim(model.W_in[5, :, 2649], model.W_in[LAYER, :, neuron_i]).item())
+    sims.append(cosine_sim(model.W_in[5, :, 2649], model.W_out[LAYER, neuron_i, :]).item())
+fig = px.histogram(sims, title="Cosine similarity between W_in/W_out of L5N2649 and L8 neurons. \
+                   <br> Red lines are the similarity of L5N2649's W_in and W_out to L8N2994's W_in and W_out")
+
+for sim in ctx_neuron_sims:
+    fig.add_vline(x=sim, line_dash="dash", line_color="red")
+fig.show()
+# %%
+# All layers
+sims = []
+for neuron_i in range(model.cfg.d_mlp):
+    for layer_i in range(model.cfg.n_layers):
+        sims.append(cosine_sim(model.W_out[5, 2649, :], model.W_in[layer_i, :, neuron_i]).item())
+        sims.append(cosine_sim(model.W_out[5, 2649, :], model.W_out[layer_i, neuron_i, :]).item())
+        sims.append(cosine_sim(model.W_in[5, :, 2649], model.W_in[layer_i, :, neuron_i]).item())
+        sims.append(cosine_sim(model.W_in[5, :, 2649], model.W_out[layer_i, neuron_i, :]).item())
+fig = px.histogram(sims, title="Cosine similarity between W_in/W_out of L5N2649 and L8 neurons. \
+                   <br> Red lines are the similarity of L5N2649's W_in and W_out to L8N2994's W_in and W_out")
+
+for sim in ctx_neuron_sims:
+    fig.add_vline(x=sim, line_dash="dash", line_color="red")
+fig.show()
+# %%
+# All high similarity neurons are context neurons except for L5N1162
+for neuron_i in range(model.cfg.d_mlp):
+    for layer_i in range(model.cfg.n_layers):
+        for sim_i in range(4):
+            current_sim = sims[neuron_i * (model.cfg.n_layers * 4) + layer_i * 4 + sim_i]
+            if current_sim > 0.3:
+                print(f'L{layer_i}N{neuron_i}', current_sim)
+
+fig = px.histogram(sims, title="Cosine similarity between W_in/W_out of L5N2649 and L8 neurons. \
+                   <br> Red lines are the similarity of L5N2649's W_in and W_out to L8N2994's W_in and W_out")
+
+for sim in ctx_neuron_sims:
+    fig.add_vline(x=sim, line_dash="dash", line_color="red")
+fig.show()
 # %%
