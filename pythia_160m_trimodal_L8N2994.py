@@ -356,12 +356,21 @@ def compute_batched_loss_increase(prompts: list[str], model, snapping_hook, pos=
     original_loss = model(prompts, return_type='loss', loss_per_token=True)[:, pos]
     return (ablated_loss-original_loss).tolist()
 
-mid_word_prompts = haystack_utils.generate_random_prompts("seinen Antworten", model, common_tokens, 100, length=20)
-new_word_prompts = haystack_utils.generate_random_prompts("seine Antwort auf", model, common_tokens, 100, length=20)
+mid_word_prompt = " seinen Antworten"
+new_word_prompt = " seine Antwort auf"
+
+# mid_word_prompt = " im Ausland"
+# new_word_prompt = ". Aus dem"
+
+mid_word_prompt = " in der Eurozone"
+new_word_prompt = " Millionen Euro sind"
+haystack_utils.print_tokenized_word(mid_word_prompt, model), haystack_utils.print_tokenized_word(new_word_prompt, model)
+mid_word_prompts = haystack_utils.generate_random_prompts(mid_word_prompt, model, common_tokens, 100, length=20)
+new_word_prompts = haystack_utils.generate_random_prompts(new_word_prompt, model, common_tokens, 100, length=20)
 
 plot_snapping_losses(mid_word_prompts, new_word_prompts, model, 
                      snap_pos_to_peak_1_hook, snap_pos_to_peak_2_hook, 
-                     compute_batched_loss_increase, target="'seinen Antworten' vs 'seine Antwort auf'")
+                     compute_batched_loss_increase, target=f'"{mid_word_prompt}" vs "{new_word_prompt}"')
 # %%
 for prompt in german_data[:5]:
     print_prompt(prompt, [hook_utils.get_ablate_neuron_hook(LAYER, NEURON, 5.5)])
