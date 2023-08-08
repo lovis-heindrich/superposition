@@ -293,3 +293,5 @@ percentage_above_threshold = (metric_values > threshold).float().mean().item() *
 
 print(f"The percentage of directions with a metric value above {threshold} is {percentage_above_threshold}%")
 # %%
+
+# Get "is space" direction in embeddings
