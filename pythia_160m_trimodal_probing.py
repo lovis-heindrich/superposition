@@ -160,8 +160,9 @@ l8_n2994_input = model.W_in[LAYER, :, NEURON].cpu().numpy()
 projections = []
 for component in activations_dict.values():
     projection = np.dot(component, l8_n2994_input)[:, np.newaxis]
-    print(projection.shape, labels.shape)
     projections.append(get_new_word_dense_probe_f1(projection, labels))
-haystack_utils.line(projections, xticks=labels, title="F1 Score at residual stream by layer", xlabel="Layer", ylabel="F1 Score")
+
+print(projections)
+haystack_utils.line(projections, xticks=component_labels, title="F1 Score of L8N2994 input direction in residual stream by layer", xlabel="Layer", ylabel="F1 Score")
 
 # %%
