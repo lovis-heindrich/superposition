@@ -615,12 +615,10 @@ with open(f"data/pythia_160m/reader_neurons.pkl", "wb") as f:
 with open(f"data/pythia_160m/reader_neurons.pkl", "rb") as f:
     reader_neurons = pickle.load(f)
 # %%
-# Do we need to filter out acts from outside peak 1 and 2 from our df?
+
 print("Outliers")
 print(df.loc[[908, 890, 1473], cols_of_interest]) # high neg cosine sims
 # %%
-
-# Linear probe over MLP8 - likely better F1
 
 # %%
 def get_context_reader_activations_df(model: HookedTransformer, data: list[str], layer=9) -> pd.DataFrame:
@@ -677,6 +675,9 @@ firing_rate_df = pd.DataFrame({
 
 print(firing_rate_df.head())
 
+# %%
+
+plotting_utils.plot_neuron_acts(model, german_data, [[11, 678]])
 # %%
 px.scatter(firing_rate_df, x="peak_1_fire_rate", y="peak_2_fire_rate", hover_data=firing_rate_df.columns)
 
