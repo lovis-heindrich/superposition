@@ -47,6 +47,8 @@ model = HookedTransformer.from_pretrained("EleutherAI/pythia-160m",
 
 german_data = haystack_utils.load_json_data("data/german_europarl.json")[:200]
 english_data = haystack_utils.load_json_data("data/english_europarl.json")[:200]
+all_ignore, _ = haystack_utils.get_weird_tokens(model, plot_norms=False)
+common_tokens = haystack_utils.get_common_tokens(german_data, model, all_ignore, k=100)
 
 LAYER, NEURON = 8, 2994
 neuron_activations = haystack_utils.get_mlp_activations(german_data, LAYER, model, neurons=torch.LongTensor([NEURON]), mean=False).flatten()
@@ -270,7 +272,7 @@ def find_dataset_examples(target: str, data: list[str], model: HookedTransformer
     return target_prompts
 
 
-target = " die"
+target = " in"
 examples = find_dataset_examples(target, german_data, model, crop=(15, 1))
 #%% 
 def snap_pos_to_peak_1(value, hook):
@@ -283,24 +285,83 @@ def snap_pos_to_peak_2(value, hook):
     value[:, -2, NEURON] = 6.5
     return value
 
-pos_examples = [example for example in examples if target in example and target+" " not in example]
-neg_examples = [example for example in examples if target+" " in example]
-print(len(pos_examples), len(neg_examples))
+snap_pos_to_peak_1_hook = [(f'blocks.{LAYER}.mlp.hook_post', snap_pos_to_peak_1)]
+snap_pos_to_peak_2_hook = [(f'blocks.{LAYER}.mlp.hook_post', snap_pos_to_peak_2)]
 
+mid_word_examples = [example for example in examples if target in example and target+" " not in example]
+new_word_examples = [example for example in examples if target+" " in example]
+print(len(mid_word_examples), len(new_word_examples))
 #%%
 # Snap to peak 1 should make the model think that the sentence is continued
-for prompt in pos_examples[:10]:
+for prompt in mid_word_examples[:10]:
     print_prompt(prompt, [(f'blocks.{LAYER}.mlp.hook_post', snap_pos_to_peak_1)], max_value=0.5)
-for prompt in neg_examples[:10]:
+for prompt in new_word_examples[:10]:
     print_prompt(prompt, [(f'blocks.{LAYER}.mlp.hook_post', snap_pos_to_peak_1)], max_value=0.5)
 
 #%%
 # Snap to peak 2 should make the model think that it is Klima
-for prompt in pos_examples[:10]:
+for prompt in mid_word_examples[:10]:
     print_prompt(prompt, [(f'blocks.{LAYER}.mlp.hook_post', snap_pos_to_peak_2)], max_value=0.5)
-for prompt in neg_examples[:10]:
+for prompt in new_word_examples[:10]:
     print_prompt(prompt, [(f'blocks.{LAYER}.mlp.hook_post', snap_pos_to_peak_2)], max_value=0.5)
 
+#%% 
+def compute_loss_increase(prompts: list[str], model, snapping_hook, pos=-1):
+    loss_diffs = []
+    for prompt in tqdm(prompts):
+        with model.hooks(snapping_hook):
+            ablated_loss = model(prompt, return_type='loss', loss_per_token=True).flatten()[pos].item()
+        original_loss = model(prompt, return_type='loss', loss_per_token=True).flatten()[pos].item()
+        loss_diffs.append(ablated_loss-original_loss)
+    return loss_diffs
+
+def plot_snapping_losses(mid_word_examples, new_word_examples, model, snap_pos_to_peak_1_hook, snap_pos_to_peak_2_hook, compute_loss_increase, target):
+    mid_word_peak_1_increase = compute_loss_increase(mid_word_examples, model, snap_pos_to_peak_1_hook)
+    mid_word_peak_2_increase = compute_loss_increase(mid_word_examples, model, snap_pos_to_peak_2_hook)
+    new_word_peak_1_increase = compute_loss_increase(new_word_examples, model, snap_pos_to_peak_1_hook)
+    new_word_peak_2_increase = compute_loss_increase(new_word_examples, model, snap_pos_to_peak_2_hook)
+
+    mid_word_peak_1_mean = np.mean(mid_word_peak_1_increase)
+    mid_word_peak_2_mean = np.mean(mid_word_peak_2_increase)
+    new_word_peak_1_mean = np.mean(new_word_peak_1_increase)
+    new_word_peak_2_mean = np.mean(new_word_peak_2_increase)
+
+    mid_word_peak_1_std = np.std(mid_word_peak_1_increase)
+    mid_word_peak_2_std = np.std(mid_word_peak_2_increase)
+    new_word_peak_1_std = np.std(new_word_peak_1_increase)
+    new_word_peak_2_std = np.std(new_word_peak_2_increase)
+
+    z_value = 1.96
+
+    mid_word_peak_1_ci = (mid_word_peak_1_std / np.sqrt(len(mid_word_peak_1_increase))) * z_value
+    mid_word_peak_2_ci = (mid_word_peak_2_std / np.sqrt(len(mid_word_peak_2_increase))) * z_value
+    new_word_peak_1_ci = (new_word_peak_1_std / np.sqrt(len(new_word_peak_1_increase))) * z_value
+    new_word_peak_2_ci = (new_word_peak_2_std / np.sqrt(len(new_word_peak_2_increase))) * z_value
+
+    data = {
+        'Peaks': ['Mid_Word_Peak_1', 'New_Word_Peak_1', 'Mid_Word_Peak_2', 'New_Word_Peak_2'],
+        'Mean': [mid_word_peak_1_mean, new_word_peak_1_mean, mid_word_peak_2_mean, new_word_peak_2_mean],
+        '95% CI': [mid_word_peak_1_ci, new_word_peak_1_ci, mid_word_peak_2_ci, new_word_peak_2_ci]
+    }
+
+    df = pd.DataFrame(data)
+
+    fig = px.bar(df, x='Peaks', y='Mean', error_y='95% CI', title=f"Loss Increase for '{target}'")
+    fig.show()
+
+# %%
+def compute_batched_loss_increase(prompts: list[str], model, snapping_hook, pos=-1):
+    with model.hooks(snapping_hook):
+        ablated_loss = model(prompts, return_type='loss', loss_per_token=True)[:, pos]
+    original_loss = model(prompts, return_type='loss', loss_per_token=True)[:, pos]
+    return (ablated_loss-original_loss).tolist()
+
+mid_word_prompts = haystack_utils.generate_random_prompts("seinen Antworten", model, common_tokens, 100, length=20)
+new_word_prompts = haystack_utils.generate_random_prompts("seine Antwort auf", model, common_tokens, 100, length=20)
+
+plot_snapping_losses(mid_word_prompts, new_word_prompts, model, 
+                     snap_pos_to_peak_1_hook, snap_pos_to_peak_2_hook, 
+                     compute_batched_loss_increase, target="'seinen Antworten' vs 'seine Antwort auf'")
 # %%
 for prompt in german_data[:5]:
     print_prompt(prompt, [hook_utils.get_ablate_neuron_hook(LAYER, NEURON, 5.5)])
@@ -309,7 +370,7 @@ for prompt in german_data[100:120]:
     print_prompt(prompt, [(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_2)], max_value=2)
 # %%
 for prompt in german_data[20:40]:
-    print_prompt(prompt, [(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_1)])
+    print_prompt(prompt, [(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_1)], max_value=2)
 # %%
 german_data = haystack_utils.load_json_data("data/german_europarl.json")
 # %%
