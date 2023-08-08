@@ -91,16 +91,25 @@ def get_new_word_dense_probe_f1(model, german_data, layer, neurons=torch.LongTen
         return activations, labels
 
     x, y = get_new_word_labeled_activations()
-    print(x.shape, y.shape)
-    lr_model = LogisticRegression()
-    lr_model.fit(x[:8000], y[:8000])
-    preds = lr_model.predict(x[8000:])
-    score = f1_score(y[8000:], preds)
+    from sklearn import preprocessing
+
+    # z-scoring can help with convergence
+    scaler = preprocessing.StandardScaler().fit(x)
+    x = scaler.transform(x)
+    
+    lr_model = LogisticRegression(max_iter=1000)
+    lr_model.fit(x[:20000], y[:20000])
+    preds = lr_model.predict(x[20000:])
+    score = f1_score(y[20000:], preds)
     print(score)
 
 # %% 
 get_new_word_dense_probe_f1(model, german_data, LAYER, torch.LongTensor([NEURON]))
-get_new_word_dense_probe_f1(model, german_data, LAYER, torch.LongTensor([neuron for neuron in range(model.cfg.d_mlp) if neuron != NEURON]))
+# 88.82 f1
+# get_new_word_dense_probe_f1(model, german_data, LAYER, torch.LongTensor([neuron for neuron in range(model.cfg.d_mlp) if neuron != NEURON]))
+# %%
+# 88.83 f1
+# get_new_word_dense_probe_f1(model, german_data, LAYER, torch.LongTensor([neuron for neuron in range(model.cfg.d_mlp)]))
 
 
 # %%
