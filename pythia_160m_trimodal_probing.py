@@ -101,6 +101,8 @@ def get_new_word_dense_probe(x: np.ndarray, y: np.ndarray) -> float:
     lr_model = LogisticRegression(max_iter=1200)
     lr_model.fit(x[:20000], y[:20000])
     return lr_model
+
+hook_name = f'blocks.{LAYER}.mlp.hook_post'
 # %%
 # Check out the learned weights
 # hook_name = f'blocks.{LAYER}.mlp.hook_post'
@@ -255,43 +257,45 @@ x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activa
 score = get_new_word_dense_probe_f1(x, y)
 print(score)
 # %%
-def get_score_with_best_bias(direction, x, y) -> LogisticRegression:
+def grid_search():
     lr_model = LogisticRegression()
     lr_model.fit(np.zeros((2, model.cfg.d_mlp)), np.array([0, 1]))
-    lr_model.coef_ = direction
-
-    # Define bias range for grid search
-    bias_range = np.linspace(-5, 5, 100)
-    best_score = -np.inf
-    for bias in bias_range:
-        lr_model.intercept_ = np.array([bias])
-        preds = lr_model.predict(x)
-        score = f1_score(y, preds)
-
-        if score > best_score:
-            best_score = score
-
-    return best_score.item()
-
-def metric_function(direction):
+    
     activation_slice = np.s_[0, :-1, :]
     x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
     scaler = preprocessing.StandardScaler().fit(x)
     x = scaler.transform(x)
-    
-    return get_score_with_best_bias(direction, x[:20000], y[:20000])
 
-dimension = model.cfg.d_mlp
-num_samples = 10000
-# Sample directions uniformly from the unit sphere
-directions = torch.randn(num_samples, dimension)
-directions /= directions.norm(dim=1, keepdim=True)
+    # Define bias range for grid search
+    bias_range = np.linspace(-5, 5, 100)
+    def get_score_with_best_bias(direction, x, y) -> LogisticRegression:
+        lr_model.coef_ = direction
+        best_score = -np.inf
+        for bias in bias_range:
+            lr_model.intercept_ = np.array([bias])
+            preds = lr_model.predict(x)
+            score = f1_score(y, preds)
+            best_score = max(best_score, score)
 
-metric_values = torch.tensor([metric_function(directions[i].unsqueeze(0).numpy()) for i in range(num_samples)])
-threshold = 0.8
-percentage_above_threshold = (metric_values > threshold).float().mean().item() * 100
+        return best_score.item()
 
-print(f"The percentage of directions with a metric value above {threshold} is {percentage_above_threshold}%")
+    dimension = model.cfg.d_mlp
+    num_samples = 10_000
+    # Sample directions uniformly from the unit sphere
+    directions = torch.randn(num_samples, dimension)
+    directions /= directions.norm(dim=1, keepdim=True)
+
+    metric_values = []
+    for i in tqdm(range(num_samples)):
+        metric_values.append(get_score_with_best_bias(
+            directions[i].unsqueeze(0).numpy(), x[:100], y[:100]))
+    threshold = 0.8
+    percentage_above_threshold = (torch.tensor(metric_values) > threshold).float().mean().item() * 100
+
+    print(f"The percentage of directions with a metric value above {threshold} is {percentage_above_threshold}%")
+    return metric_values
+
+metric_values = grid_search()
 # %%
 
 # Get "is space" direction in embeddings
