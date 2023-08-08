@@ -19,6 +19,7 @@ from datasets import load_dataset
 from collections import Counter
 import pickle
 import os
+from functools import partial
 
 import sklearn
 from sklearn.model_selection import train_test_split
@@ -121,4 +122,46 @@ haystack_utils.line(f1s, title="F1 Score at MLP out by layer", xlabel="Layer", y
 # Dense probe performance on each residual and MLP out
 # We can do each MLP out using the current method
 # Need a new method for the dimensions of the residual
+# %%
+def get_new_word_labels_and_resid_activations(
+    model: HookedTransformer, 
+    german_data: list[str], 
+) -> tuple[defaultdict, np.ndarray]:
+    '''Get activations and labels for predicting word end from activation'''
+    activations = defaultdict(partial(np.ndarray, (0, model.cfg.d_model)))
+    labels = []
+    for prompt in german_data:
+        tokens = model.to_tokens(prompt)[0]
+        _, cache = model.run_with_cache(tokens)
+        resid = cache.decompose_resid(apply_ln=False)[:, 0, :-1, :]
+        for i in range(resid.shape[0]):
+            activations[i] = np.concatenate((activations[i], resid[i].cpu().numpy()), axis=0)
+
+        prompt_labels = get_new_word_labels(model, tokens)
+        labels.extend(prompt_labels)
+
+    labels = np.array(labels)
+    return activations, labels
+
+activations_dict, labels = get_new_word_labels_and_resid_activations(model, german_data)
+
+f1s = []
+for component in activations_dict.values():
+    f1s.append(get_new_word_dense_probe_f1(component, labels))
+
+# %% 
+
+_, cache = model.run_with_cache(german_data[0])
+_, component_labels = cache.decompose_resid(apply_ln=False, return_labels=True)
+haystack_utils.line(f1s, xticks=component_labels, title="F1 Score at residual stream by layer", xlabel="Layer", ylabel="F1 Score")
+# %%
+l8_n2994_input = model.W_in[LAYER, :, NEURON].cpu().numpy()
+
+projections = []
+for component in activations_dict.values():
+    projection = np.dot(component, l8_n2994_input)[:, np.newaxis]
+    print(projection.shape, labels.shape)
+    projections.append(get_new_word_dense_probe_f1(projection, labels))
+haystack_utils.line(projections, xticks=labels, title="F1 Score at residual stream by layer", xlabel="Layer", ylabel="F1 Score")
+
 # %%
