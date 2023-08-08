@@ -192,7 +192,7 @@ def interest_measure(original_loss: torch.FloatTensor, ablated_loss: torch.Float
     loss_diff[original_loss > ablated_loss] = 0
     return loss_diff
 
-def print_prompt(prompt: str, fwd_hooks: list[tuple[str, callable]]):
+def print_prompt(prompt: str, fwd_hooks: list[tuple[str, callable]], max_value=4):
     """Red/blue scale showing the interest measure for each token"""
     tokens = model.to_tokens(prompt)[0]
     str_token_prompt = model.to_str_tokens(tokens)
@@ -204,7 +204,7 @@ def print_prompt(prompt: str, fwd_hooks: list[tuple[str, callable]]):
 
     loss_list = [loss.flatten().cpu().tolist() for loss in [original_loss, ablated_loss]]
     loss_names = ["original_loss", "ablated_loss"]
-    haystack_utils.clean_print_strings_as_html(str_token_prompt[1:], pos_wise_diff, max_value=4, additional_measures=loss_list, additional_measure_names=loss_names)
+    haystack_utils.clean_print_strings_as_html(str_token_prompt[1:], pos_wise_diff, max_value=max_value, additional_measures=loss_list, additional_measure_names=loss_names)
 
 def snap_to_closest_peak(value, hook):
     '''Doesn't snap disabled and ambiguous activations'''
@@ -247,14 +247,68 @@ for prompt in german_data[:5]:
     tokens = model.to_tokens(prompt)[0]
     mask = get_next_token_punctuation_mask(tokens)
     print_prompt(prompt, get_ablate_at_mask_hooks(~mask, 5.5))
+
+# %%
+# Filter data for specific prompts
+def find_dataset_examples(target: str, data: list[str], model: HookedTransformer, crop: None | tuple[int, int]=None) -> list[str]:
+    target_str_tokens = model.to_str_tokens(model.to_tokens(target, prepend_bos=False).flatten())
+    print(target_str_tokens)
+    target_prompts = []
+    for prompt in tqdm(data):
+        tokens = model.to_tokens(prompt).flatten()
+        str_tokens = model.to_str_tokens(tokens)
+        for i in range(len(str_tokens) - len(target_str_tokens) + 1):
+            if str_tokens[i:i+len(target_str_tokens)] == target_str_tokens:
+                if crop is None:
+                    target_prompts.append(prompt)
+                else:
+                    start_index = max(i-crop[0], 1)
+                    end_index = min(i+len(target_str_tokens)+crop[1], len(str_tokens))
+                    target_tokens = str_tokens[start_index:end_index]
+                    target_prompts.append("".join(target_tokens))
+
+    return target_prompts
+
+
+target = " die"
+examples = find_dataset_examples(target, german_data, model, crop=(15, 1))
+#%% 
+def snap_pos_to_peak_1(value, hook):
+    '''Doesn't snap disabled and ambiguous activations'''
+    value[:, -2, NEURON] = 2.5
+    return value
+
+def snap_pos_to_peak_2(value, hook):
+    '''Doesn't snap disabled and ambiguous activations'''
+    value[:, -2, NEURON] = 6.5
+    return value
+
+pos_examples = [example for example in examples if target in example and target+" " not in example]
+neg_examples = [example for example in examples if target+" " in example]
+print(len(pos_examples), len(neg_examples))
+
+#%%
+# Snap to peak 1 should make the model think that the sentence is continued
+for prompt in pos_examples[:10]:
+    print_prompt(prompt, [(f'blocks.{LAYER}.mlp.hook_post', snap_pos_to_peak_1)], max_value=0.5)
+for prompt in neg_examples[:10]:
+    print_prompt(prompt, [(f'blocks.{LAYER}.mlp.hook_post', snap_pos_to_peak_1)], max_value=0.5)
+
+#%%
+# Snap to peak 2 should make the model think that it is Klima
+for prompt in pos_examples[:10]:
+    print_prompt(prompt, [(f'blocks.{LAYER}.mlp.hook_post', snap_pos_to_peak_2)], max_value=0.5)
+for prompt in neg_examples[:10]:
+    print_prompt(prompt, [(f'blocks.{LAYER}.mlp.hook_post', snap_pos_to_peak_2)], max_value=0.5)
+
 # %%
 for prompt in german_data[:5]:
     print_prompt(prompt, [hook_utils.get_ablate_neuron_hook(LAYER, NEURON, 5.5)])
 # %%
-for prompt in german_data[:5]:
-    print_prompt(prompt, [(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_2)])
+for prompt in german_data[100:120]:
+    print_prompt(prompt, [(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_2)], max_value=2)
 # %%
-for prompt in german_data[:5]:
+for prompt in german_data[20:40]:
     print_prompt(prompt, [(f'blocks.{LAYER}.mlp.hook_post', snap_to_peak_1)])
 # %%
 german_data = haystack_utils.load_json_data("data/german_europarl.json")
