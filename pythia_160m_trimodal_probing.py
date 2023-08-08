@@ -69,16 +69,21 @@ def get_new_word_labels(model: HookedTransformer, tokens: torch.Tensor) -> list[
         prompt_labels.append(next_is_space)
     return prompt_labels
 
-def get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice=np.s_[0, :-1, NEURON:NEURON+1]) -> tuple[np.ndarray, np.ndarray]:
+def get_new_word_labels_and_activations(
+          model: HookedTransformer, 
+          german_data: list[str], 
+          activation_hook_name: str,
+          activation_slice=np.s_[0, :-1, NEURON:NEURON+1]
+) -> tuple[np.ndarray, np.ndarray]:
     '''Get activations and labels for predicting word end from activation'''
     activations = []
     labels = []
     for prompt in german_data:
         tokens = model.to_tokens(prompt)[0]
 
-        with model.hooks([(hook_name, save_activation)]):
+        with model.hooks([(activation_hook_name, save_activation)]):
                 model(tokens)
-        prompt_activations = model.hook_dict[hook_name].ctx['activation']
+        prompt_activations = model.hook_dict[activation_hook_name].ctx['activation']
         prompt_activations = prompt_activations[activation_slice].cpu().numpy()
         activations.append(prompt_activations)
 
@@ -107,10 +112,14 @@ hook_name = f'blocks.{LAYER}.mlp.hook_post'
 x, y = get_new_word_labels_and_activations(model, german_data, hook_name)
 score = get_new_word_dense_probe_f1(x, y)
 print(score)
-# 88.82 f1
-# score = get_new_word_dense_probe_f1(model, german_data, hook_name, torch.LongTensor([neuron for neuron in range(model.cfg.d_mlp) if neuron != NEURON]))
-# 88.83 f1
+# %%
+
+activation_slice = np.s_[0, :-1, [neuron for neuron in range(model.cfg.d_mlp) if neuron != NEURON]]
+x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
+score = get_new_word_dense_probe_f1(x, y)
+print(score) # 88.82 f1
 # score = get_new_word_dense_probe_f1(model, german_data, hook_name, torch.LongTensor([neuron for neuron in range(model.cfg.d_mlp)]))
+# print(score) # 88.83 f1
 # %%
 
 # Dense probe performance on each residual and MLP out
