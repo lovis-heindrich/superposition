@@ -236,3 +236,54 @@ for sim in ctx_neuron_sims:
     fig.add_vline(x=sim, line_dash="dash", line_color="red")
 fig.show()
 # %%
+hook_name = f'blocks.{5}.mlp.hook_post'
+activation_slice = np.s_[0, :-1, [2649]]
+x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
+score = get_new_word_dense_probe_f1(x, y)
+print(score)
+activation_slice = np.s_[0, :-1, [1162]]
+x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
+score = get_new_word_dense_probe_f1(x, y)
+print(score)
+activation_slice = np.s_[0, :-1, [2649, 1162]]
+x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
+score = get_new_word_dense_probe_f1(x, y)
+print(score)
+# %%
+activation_slice = np.s_[0, :-1, [1, 2]]
+x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
+score = get_new_word_dense_probe_f1(x, y)
+print(score)
+# %%
+
+def metric_function(direction):
+    activation_slice = np.s_[0, :-1, :]
+    x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
+   
+    scaler = preprocessing.StandardScaler().fit(x)
+    x = scaler.transform(x)
+    
+    lr_model = LogisticRegression(max_iter=1200)
+    lr_model.fit(x[:20000], y[:20000])
+    preds = lr_model.predict(x[20000:])
+    score = f1_score(y[20000:], preds)
+    return score
+
+dimension = model.cfg.d_mlp
+num_samples = 10000
+# Sample directions uniformly from the unit sphere
+directions = torch.randn(num_samples, dimension)
+directions /= directions.norm(dim=1, keepdim=True)
+
+# Define your metric function, assumed to be between 0 and 1
+metric_function = lambda x: torch.norm(x) # Example metric
+
+# Apply the metric to the directions
+metric_values = torch.tensor([metric_function(directions[i]) for i in range(num_samples)])
+
+# Compute the percentage of directions with a metric value above the threshold
+threshold = 0.8
+percentage_above_threshold = (metric_values > threshold).float().mean().item() * 100
+
+print(f"The percentage of directions with a metric value above {threshold} is {percentage_above_threshold}%")
+
