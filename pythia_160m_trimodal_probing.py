@@ -50,17 +50,7 @@ german_data = haystack_utils.load_json_data("data/german_europarl.json")[:200]
 english_data = haystack_utils.load_json_data("data/english_europarl.json")[:200]
 
 LAYER, NEURON = 8, 2994
-neuron_activations = haystack_utils.get_mlp_activations(german_data, LAYER, model, neurons=torch.LongTensor([NEURON]), mean=False).flatten()
 
-def get_next_token_punctuation_mask(tokens: torch.LongTensor) -> torch.BoolTensor:
-    next_token_punctuation_mask = torch.zeros_like(tokens, dtype=torch.bool)
-    token_strs = model.to_str_tokens(tokens)
-    for i in range(tokens.shape[0] - 1):
-        next_token_str = token_strs[i + 1]
-        next_is_space = next_token_str[0] in [" ", ",", ".", ":", ";", "!", "?"]
-        next_token_punctuation_mask[i] = next_is_space
-    return next_token_punctuation_mask
-# %%
 def get_new_word_labels(model: HookedTransformer, tokens: torch.Tensor) -> list[bool]:
     prompt_labels = []
     for i in range(tokens.shape[0] - 1):
@@ -70,10 +60,10 @@ def get_new_word_labels(model: HookedTransformer, tokens: torch.Tensor) -> list[
     return prompt_labels
 
 def get_new_word_labels_and_activations(
-          model: HookedTransformer, 
-          german_data: list[str], 
-          activation_hook_name: str,
-          activation_slice=np.s_[0, :-1, NEURON:NEURON+1]
+    model: HookedTransformer, 
+    german_data: list[str], 
+    activation_hook_name: str,
+    activation_slice=np.s_[0, :-1, NEURON:NEURON+1]
 ) -> tuple[np.ndarray, np.ndarray]:
     '''Get activations and labels for predicting word end from activation'''
     activations = []
@@ -96,12 +86,12 @@ def get_new_word_labels_and_activations(
     assert activations.shape[0] == labels.shape[0]
     return activations, labels
 
-def get_new_word_dense_probe_f1(x, y):
+def get_new_word_dense_probe_f1(x: np.ndarray, y: np.ndarray) -> float:
     # z-scoring can help with convergence
     scaler = preprocessing.StandardScaler().fit(x)
     x = scaler.transform(x)
     
-    lr_model = LogisticRegression(max_iter=1000)
+    lr_model = LogisticRegression(max_iter=1200)
     lr_model.fit(x[:20000], y[:20000])
     preds = lr_model.predict(x[20000:])
     score = f1_score(y[20000:], preds)
@@ -113,15 +103,22 @@ x, y = get_new_word_labels_and_activations(model, german_data, hook_name)
 score = get_new_word_dense_probe_f1(x, y)
 print(score)
 # %%
-
 activation_slice = np.s_[0, :-1, [neuron for neuron in range(model.cfg.d_mlp) if neuron != NEURON]]
 x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
 score = get_new_word_dense_probe_f1(x, y)
 print(score) # 88.82 f1
-# score = get_new_word_dense_probe_f1(model, german_data, hook_name, torch.LongTensor([neuron for neuron in range(model.cfg.d_mlp)]))
-# print(score) # 88.83 f1
-# %%
 
+# %% 
+f1s = []
+activation_slice = np.s_[0, :-1, :]
+for layer in range(11):
+    hook_name = f'blocks.{layer}.hook_mlp_out'
+    x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
+    f1s.append(get_new_word_dense_probe_f1(x, y))
+
+haystack_utils.line(f1s, title="F1 Score at MLP out by layer", xlabel="Layer", ylabel="F1 Score")
+# %%
 # Dense probe performance on each residual and MLP out
 # We can do each MLP out using the current method
 # Need a new method for the dimensions of the residual
+# %%
