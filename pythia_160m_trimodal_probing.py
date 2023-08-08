@@ -255,19 +255,31 @@ x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activa
 score = get_new_word_dense_probe_f1(x, y)
 print(score)
 # %%
+def get_score_with_best_bias(direction, x, y) -> LogisticRegression:
+    lr_model = LogisticRegression()
+    lr_model.fit(np.zeros((2, model.cfg.d_mlp)), np.array([0, 1]))
+    lr_model.coef_ = direction
+
+    # Define bias range for grid search
+    bias_range = np.linspace(-5, 5, 100)
+    best_score = -np.inf
+    for bias in bias_range:
+        lr_model.intercept_ = np.array([bias])
+        preds = lr_model.predict(x)
+        score = f1_score(y, preds)
+
+        if score > best_score:
+            best_score = score
+
+    return best_score.item()
 
 def metric_function(direction):
     activation_slice = np.s_[0, :-1, :]
     x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
-   
     scaler = preprocessing.StandardScaler().fit(x)
     x = scaler.transform(x)
     
-    lr_model = LogisticRegression(max_iter=1200)
-    lr_model.fit(x[:20000], y[:20000])
-    preds = lr_model.predict(x[20000:])
-    score = f1_score(y[20000:], preds)
-    return score
+    return get_score_with_best_bias(direction, x[:20000], y[:20000])
 
 dimension = model.cfg.d_mlp
 num_samples = 10000
@@ -275,15 +287,11 @@ num_samples = 10000
 directions = torch.randn(num_samples, dimension)
 directions /= directions.norm(dim=1, keepdim=True)
 
-# Define your metric function, assumed to be between 0 and 1
-metric_function = lambda x: torch.norm(x) # Example metric
-
-# Apply the metric to the directions
-metric_values = torch.tensor([metric_function(directions[i]) for i in range(num_samples)])
-
-# Compute the percentage of directions with a metric value above the threshold
+metric_values = torch.tensor([metric_function(directions[i].unsqueeze(0).numpy()) for i in range(num_samples)])
 threshold = 0.8
 percentage_above_threshold = (metric_values > threshold).float().mean().item() * 100
 
 print(f"The percentage of directions with a metric value above {threshold} is {percentage_above_threshold}%")
+# %%
 
+# Get "is space" direction in embeddings
