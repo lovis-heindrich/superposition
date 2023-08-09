@@ -257,6 +257,11 @@ x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activa
 score = get_new_word_dense_probe_f1(x, y)
 print(score)
 # %%
+# Won't work due to exp(model.cfg.d_mlp) directions and each direction
+# takes a while. I feel like a hill climbing method should work starting
+# from the basis directions and angling towards multiple with higher 
+# metric but idk how to formulate?
+# Seems basically related to basis dimensions with polytopes
 def grid_search():
     lr_model = LogisticRegression()
     lr_model.fit(np.zeros((2, model.cfg.d_mlp)), np.array([0, 1]))
@@ -295,7 +300,31 @@ def grid_search():
     print(f"The percentage of directions with a metric value above {threshold} is {percentage_above_threshold}%")
     return metric_values
 
-metric_values = grid_search()
+# metric_values = grid_search()
 # %%
+def get_space_tokens():
+    space_tokens = []
+    non_space_tokens = []
+    for i in range(model.cfg.d_vocab):
+        string_token = model.to_single_str_token(i)
+        if not string_token:
+            continue
+        if string_token[0] in [" ", ",", ".", ":", ";", "!", "?"]:
+            space_tokens.append(i)
+        else:
+            non_space_tokens.append(i)
+    return torch.tensor(space_tokens), torch.tensor(non_space_tokens)
+
+# %%
+def space_tokens_diff(space_tokens, non_space_tokens, original_logits, ablated_logits):
+    original_logit_diffs = original_logits[:, space_tokens] - original_logits[:, non_space_tokens]
+    ablated_logits_diffs = ablated_logits[:, space_tokens] - ablated_logits[:, non_space_tokens]
+    return ablated_logits_diffs - original_logit_diffs
 
 # Get "is space" direction in embeddings
+space_tokens, non_space_tokens = get_space_tokens()
+# %%
+deactivate_context_hooks = [hook_utils.get_neuron_hook(8, 2994, 0)]
+original_logits = model(german_data[:50], return_type='logits')
+with model.hooks(deactivate_context_hooks):
+    ablated_logits = model(german_data[:50], return_type='logits')
