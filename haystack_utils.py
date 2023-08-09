@@ -1867,3 +1867,40 @@ def get_and_neuron_ablation_losses(prompts: list[str], model: HookedTransformer,
 
 def print_tokenized_word(prompt: str, model: HookedTransformer):
     print(model.to_str_tokens(model.to_tokens(prompt, prepend_bos=False).flatten()))
+
+
+
+
+def get_context_effect(prompt: str | list[str], model: HookedTransformer, context_ablation_hooks: list, context_activation_hooks: list,
+                      downstream_components=[], pos=None):  
+    
+    return_type = "loss"
+    original_metric = model(prompt, return_type=return_type, loss_per_token=True)
+    # 1. Activated loss: activate context
+    with model.hooks(fwd_hooks=context_activation_hooks):
+        activated_metric, activated_cache = model.run_with_cache(prompt, return_type=return_type, loss_per_token=True)
+
+    # 2. Total effect: deactivate context
+    with model.hooks(fwd_hooks=context_ablation_hooks):
+        ablated_metric, ablated_cache = model.run_with_cache(prompt, return_type=return_type, loss_per_token=True)
+
+    # 3. Direct effect: activate context, deactivate later components
+    def deactivate_components_hook(value, hook: HookPoint):
+        value = ablated_cache[hook.name]
+        return value
+    deactivate_components_hooks = [(freeze_act_name, deactivate_components_hook) for freeze_act_name in downstream_components]
+    with model.hooks(fwd_hooks=deactivate_components_hooks+context_activation_hooks):
+        direct_effect_metric = model(prompt, return_type=return_type, loss_per_token=True)
+
+    # 4. Indirect effect: deactivate context, activate later components
+    def activate_components_hook(value, hook: HookPoint):
+        value = activated_cache[hook.name]
+        return value         
+    activate_components_hooks = [(freeze_act_name, activate_components_hook) for freeze_act_name in downstream_components]
+    with model.hooks(fwd_hooks=activate_components_hooks+context_ablation_hooks):
+        indirect_effect_metric = model(prompt, return_type=return_type, loss_per_token=True)
+
+    if pos is None:
+        return original_metric, activated_metric, ablated_metric, direct_effect_metric, indirect_effect_metric
+    else:
+        return original_metric[:, pos], activated_metric[:, pos], ablated_metric[:, pos], direct_effect_metric[:, pos], indirect_effect_metric[:, pos]
