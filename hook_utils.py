@@ -44,3 +44,21 @@ def get_ablate_neurons_hook(neuron: int | list[int], ablated_cache, layer=5, hoo
         value[:, :, neuron] = ablated_cache[f'blocks.{layer}.mlp.{hook_point}'][:, :, neuron]
         return value
     return [(f'blocks.{layer}.mlp.{hook_point}', ablate_neurons_hook)]
+
+def get_snap_to_peak_1_hook():
+    def snap_to_peak_1(value, hook):
+        '''Doesn't snap disabled and ambiguous activations'''
+        neuron_act = value[:, :, 2994]
+        value[:, :, 2994][(neuron_act > 0.8) & (neuron_act < 4.1)] = 3.5
+        value[:, :, 2994][(neuron_act > 4.8)] = 3.5
+        return value
+    return ('blocks.8.mlp.hook_post', snap_to_peak_1)
+
+def get_snap_to_peak_2_hook():
+    def snap_to_peak_2(value, hook):
+        '''Doesn't snap disabled and ambiguous activations'''
+        neuron_act = value[:, :, 2994]
+        value[:, :, 2994][(neuron_act > 0.8) & (neuron_act < 4.1)] = 5.5
+        value[:, :, 2994][(neuron_act > 4.8)] = 5.5
+        return value
+    return ('blocks.8.mlp.hook_post', snap_to_peak_2)

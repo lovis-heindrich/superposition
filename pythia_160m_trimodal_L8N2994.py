@@ -763,6 +763,20 @@ df_11 = get_context_reader_activations_df(model, german_data[:100], layer=11)
 # %%
 grouped = df_11.groupby('neuron')
 
+peak_1_fire_rate = grouped.apply(
+    lambda x: 
+        ((x['neuron_act'] > 0) & x['context_neuron_peak_1']).sum() / 
+        (((x['context_neuron_peak_1'])).sum() + 1e-10))
+peak_2_fire_rate = grouped.apply(
+    lambda x: 
+        ((x['neuron_act'] > 0) & x['context_neuron_peak_2']).sum() / 
+        ((x['context_neuron_peak_2']).sum() + 1e-10))
+
+firing_rate_df = pd.DataFrame({
+    "peak_1_fire_rate": peak_1_fire_rate,
+    "peak_2_fire_rate": peak_2_fire_rate
+})
+
 peak_1_precision = grouped.apply(
     lambda x: 
         ((x['neuron_act'] > 0) & x['context_neuron_peak_1']).sum() / 
@@ -779,23 +793,11 @@ peak_2_precision_between_peaks = grouped.apply(
     lambda x: 
         ((x['neuron_act'] > 0) & x['context_neuron_peak_2']).sum() / 
         ((x['neuron_act'] > 0 & (x['context_neuron_peak_1'] | x['context_neuron_peak_2'])).sum() + 1e-10))
-peak_1_fire_rate = grouped.apply(
-    lambda x: 
-        ((x['neuron_act'] > 0) & x['context_neuron_peak_1']).sum() / 
-        (((x['context_neuron_peak_1'])).sum() + 1e-10))
-peak_2_fire_rate = grouped.apply(
-    lambda x: 
-        ((x['neuron_act'] > 0) & x['context_neuron_peak_2']).sum() / 
-        ((x['context_neuron_peak_2']).sum() + 1e-10))
 
-firing_rate_df = pd.DataFrame({
-    "peak_1_precision": peak_1_precision,
-    "peak_2_precision": peak_2_precision,
-    "peak_1_precision_between_peaks": peak_1_precision_between_peaks,
-    "peak_2_precision_between_peaks": peak_2_precision_between_peaks,
-    "peak_1_fire_rate": peak_1_fire_rate,
-    "peak_2_fire_rate": peak_2_fire_rate
-    })
+firing_rate_df["peak_1_precision"] = peak_1_precision
+firing_rate_df["peak_2_precision"] = peak_2_precision
+firing_rate_df["peak_1_precision_between_peaks"] = peak_1_precision_between_peaks
+firing_rate_df["peak_2_precision_between_peaks"] = peak_2_precision_between_peaks
 
 print(firing_rate_df.head())
 

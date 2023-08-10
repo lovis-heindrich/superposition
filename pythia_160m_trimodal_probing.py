@@ -24,7 +24,7 @@ from functools import partial
 import sklearn
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, matthews_corrcoef
 
 pio.renderers.default = "notebook_connected+notebook"
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -59,7 +59,7 @@ def get_new_word_labels(model: HookedTransformer, tokens: torch.Tensor) -> list[
         next_is_space = next_token_str[0] in [" ", ",", ".", ":", ";", "!", "?"] # [" "] # 
         prompt_labels.append(next_is_space)
     return prompt_labels
-
+# %%
 def get_new_word_labels_and_activations(
     model: HookedTransformer, 
     german_data: list[str], 
@@ -69,6 +69,10 @@ def get_new_word_labels_and_activations(
     '''Get activations and labels for predicting word end from activation'''
     activations = []
     labels = []
+    # positive_activations = []
+    # positive_labels = []
+    # negative_activations = []
+    # negative_labels = []
     for prompt in german_data:
         tokens = model.to_tokens(prompt)[0]
 
@@ -81,28 +85,31 @@ def get_new_word_labels_and_activations(
         prompt_labels = get_new_word_labels(model, tokens)
         labels.extend(prompt_labels)
 
+    
     activations = np.concatenate(activations, axis=0)
-    labels = np.array(labels)
+    labels = np.array(labels) # , axis=0
 
+    print(activations.shape, labels.shape)
     assert activations.shape[0] == labels.shape[0]
     return activations, labels
 
-def get_new_word_dense_probe_f1(x: np.ndarray, y: np.ndarray) -> float:
+def get_new_word_dense_probe_score(x: np.ndarray, y: np.ndarray) -> float:
     lr_model = get_new_word_dense_probe(x, y)
     preds = lr_model.predict(x[20000:])
     score = f1_score(y[20000:], preds)
+    # score = matthews_corrcoef(y[20000:], preds)
     return score
+
 
 def get_new_word_dense_probe(x: np.ndarray, y: np.ndarray) -> float:
     # z-scoring can help with convergence
     scaler = preprocessing.StandardScaler().fit(x)
     x = scaler.transform(x)
+    # np.unique on y 
+    lr_model = LogisticRegression(max_iter=2000)
     
-    lr_model = LogisticRegression(max_iter=1200)
     lr_model.fit(x[:20000], y[:20000])
     return lr_model
-
-hook_name = f'blocks.{LAYER}.mlp.hook_post'
 # %%
 # Check out the learned weights
 # hook_name = f'blocks.{LAYER}.mlp.hook_post'
@@ -114,22 +121,27 @@ hook_name = f'blocks.{LAYER}.mlp.hook_post'
 # Trimodal neuron only
 hook_name = f'blocks.{LAYER}.mlp.hook_post'
 x, y = get_new_word_labels_and_activations(model, german_data, hook_name)
-score = get_new_word_dense_probe_f1(x, y)
+score = get_new_word_dense_probe_score(x, y)
 print(score)
 # %%
 # The final position's activation has no label and is excluded
 activation_slice = np.s_[0, :-1, [neuron for neuron in range(model.cfg.d_mlp) if neuron != NEURON]]
 x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
-score = get_new_word_dense_probe_f1(x, y)
+score = get_new_word_dense_probe_score(x, y)
 print(score) # 88.82 f1
-
+# %%
+for i in range(model.cfg.d_mlp):
+    activation_slice = np.s_[0, :-1, [i]]
+    x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
+    score = get_new_word_dense_probe_score(x, y)
+    print(score) # 88.82 f1
 # %% 
 f1s = []
 activation_slice = np.s_[0, :-1, :]
 for layer in range(11):
     hook_name = f'blocks.{layer}.hook_mlp_out'
     x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
-    f1s.append(get_new_word_dense_probe_f1(x, y))
+    f1s.append(get_new_word_dense_probe_score(x, y))
 
 haystack_utils.line(f1s, title="F1 Score at MLP out by layer", xlabel="Layer", ylabel="F1 Score")
 # %%
@@ -161,7 +173,7 @@ activations_dict, labels = get_new_word_labels_and_resid_activations(model, germ
 
 f1s = []
 for component in activations_dict.values():
-    f1s.append(get_new_word_dense_probe_f1(component, labels))
+    f1s.append(get_new_word_dense_probe_score(component, labels))
 
 # %% 
 
@@ -174,7 +186,7 @@ l8_n2994_input = model.W_in[LAYER, :, NEURON].cpu().numpy()
 projections = []
 for component in activations_dict.values():
     projection = np.dot(component, l8_n2994_input)[:, np.newaxis]
-    projections.append(get_new_word_dense_probe_f1(projection, labels))
+    projections.append(get_new_word_dense_probe_score(projection, labels))
 
 print(projections)
 haystack_utils.line(projections, xticks=component_labels, title="F1 Score of L8N2994 input direction in residual stream by layer", xlabel="Layer", ylabel="F1 Score")
@@ -192,10 +204,7 @@ ctx_neuron_sims.append(cosine_sim(model.W_out[5, 2649, :], model.W_out[LAYER, NE
 ctx_neuron_sims.append(cosine_sim(model.W_out[5, 2649, :], model.W_in[LAYER, :, NEURON]).item())
 ctx_neuron_sims.append(cosine_sim(model.W_in[5, :, 2649], model.W_out[LAYER, NEURON, :]).item())
 
-# %%
-
 sims = []
-
 for neuron_i in range(model.cfg.d_mlp):
     sims.append(cosine_sim(model.W_out[5, 2649, :], model.W_in[LAYER, :, neuron_i]).item())
     sims.append(cosine_sim(model.W_out[5, 2649, :], model.W_out[LAYER, neuron_i, :]).item())
@@ -229,7 +238,7 @@ for neuron_i in range(model.cfg.d_mlp):
         for sim_i in range(4):
             current_sim = sims[neuron_i * (model.cfg.n_layers * 4) + layer_i * 4 + sim_i]
             if current_sim > 0.3:
-                print(f'L{layer_i}N{neuron_i}', current_sim)
+                print(f'L{layer_i}N{neuron_i} Similarity {sim_i+1}/4', current_sim)
 
 fig = px.histogram(sims, title="Cosine similarity between W_in/W_out of L5N2649 and L8 neurons. \
                    <br> Red lines are the similarity of L5N2649's W_in and W_out to L8N2994's W_in and W_out")
@@ -241,20 +250,20 @@ fig.show()
 hook_name = f'blocks.{5}.mlp.hook_post'
 activation_slice = np.s_[0, :-1, [2649]]
 x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
-score = get_new_word_dense_probe_f1(x, y)
+score = get_new_word_dense_probe_score(x, y)
 print(score)
 activation_slice = np.s_[0, :-1, [1162]]
 x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
-score = get_new_word_dense_probe_f1(x, y)
+score = get_new_word_dense_probe_score(x, y)
 print(score)
 activation_slice = np.s_[0, :-1, [2649, 1162]]
 x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
-score = get_new_word_dense_probe_f1(x, y)
+score = get_new_word_dense_probe_score(x, y)
 print(score)
 # %%
 activation_slice = np.s_[0, :-1, [1, 2]]
 x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
-score = get_new_word_dense_probe_f1(x, y)
+score = get_new_word_dense_probe_score(x, y)
 print(score)
 # %%
 # Won't work due to exp(model.cfg.d_mlp) directions and each direction
@@ -315,16 +324,98 @@ def get_space_tokens():
             non_space_tokens.append(i)
     return torch.tensor(space_tokens), torch.tensor(non_space_tokens)
 
-# %%
-def space_tokens_diff(space_tokens, non_space_tokens, original_logits, ablated_logits):
-    original_logit_diffs = original_logits[:, space_tokens] - original_logits[:, non_space_tokens]
-    ablated_logits_diffs = ablated_logits[:, space_tokens] - ablated_logits[:, non_space_tokens]
-    return ablated_logits_diffs - original_logit_diffs
-
 # Get "is space" direction in embeddings
 space_tokens, non_space_tokens = get_space_tokens()
 # %%
-deactivate_context_hooks = [hook_utils.get_neuron_hook(8, 2994, 0)]
-original_logits = model(german_data[:50], return_type='logits')
-with model.hooks(deactivate_context_hooks):
-    ablated_logits = model(german_data[:50], return_type='logits')
+# The is_space direction is dissimilar to the L8N2994 context neuron direction (-0.07)
+space_tokens_mean_unembed = model.W_U[:, space_tokens].mean(dim=1)
+non_space_tokens_mean_unembed = model.W_U[:, non_space_tokens].mean(dim=1)
+is_space_direction = space_tokens_mean_unembed - non_space_tokens_mean_unembed
+print(cosine_sim(is_space_direction, model.W_out[LAYER, NEURON, :]).item())
+# %%
+# What about the learned probe?
+hook_name = f'blocks.11.hook_resid_post'
+activation_slice = np.s_[0, :-1, :]
+x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
+l8_mlp_out_probe = get_new_word_dense_probe(x, y)
+f1 = get_new_word_dense_probe_score(x, y)
+print(cosine_sim(is_space_direction, torch.tensor(l8_mlp_out_probe.coef_[0]).cuda()).item())
+# %%
+# The optimal L8 next token direction is positive but even less similar to the 
+# context neuron direction (0.03)
+hook_name = f'blocks.8.hook_mlp_out'
+activation_slice = np.s_[0, :-1, :]
+x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
+l8_mlp_out_probe = get_new_word_dense_probe(x, y)
+f1 = get_new_word_dense_probe_score(x, y)
+print(cosine_sim(is_space_direction, torch.tensor(l8_mlp_out_probe.coef_[0]).cuda()).item())
+
+# %%
+# So what does the direction directly boost?
+all_ignore, _ = haystack_utils.get_weird_tokens(model, plot_norms=False)
+# %%
+coefs = torch.tensor(l8_mlp_out_probe.coef_[0]).cuda()
+def remove_direction(value, hook):
+    value = value - value * coefs
+    return value
+
+remove_direction_hooks = [('blocks.8.hook_mlp_out', remove_direction)]
+haystack_utils.get_boosted_tokens(german_data[:20], model, remove_direction_hooks, all_ignore, deboost=True)
+
+# %%
+sims = cosine_sim(model.W_out[LAYER, NEURON, :].unsqueeze(1), model.W_U.reshape(model.cfg.d_model, model.cfg.d_vocab))
+
+values, indices = torch.topk(sims, 70)
+print(values)
+print(model.to_str_tokens(indices))
+# %%
+px.histogram(sims.cpu().numpy().flatten(), title="Cosine similarity between L8N2994 and all tokens")
+# %%
+downstream_components = [(f"blocks.{layer}.hook_{component}_out") for layer in [9, 10, 11] for component in ['mlp', 'attn']]
+
+original_losses = []
+ablated_losses = []
+direct_effect = []
+for prompt in german_data:
+    tokens = model.to_tokens(prompt)
+    original_loss, ablated_loss, direct_effect, indirect_effect_through_component = haystack_utils.get_direct_effect( \
+        prompt, 
+        model, 
+        context_ablation_hooks=[hook_utils.get_snap_to_peak_1_hook()], 
+        context_activation_hooks=[], 
+        deactivated_components=downstream_components,
+        activated_components=[],
+        pos=-1, return_type="loss")
+    original_losses.append(original_loss)
+    ablated_losses.append(ablated_loss)
+    direct_effect.append(direct_effect)
+
+
+
+
+# %%
+
+# %%
+# Can get top 10,000 german tokens, take the elbow, then filter our positive class 
+# for tokens starting with a space that are common in German. And create one more
+# direction for is German in general
+# tokens, counts = haystack_utils.get_common_tokens(german_data, model, k=10_000)
+# %%
+# def space_tokens_diff(space_tokens, non_space_tokens, original_logits, ablated_logits):
+#     original_logit_diffs = original_logits[:, space_tokens] - original_logits[:, non_space_tokens]
+#     ablated_logits_diffs = ablated_logits[:, space_tokens] - ablated_logits[:, non_space_tokens]
+#     return ablated_logits_diffs - original_logit_diffs
+
+# deactivate_context_hooks = [hook_utils.get_neuron_hook(8, 2994, 0)]
+# original_logits = model(german_data[:50], return_type='logits')
+# with model.hooks(deactivate_context_hooks):
+#     ablated_logits = model(german_data[:50], return_type='logits')
+
+# %%
+
+print(german_data[1])
+model.generate(german_data[1], max_new_tokens=100)
+
+# %%
+# Context neuron activations with L5 context neuron ablated
+
