@@ -51,7 +51,7 @@ for prompt in tqdm(german_data):
     all_counts.index_add_(0, tokens, torch.ones_like(tokens, dtype=torch.float))
     next_is_space_counts.index_add_(0, tokens, is_space.to(torch.float))
 
-print(all_counts.mean(), next_is_space_counts.mean())
+print(all_counts.sum(), next_is_space_counts.sum(), all_counts.sum() - next_is_space_counts.sum())
 # %%
 common_tokens = torch.argwhere(all_counts > 30).flatten().tolist()
 print(len(common_tokens))
@@ -77,7 +77,9 @@ TN = next_is_not_space[~predict_space].sum().item()
 FN = next_is_space[~predict_space].sum().item()
 
 f1_score = (2 * TP) / (2 * TP + FP + FN)
+mcc = (TP * TN - FP * FN) / np.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN))
 print(f"Unigram F1 score: {f1_score:.4f}")
+print(f"Unigram MCC: {mcc:.4f}")
 print(f"Unigram accuracy: {(TP + TN) / (TP + TN + FP + FN):.4f}")
 # %%
 # Bigram statistics
@@ -101,6 +103,7 @@ for prompt in tqdm(german_data):
 
 # %%
 common_tokens = torch.argwhere(all_counts > 1)
+print(f"Number of bigrams: {common_tokens.shape[0]}")
 
 next_is_space = next_is_space_counts[common_tokens]
 next_is_not_space = all_counts[common_tokens] - next_is_space_counts[common_tokens]
@@ -112,6 +115,9 @@ TN = next_is_not_space[~predict_space].sum().item()
 FN = next_is_space[~predict_space].sum().item()
 
 f1_score = (2 * TP) / (2 * TP + FP + FN)
+mcc = (TP * TN - FP * FN) / np.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN))
 print(f"Bigram F1 score: {f1_score:.4f}")
+print(f"Bigram MCC: {mcc:.4f}")
 print(f"Bigram accuracy: {(TP + TN) / (TP + TN + FP + FN):.4f}")
+
 # %%
