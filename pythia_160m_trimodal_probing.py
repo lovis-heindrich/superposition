@@ -67,7 +67,7 @@ for i in tqdm(range(model.cfg.d_mlp)):
         pickle.dump({'f1': f1, 'mcc': mcc, 'probe': probe}, f)
     # print(get_and_score_new_word_probe(model, german_data, hook_name, activation_slice)) # .888 f1, 0.94 mcc
 # %%
-for i in tqdm(range(model.cfg.d_mlp)):
+for i in tqdm(range(282, model.cfg.d_mlp)):
     activation_slice = np.s_[0, :-1, [i, NEURON]]
     x, y = probing_utils.get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
     probe = probing_utils.get_probe(x[:20_000], y[:20_000])
