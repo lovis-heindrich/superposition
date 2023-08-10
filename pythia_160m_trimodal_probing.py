@@ -59,6 +59,33 @@ def get_new_word_labels(model: HookedTransformer, tokens: torch.Tensor) -> list[
         next_is_space = next_token_str[0] in [" ", ",", ".", ":", ";", "!", "?"] # [" "] # 
         prompt_labels.append(next_is_space)
     return prompt_labels
+
+# def get_new_word_labels_and_activations(
+#     model: HookedTransformer, 
+#     german_data: list[str], 
+#     activation_hook_name: str,
+#     activation_slice=np.s_[0, :-1, NEURON:NEURON+1]
+# ) -> tuple[np.ndarray, np.ndarray]:
+#     '''Get activations and labels for predicting word end from activation'''
+#     activations = []
+#     labels = []
+#     for prompt in german_data:
+#         tokens = model.to_tokens(prompt)[0]
+
+#         with model.hooks([(activation_hook_name, save_activation)]):
+#             model(tokens)
+#         prompt_activations = model.hook_dict[activation_hook_name].ctx['activation']
+#         prompt_activations = prompt_activations[activation_slice].cpu().numpy()
+#         activations.append(prompt_activations)
+
+#         prompt_labels = get_new_word_labels(model, tokens)
+#         labels.extend(prompt_labels)
+
+#     activations = np.concatenate(activations, axis=0)
+#     labels = np.array(labels)
+
+#     assert activations.shape[0] == labels.shape[0]
+#     return activations, labels
 # %%
 def get_new_word_labels_and_activations(
     model: HookedTransformer, 
@@ -77,7 +104,7 @@ def get_new_word_labels_and_activations(
         tokens = model.to_tokens(prompt)[0]
 
         with model.hooks([(activation_hook_name, save_activation)]):
-                model(tokens)
+            model(tokens)
         prompt_activations = model.hook_dict[activation_hook_name].ctx['activation']
         prompt_activations = prompt_activations[activation_slice].cpu().numpy()
         activations.append(prompt_activations)
@@ -93,23 +120,33 @@ def get_new_word_labels_and_activations(
     assert activations.shape[0] == labels.shape[0]
     return activations, labels
 
-def get_new_word_dense_probe_score(x: np.ndarray, y: np.ndarray) -> float:
-    lr_model = get_new_word_dense_probe(x, y)
-    preds = lr_model.predict(x[20000:])
-    score = f1_score(y[20000:], preds)
-    # score = matthews_corrcoef(y[20000:], preds)
-    return score
-
-
-def get_new_word_dense_probe(x: np.ndarray, y: np.ndarray) -> float:
+# def get_new_word_dense_probe_score(x: np.ndarray, y: np.ndarray) -> float:
+#     lr_model = get_new_word_dense_probe(x, y)
+#     preds = lr_model.predict(x[20000:])
+#     score = f1_score(y[20000:], preds)
+#     # score = matthews_corrcoef(y[20000:], preds)
+#     return score
+def get_new_word_dense_probe_f1(x: np.ndarray, y: np.ndarray) -> float:
     # z-scoring can help with convergence
     scaler = preprocessing.StandardScaler().fit(x)
     x = scaler.transform(x)
-    # np.unique on y 
-    lr_model = LogisticRegression(max_iter=2000)
     
+    lr_model = LogisticRegression(max_iter=1200)
     lr_model.fit(x[:20000], y[:20000])
-    return lr_model
+    preds = lr_model.predict(x[20000:])
+    score = f1_score(y[20000:], preds)
+    return score
+
+
+# def get_new_word_dense_probe(x: np.ndarray, y: np.ndarray) -> float:
+#     # z-scoring can help with convergence
+#     scaler = preprocessing.StandardScaler().fit(x)
+#     x = scaler.transform(x)
+#     # np.unique on y 
+#     lr_model = LogisticRegression(max_iter=2000)
+    
+#     lr_model.fit(x[:20000], y[:20000])
+#     return lr_model
 # %%
 # Check out the learned weights
 # hook_name = f'blocks.{LAYER}.mlp.hook_post'
@@ -121,7 +158,8 @@ def get_new_word_dense_probe(x: np.ndarray, y: np.ndarray) -> float:
 # Trimodal neuron only
 hook_name = f'blocks.{LAYER}.mlp.hook_post'
 x, y = get_new_word_labels_and_activations(model, german_data, hook_name)
-score = get_new_word_dense_probe_score(x, y)
+score = get_new_word_dense_probe_f1(x, y)
+# score = get_new_word_dense_probe_score(x, y)
 print(score)
 # %%
 # The final position's activation has no label and is excluded
