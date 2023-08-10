@@ -60,32 +60,6 @@ def get_new_word_labels(model: HookedTransformer, tokens: torch.Tensor) -> list[
         prompt_labels.append(next_is_space)
     return prompt_labels
 
-# def get_new_word_labels_and_activations(
-#     model: HookedTransformer, 
-#     german_data: list[str], 
-#     activation_hook_name: str,
-#     activation_slice=np.s_[0, :-1, NEURON:NEURON+1]
-# ) -> tuple[np.ndarray, np.ndarray]:
-#     '''Get activations and labels for predicting word end from activation'''
-#     activations = []
-#     labels = []
-#     for prompt in german_data:
-#         tokens = model.to_tokens(prompt)[0]
-
-#         with model.hooks([(activation_hook_name, save_activation)]):
-#             model(tokens)
-#         prompt_activations = model.hook_dict[activation_hook_name].ctx['activation']
-#         prompt_activations = prompt_activations[activation_slice].cpu().numpy()
-#         activations.append(prompt_activations)
-
-#         prompt_labels = get_new_word_labels(model, tokens)
-#         labels.extend(prompt_labels)
-
-#     activations = np.concatenate(activations, axis=0)
-#     labels = np.array(labels)
-
-#     assert activations.shape[0] == labels.shape[0]
-#     return activations, labels
 # %%
 def get_new_word_labels_and_activations(
     model: HookedTransformer, 
@@ -116,37 +90,24 @@ def get_new_word_labels_and_activations(
     activations = np.concatenate(activations, axis=0)
     labels = np.array(labels) # , axis=0
 
-    print(activations.shape, labels.shape)
     assert activations.shape[0] == labels.shape[0]
     return activations, labels
 
-# def get_new_word_dense_probe_score(x: np.ndarray, y: np.ndarray) -> float:
-#     lr_model = get_new_word_dense_probe(x, y)
-#     preds = lr_model.predict(x[20000:])
-#     score = f1_score(y[20000:], preds)
-#     # score = matthews_corrcoef(y[20000:], preds)
-#     return score
-def get_new_word_dense_probe_f1(x: np.ndarray, y: np.ndarray) -> float:
+def get_new_word_dense_probe_score(x: np.ndarray, y: np.ndarray) -> float:
     # z-scoring can help with convergence
     scaler = preprocessing.StandardScaler().fit(x)
     x = scaler.transform(x)
-    
-    lr_model = LogisticRegression(max_iter=1200)
-    lr_model.fit(x[:20000], y[:20000])
+    lr_model = get_new_word_dense_probe(x, y)
     preds = lr_model.predict(x[20000:])
-    score = f1_score(y[20000:], preds)
-    return score
+    f1 = f1_score(y[20000:], preds)
+    mcc = matthews_corrcoef(y[20000:], preds)
+    return f1, mcc
 
-
-# def get_new_word_dense_probe(x: np.ndarray, y: np.ndarray) -> float:
-#     # z-scoring can help with convergence
-#     scaler = preprocessing.StandardScaler().fit(x)
-#     x = scaler.transform(x)
-#     # np.unique on y 
-#     lr_model = LogisticRegression(max_iter=2000)
-    
-#     lr_model.fit(x[:20000], y[:20000])
-#     return lr_model
+def get_new_word_dense_probe(x: np.ndarray, y: np.ndarray) -> float:
+    # np.unique on y 
+    lr_model = LogisticRegression(max_iter=2000)
+    lr_model.fit(x[:20000], y[:20000])
+    return lr_model
 # %%
 # Check out the learned weights
 # hook_name = f'blocks.{LAYER}.mlp.hook_post'
@@ -158,30 +119,32 @@ def get_new_word_dense_probe_f1(x: np.ndarray, y: np.ndarray) -> float:
 # Trimodal neuron only
 hook_name = f'blocks.{LAYER}.mlp.hook_post'
 x, y = get_new_word_labels_and_activations(model, german_data, hook_name)
-score = get_new_word_dense_probe_f1(x, y)
-# score = get_new_word_dense_probe_score(x, y)
-print(score)
+f1, mcc = get_new_word_dense_probe_score(x, y)
+print(f1, mcc) # f1 0.799
 # %%
 # The final position's activation has no label and is excluded
 activation_slice = np.s_[0, :-1, [neuron for neuron in range(model.cfg.d_mlp) if neuron != NEURON]]
 x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
-score = get_new_word_dense_probe_score(x, y)
-print(score) # 88.82 f1
+f1, mcc = get_new_word_dense_probe_score(x, y)
+print(f1, mcc) # .888 f1
 # %%
 for i in range(model.cfg.d_mlp):
     activation_slice = np.s_[0, :-1, [i]]
     x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
-    score = get_new_word_dense_probe_score(x, y)
-    print(score) # 88.82 f1
+    f1, mcc = get_new_word_dense_probe_score(x, y)
+    print(f1, mcc) # .888 f1, 0.94 mcc
 # %% 
-f1s = []
+scores = []
 activation_slice = np.s_[0, :-1, :]
 for layer in range(11):
     hook_name = f'blocks.{layer}.hook_mlp_out'
     x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
-    f1s.append(get_new_word_dense_probe_score(x, y))
+    scores.append(get_new_word_dense_probe_score(x, y))
 
-haystack_utils.line(f1s, title="F1 Score at MLP out by layer", xlabel="Layer", ylabel="F1 Score")
+df = pd.DataFrame(scores, columns=["f1", "mcc"])
+fig = haystack_utils.line(df, title="F1 and MCC Scores at MLP out by layer", xlabel="Layer", ylabel="F1 Score")
+
+
 # %%
 # Dense probe performance on each residual and MLP out
 # We can do each MLP out using the current method
@@ -209,15 +172,15 @@ def get_new_word_labels_and_resid_activations(
 
 activations_dict, labels = get_new_word_labels_and_resid_activations(model, german_data)
 
-f1s = []
+scores = []
 for component in activations_dict.values():
-    f1s.append(get_new_word_dense_probe_score(component, labels))
+    scores.append(get_new_word_dense_probe_score(component, labels))
 
 # %% 
 
 _, cache = model.run_with_cache(german_data[0])
 _, component_labels = cache.decompose_resid(apply_ln=False, return_labels=True)
-haystack_utils.line(f1s, xticks=component_labels, title="F1 Score at residual stream by layer", xlabel="Layer", ylabel="F1 Score")
+haystack_utils.line(scores, xticks=component_labels, title="F1 Score at residual stream by layer", xlabel="Layer", ylabel="F1 Score")
 # %%
 l8_n2994_input = model.W_in[LAYER, :, NEURON].cpu().numpy()
 
