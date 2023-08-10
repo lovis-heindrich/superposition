@@ -62,14 +62,14 @@ def get_probe(x: np.ndarray, y: np.ndarray) -> float:
     x = scaler.transform(x)
     # np.unique on y 
     lr_model = LogisticRegression(max_iter=2000)
-    lr_model.fit(x[:20000], y[:20000])
+    lr_model.fit(x, y)
     return lr_model
 
 def get_probe_score(lr_model: LogisticRegression, x, y) -> float:
     # z-scoring can help with convergence
-    preds = lr_model.predict(x[20000:])
-    f1 = f1_score(y[20000:], preds)
-    mcc = matthews_corrcoef(y[20000:], preds)
+    preds = lr_model.predict(x)
+    f1 = f1_score(y, preds)
+    mcc = matthews_corrcoef(y, preds)
     return f1, mcc
 
 def get_and_score_new_word_probe(
@@ -79,6 +79,7 @@ def get_and_score_new_word_probe(
     activation_slice=np.s_[0, :-1, 2994:2995]
 ):
     x, y = get_new_word_labels_and_activations(model, german_data, activation_hook_name, activation_slice)
-    probe = get_probe(x, y)
-    f1, mcc = get_probe_score(probe, x, y)
+    print(y.shape, "items")
+    probe = get_probe(x[:20_000], y[:20_000])
+    f1, mcc = get_probe_score(probe, x[20_000:], y[20_000:])
     return f1, mcc

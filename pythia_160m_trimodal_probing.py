@@ -37,6 +37,7 @@ import haystack_utils
 import hook_utils
 import plotting_utils
 import probing_utils
+from probing_utils import get_and_score_new_word_probe
 from sklearn import preprocessing
 # %%
 %reload_ext autoreload
@@ -66,21 +67,21 @@ hook_name = f'blocks.{LAYER}.mlp.hook_post'
 # x, y = get_new_word_labels_and_activations(model, german_data, hook_name)
 # f1, mcc = get_new_word_dense_probe_score(x, y)
 # print(f1, mcc) # f1 0.799
-print(probing_utils.get_and_score_new_word_probe(model, german_data, hook_name))
+print(get_and_score_new_word_probe(model, german_data, hook_name))
 # %%
 # The final position's activation has no label and is excluded
 activation_slice = np.s_[0, :-1, [neuron for neuron in range(model.cfg.d_mlp) if neuron != NEURON]]
-print(probing_utils.get_and_score_new_word_probe(model, german_data, hook_name, activation_slice)) # .888 f1
+print(get_and_score_new_word_probe(model, german_data, hook_name, activation_slice)) # .888 f1
 # %%
 for i in range(model.cfg.d_mlp):
     activation_slice = np.s_[0, :-1, [i]]
-    print(probing_utils.get_and_score_new_word_probe(model, german_data, hook_name, activation_slice)) # .888 f1, 0.94 mcc
+    print(get_and_score_new_word_probe(model, german_data, hook_name, activation_slice)) # .888 f1, 0.94 mcc
 # %% 
 scores = []
 activation_slice = np.s_[0, :-1, :]
 for layer in range(11):
     hook_name = f'blocks.{layer}.hook_mlp_out'
-    scores.append(print(probing_utils.get_and_score_new_word_probe(model, german_data, hook_name, activation_slice)))
+    scores.append(get_and_score_new_word_probe(model, german_data, hook_name, activation_slice))
 
 df = pd.DataFrame(scores, columns=["f1", "mcc"])
 fig = haystack_utils.line(df, title="F1 and MCC Scores at MLP out by layer", xlabel="Layer", ylabel="F1 Score")
@@ -115,8 +116,8 @@ activations_dict, labels = get_new_word_labels_and_resid_activations(model, germ
 
 scores = []
 for component in activations_dict.values():
-    probe = probing_utils.get_probe(component, labels)
-    scores.append(probing_utils.get_probe_score(probe, component, labels))
+    probe = probing_utils.get_probe(component[:20_000], labels[:20_000])
+    scores.append(probing_utils.get_probe_score(probe, component[20_000:], labels[20_000:]))
 
 # %% 
 
@@ -129,8 +130,8 @@ l8_n2994_input = model.W_in[LAYER, :, NEURON].cpu().numpy()
 projections = []
 for component in activations_dict.values():
     projection = np.dot(component, l8_n2994_input)[:, np.newaxis]
-    probe = probing_utils.get_probe(projection, labels)
-    projections.append(probing_utils.get_probe_score(probe, projection, labels))
+    probe = probing_utils.get_probe(projection[:20_000], labels[:20_000])
+    projections.append(probing_utils.get_probe_score(probe, projection[20_000:], labels[20_000:]))
 
 print(projections)
 haystack_utils.line(projections, xticks=component_labels, title="F1 Score of L8N2994 input direction in residual stream by layer", xlabel="Layer", ylabel="F1 Score")
@@ -193,17 +194,17 @@ fig.show()
 # %%
 hook_name = f'blocks.{5}.mlp.hook_post'
 activation_slice = np.s_[0, :-1, [2649]]
-print(probing_utils.get_and_score_new_word_probe(model, german_data, hook_name, activation_slice))
+print(get_and_score_new_word_probe(model, german_data, hook_name, activation_slice))
 
 activation_slice = np.s_[0, :-1, [1162]]
-print(probing_utils.get_and_score_new_word_probe(model, german_data, hook_name, activation_slice))
+print(get_and_score_new_word_probe(model, german_data, hook_name, activation_slice))
 
 activation_slice = np.s_[0, :-1, [2649, 1162]]
-print(probing_utils.get_and_score_new_word_probe(model, german_data, hook_name, activation_slice))
+print(get_and_score_new_word_probe(model, german_data, hook_name, activation_slice))
 
 # %%
 activation_slice = np.s_[0, :-1, [1, 2]]
-print(probing_utils.get_and_score_new_word_probe(model, german_data, hook_name, activation_slice))
+print(get_and_score_new_word_probe(model, german_data, hook_name, activation_slice))
 
 # %%
 # Won't work due to exp(model.cfg.d_mlp) directions and each direction
@@ -276,18 +277,16 @@ print(cosine_sim(is_space_direction, model.W_out[LAYER, NEURON, :]).item())
 # What about the learned probe?
 hook_name = f'blocks.11.hook_resid_post'
 activation_slice = np.s_[0, :-1, :]
-x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
-l8_mlp_out_probe = get_new_word_dense_probe(x, y)
-f1 = get_new_word_dense_probe_score(x, y)
+x, y = probing_utils.get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
+l8_mlp_out_probe = probing_utils.get_new_word_dense_probe(x, y)
 print(cosine_sim(is_space_direction, torch.tensor(l8_mlp_out_probe.coef_[0]).cuda()).item())
 # %%
 # The optimal L8 next token direction is positive but even less similar to the 
 # context neuron direction (0.03)
 hook_name = f'blocks.8.hook_mlp_out'
 activation_slice = np.s_[0, :-1, :]
-x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
-l8_mlp_out_probe = get_new_word_dense_probe(x, y)
-f1 = get_new_word_dense_probe_score(x, y)
+x, y = probing_utils.get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
+l8_mlp_out_probe = probing_utils.get_new_word_dense_probe(x, y)
 print(cosine_sim(is_space_direction, torch.tensor(l8_mlp_out_probe.coef_[0]).cuda()).item())
 
 # %%
@@ -329,10 +328,6 @@ for prompt in german_data:
     original_losses.append(original_loss)
     ablated_losses.append(ablated_loss)
     direct_effect.append(direct_effect)
-
-
-
-
 # %%
 
 # %%
