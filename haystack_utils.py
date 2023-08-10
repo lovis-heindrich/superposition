@@ -1906,3 +1906,12 @@ def get_context_effect(prompt: str | list[str], model: HookedTransformer, contex
         return original_metric, activated_metric, ablated_metric, direct_effect_metric, indirect_effect_metric
     else:
         return original_metric[:, pos], activated_metric[:, pos], ablated_metric[:, pos], direct_effect_metric[:, pos], indirect_effect_metric[:, pos]
+
+def get_next_token_punctuation_mask(tokens: torch.LongTensor, model: HookedTransformer) -> torch.BoolTensor:
+    next_token_punctuation_mask = torch.zeros_like(tokens, dtype=torch.bool)
+    token_strs = model.to_str_tokens(tokens)
+    for i in range(tokens.shape[0] - 1):
+        next_token_str = token_strs[i + 1]
+        next_is_space = next_token_str[0] in [" ", ",", ".", ":", ";", "!", "?"]
+        next_token_punctuation_mask[i] = next_is_space
+    return next_token_punctuation_mask
