@@ -121,3 +121,54 @@ print(f"Bigram MCC: {mcc:.4f}")
 print(f"Bigram accuracy: {(TP + TN) / (TP + TN + FP + FN):.4f}")
 
 # %%
+
+all_counts = torch.Tensor([100, 100, 100, 100, 100])
+next_is_space_counts = torch.Tensor([100, 90, 50, 75, 25])
+common_tokens = torch.LongTensor([0, 2, 3, 4])
+
+next_is_space = next_is_space_counts[common_tokens]
+next_is_not_space = all_counts[common_tokens] - next_is_space_counts[common_tokens]
+predict_space = (next_is_space_counts[common_tokens] / all_counts[common_tokens]) >= 0.5
+print(next_is_space, next_is_not_space, predict_space)
+
+TP = next_is_space[predict_space].sum().item()
+FP = next_is_not_space[predict_space].sum().item()
+TN = next_is_not_space[~predict_space].sum().item()
+FN = next_is_space[~predict_space].sum().item()
+
+f1_score = (2 * TP) / (2 * TP + FP + FN)
+mcc = (TP * TN - FP * FN) / np.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN))
+print(f"Unigram F1 score: {f1_score:.4f}")
+print(f"Unigram MCC: {mcc:.4f}")
+print(f"Unigram accuracy: {(TP + TN) / (TP + TN + FP + FN):.4f}")
+# %%
+
+# compute model activations for unigram statistic tokens
+common_german_tokens = haystack_utils.get_common_tokens(german_data[300], model, all_ignore, 500)
+
+# %%
+def get_token_activations(end_token: str, model):
+    print(end_token)
+    prompts = haystack_utils.generate_random_prompts(end_token, model, common_german_tokens, 400, length=12)
+    _, cache = model.run_with_cache(prompts)
+    fig = px.histogram(cache[f"blocks.{LAYER}.mlp.hook_post"][:, -1, NEURON].cpu().numpy(), nbins=100)
+    fig.show()
+    return cache[f"blocks.{LAYER}.mlp.hook_post"][:, -1, NEURON].mean().item()
+
+# %%
+
+data = []
+for i, token in tqdm(enumerate(common_tokens)):
+    next_is_space_prob = common_tokens_space_prob[i].item()
+    average_activation = get_token_activations(model.to_single_str_token(token), model)
+    count = all_counts[token].item()
+    data.append([token, next_is_space_prob, average_activation, count])
+    break
+
+df = pd.DataFrame(data, columns=["token", "next_is_space_prob", "average_activation", "count"])
+# %%
+px.histogram(df, x="next_is_space_prob", nbins=100)
+#%% 
+px.histogram(df, x="average_activation", nbins=100)
+# %%
+px.scatter(df, y="next_is_space_prob", x="average_activation")
