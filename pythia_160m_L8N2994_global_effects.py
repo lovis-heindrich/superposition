@@ -9,6 +9,7 @@ import haystack_utils
 import pandas as pd
 import plotly.express as px
 import scipy.stats as stats
+import numpy as np
 
 pio.renderers.default = "notebook_connected+notebook"
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -46,11 +47,13 @@ def get_next_token_punctuation_mask(tokens: torch.LongTensor) -> torch.BoolTenso
 
 # %%
 
-def get_space_tokens():
+def get_space_tokens(tokens = None):
+    if tokens is None:
+        tokens = [i for i in range(model.cfg.d_vocab)]
     space_tokens = []
     non_space_tokens = []
     ignore_tokens = all_ignore.flatten().tolist()
-    for i in range(model.cfg.d_vocab):
+    for i in tokens:
         string_token = model.to_single_str_token(i)
         if (not string_token) or (i in ignore_tokens):
             continue
@@ -70,7 +73,7 @@ space_tokens, non_space_tokens = get_space_tokens()
 #     print(ablated_logits_diffs, original_logit_diffs)
 #     return (ablated_logits_diffs - original_logit_diffs).mean().item()
 
-def space_tokens_diff(space_tokens, non_space_tokens, original_probs, ablated_probs):
+def get_space_tokens_diff(space_tokens, non_space_tokens, original_probs, ablated_probs):
     space_diff = (ablated_probs[:, space_tokens] - original_probs[:, space_tokens]).mean()
     non_space_diff = (ablated_probs[:, non_space_tokens] - original_probs[:, non_space_tokens]).mean()
     return space_diff.item(), non_space_diff.item()
@@ -88,11 +91,44 @@ def snap_pos_to_peak_2(value, hook):
 snap_pos_to_peak_1_hook = [(f'blocks.{LAYER}.mlp.hook_post', snap_pos_to_peak_1)]
 snap_pos_to_peak_2_hook = [(f'blocks.{LAYER}.mlp.hook_post', snap_pos_to_peak_2)]
 
+# %%
+space_token_diffs = []
+non_space_token_diffs = []
 for prompt in german_data:
     with model.hooks(snap_pos_to_peak_1_hook):
         peak_1_prob = model(prompt, return_type="logits").softmax(dim=-1)
     with model.hooks(snap_pos_to_peak_2_hook):
         peak_2_prob = model(prompt, return_type="logits").softmax(dim=-1)
-    print(space_tokens_diff(space_tokens, non_space_tokens, peak_1_prob[0], peak_2_prob[0]))
-    break
+    space_token_diff, non_space_token_diff = get_space_tokens_diff(space_tokens, non_space_tokens, peak_1_prob[0], peak_2_prob[0])
+    space_token_diffs.append(space_token_diff)
+    non_space_token_diffs.append(non_space_token_diff)
+print(f"Space token diff: {np.mean(space_token_diffs):.8f}, non space token diff: {np.mean(non_space_token_diffs):.8f}")
+# %%
+
+full_german_data = haystack_utils.load_json_data("data/german_europarl.json")
+top_counts, top_tokens = haystack_utils.get_common_tokens(full_german_data, model, all_ignore, k=model.cfg.d_vocab_out, return_counts=True)
+
+# %%
+sorted_counts = top_counts.tolist()
+sorted_counts.sort(reverse=True)
+px.line(sorted_counts)
+# %%
+common_german_tokens = top_tokens[:2000].tolist()
+# %%
+german_space_tokens, german_non_space_tokens = get_space_tokens(common_german_tokens)
+print(len(german_space_tokens), len(german_non_space_tokens))
+# %%
+
+space_token_diffs = []
+non_space_token_diffs = []
+for prompt in german_data:
+    with model.hooks(snap_pos_to_peak_1_hook):
+        peak_1_prob = model(prompt, return_type="logits").softmax(dim=-1)
+    with model.hooks(snap_pos_to_peak_2_hook):
+        peak_2_prob = model(prompt, return_type="logits").softmax(dim=-1)
+    space_token_diff, non_space_token_diff = get_space_tokens_diff(german_space_tokens, german_non_space_tokens, peak_1_prob[0], peak_2_prob[0])
+    space_token_diffs.append(space_token_diff)
+    non_space_token_diffs.append(non_space_token_diff)
+print(f"Space token diff: {np.mean(space_token_diffs):.8f}, non space token diff: {np.mean(non_space_token_diffs):.8f}")
+
 # %%
