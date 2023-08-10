@@ -6,10 +6,10 @@ from torch import Tensor
 from tqdm.auto import tqdm
 import plotly.io as pio
 import haystack_utils
-import pandas as pd
-import plotly.express as px
 import scipy.stats as stats
 import numpy as np
+import pandas as pd
+import plotly.express as px
 
 pio.renderers.default = "notebook_connected+notebook"
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -94,7 +94,7 @@ snap_pos_to_peak_2_hook = [(f'blocks.{LAYER}.mlp.hook_post', snap_pos_to_peak_2)
 # %%
 space_token_diffs = []
 non_space_token_diffs = []
-for prompt in german_data:
+for prompt in tqdm(german_data):
     with model.hooks(snap_pos_to_peak_1_hook):
         peak_1_prob = model(prompt, return_type="logits").softmax(dim=-1)
     with model.hooks(snap_pos_to_peak_2_hook):
@@ -132,7 +132,7 @@ for prompt in german_data:
 print(f"Space token diff: {np.mean(space_token_diffs):.8f}, non space token diff: {np.mean(non_space_token_diffs):.8f}")
 
 # %%
-import einops
+
 dla = model.W_out[LAYER, NEURON] @ model.unembed.W_U
 
 px.histogram(dla.flatten().cpu().numpy())
@@ -143,19 +143,13 @@ px.line(space_dla.flatten().cpu().numpy())
 non_space_dla = dla[german_non_space_tokens]
 px.line(non_space_dla.flatten().cpu().numpy())
 # %%
-import pandas as pd
-import plotly.express as px
+
 
 # Create a Pandas Series from your data
 data = pd.Series(non_space_dla.flatten().cpu().numpy())
-
 # Apply a moving average with a window size of your choice (e.g., 5)
 non_space_smoothed_data = data.rolling(window=5).mean()
-
-
-# %%
 data = pd.Series(space_dla.flatten().cpu().numpy())
-
 # Apply a moving average with a window size of your choice (e.g., 5)
 space_smoothed_data = data.rolling(window=5).mean()
 
@@ -168,13 +162,8 @@ df = pd.DataFrame({
 fig = px.line(df)
 fig.show()
 # %%
-german_space_tokens[:5]
-top_counts[:5]
-# %%
 space_token_counts = top_counts[german_space_tokens].cpu().numpy()
 non_space_token_counts = top_counts[german_non_space_tokens].cpu().numpy()
-
-# Plot both in plotly
 
 # %%
 # Find the indices where top_tokens equals count_tokens
@@ -191,4 +180,69 @@ df = pd.DataFrame({
 # Plot the smoothed line
 fig = px.line(df)
 fig.show()
+# %%
+
+# New investigation
+
+token_counts = torch.zeros(model.cfg.d_vocab).cuda()
+for example in tqdm(german_data):
+    tokens = model.to_tokens(example)
+    for token in tokens[0]:
+        token_counts[token.item()] += 1
+# %%
+full_german_data = haystack_utils.load_json_data("data/german_europarl.json")
+token_counts, top_tokens = haystack_utils.get_token_counts(full_german_data, model)
+token_counts = token_counts.cpu()
+# %%
+sorted_counts = token_counts.tolist()[:3000]
+sorted_counts.sort(reverse=True)
+px.line(sorted_counts)
+
+# %%
+#common_german_tokens = torch.arange(start=0, end=model.cfg.d_vocab, step=1)[token_counts > 1].tolist()
+tmp_counts, common_german_tokens = haystack_utils.get_common_tokens(german_data, model, all_ignore, k=model.cfg.d_vocab, return_counts=True)
+common_german_tokens = common_german_tokens[tmp_counts > 0].tolist()
+german_space_tokens, german_non_space_tokens = get_space_tokens(common_german_tokens)
+print(len(german_space_tokens), len(german_non_space_tokens))
+# %%
+dla = model.W_out[LAYER, NEURON] @ model.unembed.W_U
+space_dla = dla[german_space_tokens]
+non_space_dla = dla[german_non_space_tokens]
+
+# %%
+data = []
+
+for token in german_space_tokens.tolist():
+    data.append([token, True, dla[token].item(), token_counts[token].item()])
+for token in german_non_space_tokens.tolist():
+    data.append([token, False, dla[token].item(), token_counts[token].item()])
+
+df = pd.DataFrame(data, columns=["token", "is_space", "dla", "count"])
+# %%
+px.scatter(df, y="dla", x="count", color="is_space", log_x=True, title="DLA for space and non_space tokens")
+
+# %%
+df = pd.DataFrame(data, columns=["token", "is_space", "dla", "count"])
+df = df.sort_values(by=["is_space", "count"], ascending=False)
+grouped = df.groupby(["is_space", "count"]).mean().reset_index()
+px.line(grouped, y="dla", x="count", color="is_space", log_x=True, title="DLA for space and non_space tokens")
+# %%
+from statsmodels.nonparametric.smoothers_lowess import lowess
+
+df = pd.DataFrame(data, columns=["token", "is_space", "dla", "count"])
+df = df.sort_values(by=["is_space", "count"], ascending=False)
+grouped = df.groupby(["is_space", "count"]).mean().reset_index()
+
+# Apply lowess smoothing
+smoothed_lines = []
+for is_space_val in grouped['is_space'].unique():
+    subset = grouped[grouped['is_space'] == is_space_val]
+    smooth_line = lowess(subset['dla'], subset['count'], frac=0.3)
+    smoothed_lines.append(pd.DataFrame(smooth_line, columns=['count', 'dla']))
+    smoothed_lines[-1]['is_space'] = is_space_val
+
+smoothed_df = pd.concat(smoothed_lines)
+fig = px.line(smoothed_df, y="dla", x="count", color="is_space", log_x=True, title="DLA for space and non_space tokens (log_x, smoothed)")
+fig.show()
+
 # %%

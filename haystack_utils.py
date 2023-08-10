@@ -1915,3 +1915,15 @@ def get_next_token_punctuation_mask(tokens: torch.LongTensor, model: HookedTrans
         next_is_space = next_token_str[0] in [" ", ",", ".", ":", ";", "!", "?"]
         next_token_punctuation_mask[i] = next_is_space
     return next_token_punctuation_mask
+
+
+def get_token_counts(data, model) -> Tensor:
+    # Get top common german tokens excluding punctuation
+    token_counts = torch.zeros(model.cfg.d_vocab).cuda()
+    for example in tqdm(data):
+        tokens = model.to_tokens(example)
+        for token in tokens[0]:
+            token_counts[token.item()] += 1
+
+    _, top_tokens = torch.topk(token_counts, model.cfg.d_vocab)
+    return token_counts, top_tokens
