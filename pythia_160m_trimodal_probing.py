@@ -229,7 +229,7 @@ def get_space_tokens():
         string_token = model.to_single_str_token(i)
         if not string_token:
             continue
-        if string_token[0] in [" ", ",", ".", ":", ";", "!", "?"]:
+        if string_token[0] in [" "] # [" ", ",", ".", ":", ";", "!", "?"]:
             space_tokens.append(i)
         else:
             non_space_tokens.append(i)

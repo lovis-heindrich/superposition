@@ -21,11 +21,18 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 torch.autograd.set_grad_enabled(False)
 torch.set_grad_enabled(False)
 
+def get_act_dimension(model, prompt, activation_hook_name, activation_slice):
+    tokens = model.to_tokens(prompt)[0]
+    with model.hooks([(activation_hook_name, save_activation)]):
+        model(tokens)
+    prompt_activations = model.hook_dict[activation_hook_name].ctx['activation'][activation_slice]
+    return prompt_activations.shape[-1]
+
 def get_new_word_labels(model: HookedTransformer, tokens: torch.Tensor) -> np.ndarray[bool]:
     prompt_labels = []
     for i in range(tokens.shape[0] - 1):
         next_token_str = model.to_single_str_token(tokens[i + 1].item())
-        next_is_space = next_token_str[0] in [" ", ",", ".", ":", ";", "!", "?"] # [" "] # 
+        next_is_space = next_token_str[0] in [" "] # [" ", ",", ".", ":", ";", "!", "?"] # [" "] # 
         prompt_labels.append(next_is_space)
     return np.array(prompt_labels)
 
@@ -37,7 +44,7 @@ def get_new_word_labels_and_activations(
     num_class_examples=20_000
 ) -> tuple[np.ndarray, np.ndarray]:
     '''Get activations and labels for predicting word end from activation'''
-    x_dimension = activation_slice[2].stop - activation_slice[2].start
+    x_dimension = get_act_dimension(model, german_data[0], activation_hook_name, activation_slice)
     positive_activations = np.empty((num_class_examples, x_dimension))
     negative_activations = np.empty((num_class_examples, x_dimension))
     positive_start = 0
@@ -130,7 +137,6 @@ def get_and_score_new_word_probe(
     activation_slice=np.s_[0, :-1, 2994:2995]
 ):
     x, y = get_new_word_labels_and_activations(model, german_data, activation_hook_name, activation_slice)
-    print(y.shape, "items")
     probe = get_probe(x[:20_000], y[:20_000])
     f1, mcc = get_probe_score(probe, x[20_000:], y[20_000:])
     return f1, mcc
