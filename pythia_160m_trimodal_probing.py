@@ -2,43 +2,29 @@
 import torch
 from tqdm.auto import tqdm
 from transformer_lens import HookedTransformer
-from jaxtyping import Float, Int, Bool
-from torch import Tensor
 from tqdm.auto import tqdm
 import plotly.io as pio
-import ipywidgets as widgets
-from IPython.display import display, clear_output
 import pandas as pd
 import numpy as np
 import plotly.express as px 
 from collections import defaultdict
-import matplotlib.pyplot as plt
-import re
-from IPython.display import display, HTML
-from datasets import load_dataset
-from collections import Counter
-import pickle
-import os
 from functools import partial
 
-import sklearn
-from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import f1_score, matthews_corrcoef
+from sklearn.metrics import f1_score
 
-pio.renderers.default = "notebook_connected+notebook"
-device = "cuda" if torch.cuda.is_available() else "cpu"
-torch.autograd.set_grad_enabled(False)
-torch.set_grad_enabled(False)
-
-from haystack_utils import get_mlp_activations
-from hook_utils import save_activation
 import haystack_utils
 import hook_utils
 import plotting_utils
 import probing_utils
 from probing_utils import get_and_score_new_word_probe
 from sklearn import preprocessing
+
+pio.renderers.default = "notebook_connected+notebook"
+device = "cuda" if torch.cuda.is_available() else "cpu"
+torch.autograd.set_grad_enabled(False)
+torch.set_grad_enabled(False)
+
 # %%
 %reload_ext autoreload
 %autoreload 2
@@ -92,30 +78,14 @@ fig = haystack_utils.line(df, title="F1 and MCC Scores at MLP out by layer", xla
 # We can do each MLP out using the current method
 # Need a new method for the dimensions of the residual
 # %%
-def get_new_word_labels_and_resid_activations(
-    model: HookedTransformer, 
-    german_data: list[str], 
-) -> tuple[defaultdict, np.ndarray]:
-    '''Get activations and labels for predicting word end from activation'''
-    activations = defaultdict(partial(np.ndarray, (0, model.cfg.d_model)))
-    labels = []
-    for prompt in german_data:
-        tokens = model.to_tokens(prompt)[0]
-        _, cache = model.run_with_cache(tokens)
-        resid = cache.decompose_resid(apply_ln=False)[:, 0, :-1, :]
-        for i in range(resid.shape[0]):
-            activations[i] = np.concatenate((activations[i], resid[i].cpu().numpy()), axis=0)
-
-        prompt_labels = probing_utils.get_new_word_labels(model, tokens)
-        labels.extend(prompt_labels)
-
-    labels = np.array(labels)
-    return activations, labels
-
-activations_dict, labels = get_new_word_labels_and_resid_activations(model, german_data)
+from probing_utils import get_new_word_labels_and_resid_activations
+activations_dict, labels_dict = get_new_word_labels_and_resid_activations(model, german_data)
 
 scores = []
-for component in activations_dict.values():
+for i in range(len(activations_dict.items())):
+    component = activations_dict[i]
+    labels = labels_dict[i]
+
     probe = probing_utils.get_probe(component[:20_000], labels[:20_000])
     scores.append(probing_utils.get_probe_score(probe, component[20_000:], labels[20_000:]))
 
