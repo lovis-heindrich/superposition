@@ -132,3 +132,63 @@ for prompt in german_data:
 print(f"Space token diff: {np.mean(space_token_diffs):.8f}, non space token diff: {np.mean(non_space_token_diffs):.8f}")
 
 # %%
+import einops
+dla = model.W_out[LAYER, NEURON] @ model.unembed.W_U
+
+px.histogram(dla.flatten().cpu().numpy())
+# %%
+space_dla = dla[german_space_tokens]
+px.line(space_dla.flatten().cpu().numpy())
+# %%
+non_space_dla = dla[german_non_space_tokens]
+px.line(non_space_dla.flatten().cpu().numpy())
+# %%
+import pandas as pd
+import plotly.express as px
+
+# Create a Pandas Series from your data
+data = pd.Series(non_space_dla.flatten().cpu().numpy())
+
+# Apply a moving average with a window size of your choice (e.g., 5)
+non_space_smoothed_data = data.rolling(window=5).mean()
+
+
+# %%
+data = pd.Series(space_dla.flatten().cpu().numpy())
+
+# Apply a moving average with a window size of your choice (e.g., 5)
+space_smoothed_data = data.rolling(window=5).mean()
+
+df = pd.DataFrame({
+    'Space_Smoothed': space_smoothed_data,
+    'Non_Space_Smoothed': non_space_smoothed_data
+})
+
+# Plot the smoothed line
+fig = px.line(df)
+fig.show()
+# %%
+german_space_tokens[:5]
+top_counts[:5]
+# %%
+space_token_counts = top_counts[german_space_tokens].cpu().numpy()
+non_space_token_counts = top_counts[german_non_space_tokens].cpu().numpy()
+
+# Plot both in plotly
+
+# %%
+# Find the indices where top_tokens equals count_tokens
+indices = torch.where(torch.isin(top_tokens.cpu(), german_space_tokens.cpu()))[0]
+space_token_counts = top_counts[indices].cpu().numpy()
+indices = torch.where(torch.isin(top_tokens.cpu(), german_non_space_tokens.cpu()))[0]
+non_space_token_counts = top_counts[indices].cpu().numpy()
+# %%
+df = pd.DataFrame({
+    'space_token_counts': pd.Series(space_token_counts),
+    'non_space_token_counts': pd.Series(non_space_token_counts)
+})
+
+# Plot the smoothed line
+fig = px.line(df)
+fig.show()
+# %%
