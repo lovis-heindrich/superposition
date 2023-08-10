@@ -32,7 +32,7 @@ def get_new_word_labels(model: HookedTransformer, tokens: torch.Tensor) -> np.nd
     prompt_labels = []
     for i in range(tokens.shape[0] - 1):
         next_token_str = model.to_single_str_token(tokens[i + 1].item())
-        next_is_space = next_token_str[0] in [" "] # [" ", ",", ".", ":", ";", "!", "?"] # [" "] # 
+        next_is_space = next_token_str[0] in [" ", ",", ".", ":", ";", "!", "?"] # [" "] # 
         prompt_labels.append(next_is_space)
     return np.array(prompt_labels)
 

@@ -7,8 +7,7 @@ import plotly.io as pio
 import pandas as pd
 import numpy as np
 import plotly.express as px 
-from collections import defaultdict
-from functools import partial
+import pickle
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score
@@ -59,13 +58,27 @@ print(get_and_score_new_word_probe(model, german_data, hook_name))
 activation_slice = np.s_[0, :-1, [neuron for neuron in range(model.cfg.d_mlp) if neuron != NEURON]]
 print(get_and_score_new_word_probe(model, german_data, hook_name, activation_slice)) # .888 f1
 # %%
-for i in range(model.cfg.d_mlp):
+for i in tqdm(range(model.cfg.d_mlp)):
     activation_slice = np.s_[0, :-1, [i]]
-    print(get_and_score_new_word_probe(model, german_data, hook_name, activation_slice)) # .888 f1, 0.94 mcc
+    x, y = probing_utils.get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
+    probe = probing_utils.get_probe(x[:20_000], y[:20_000])
+    f1, mcc = probing_utils.get_probe_score(probe, x[20_000:], y[20_000:])
+    with open(f'data/pythia_160m/layer_8/neuron_{i}.pkl', 'wb') as f:
+        pickle.dump({'f1': f1, 'mcc': mcc, 'probe': probe}, f)
+    # print(get_and_score_new_word_probe(model, german_data, hook_name, activation_slice)) # .888 f1, 0.94 mcc
+# %%
+for i in tqdm(range(model.cfg.d_mlp)):
+    activation_slice = np.s_[0, :-1, [i, NEURON]]
+    x, y = probing_utils.get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
+    probe = probing_utils.get_probe(x[:20_000], y[:20_000])
+    f1, mcc = probing_utils.get_probe_score(probe, x[20_000:], y[20_000:])
+    with open(f'data/pythia_160m/layer_8/neuron_{i}_neuron_{NEURON}.pkl', 'wb') as f:
+        pickle.dump({'f1': f1, 'mcc': mcc, 'probe': probe}, f)
+
 # %% 
 scores = []
 activation_slice = np.s_[0, :-1, :]
-for layer in range(11):
+for layer in range(12):
     hook_name = f'blocks.{layer}.hook_mlp_out'
     scores.append(get_and_score_new_word_probe(model, german_data, hook_name, activation_slice))
 
@@ -229,7 +242,7 @@ def get_space_tokens():
         string_token = model.to_single_str_token(i)
         if not string_token:
             continue
-        if string_token[0] in [" "] # [" ", ",", ".", ":", ";", "!", "?"]:
+        if string_token[0] in [" ", ",", ".", ":", ";", "!", "?"]:
             space_tokens.append(i)
         else:
             non_space_tokens.append(i)
