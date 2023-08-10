@@ -36,8 +36,10 @@ from hook_utils import save_activation
 import haystack_utils
 import hook_utils
 import plotting_utils
+import probing_utils
+from probing_utils import get_and_score_new_word_probe
 from sklearn import preprocessing
-
+# %%
 %reload_ext autoreload
 %autoreload 2
 
@@ -52,62 +54,6 @@ english_data = haystack_utils.load_json_data("data/english_europarl.json")[:200]
 
 LAYER, NEURON = 8, 2994
 
-def get_new_word_labels(model: HookedTransformer, tokens: torch.Tensor) -> list[bool]:
-    prompt_labels = []
-    for i in range(tokens.shape[0] - 1):
-        next_token_str = model.to_single_str_token(tokens[i + 1].item())
-        next_is_space = next_token_str[0] in [" ", ",", ".", ":", ";", "!", "?"] # [" "] # 
-        prompt_labels.append(next_is_space)
-    return prompt_labels
-
-# %%
-def get_new_word_labels_and_activations(
-    model: HookedTransformer, 
-    german_data: list[str], 
-    activation_hook_name: str,
-    activation_slice=np.s_[0, :-1, NEURON:NEURON+1]
-) -> tuple[np.ndarray, np.ndarray]:
-    '''Get activations and labels for predicting word end from activation'''
-    activations = []
-    labels = []
-    # positive_activations = []
-    # positive_labels = []
-    # negative_activations = []
-    # negative_labels = []
-    for prompt in german_data:
-        tokens = model.to_tokens(prompt)[0]
-
-        with model.hooks([(activation_hook_name, save_activation)]):
-            model(tokens)
-        prompt_activations = model.hook_dict[activation_hook_name].ctx['activation']
-        prompt_activations = prompt_activations[activation_slice].cpu().numpy()
-        activations.append(prompt_activations)
-
-        prompt_labels = get_new_word_labels(model, tokens)
-        labels.extend(prompt_labels)
-
-    
-    activations = np.concatenate(activations, axis=0)
-    labels = np.array(labels) # , axis=0
-
-    assert activations.shape[0] == labels.shape[0]
-    return activations, labels
-
-def get_new_word_dense_probe_score(x: np.ndarray, y: np.ndarray) -> float:
-    # z-scoring can help with convergence
-    scaler = preprocessing.StandardScaler().fit(x)
-    x = scaler.transform(x)
-    lr_model = get_new_word_dense_probe(x, y)
-    preds = lr_model.predict(x[20000:])
-    f1 = f1_score(y[20000:], preds)
-    mcc = matthews_corrcoef(y[20000:], preds)
-    return f1, mcc
-
-def get_new_word_dense_probe(x: np.ndarray, y: np.ndarray) -> float:
-    # np.unique on y 
-    lr_model = LogisticRegression(max_iter=2000)
-    lr_model.fit(x[:20000], y[:20000])
-    return lr_model
 # %%
 # Check out the learned weights
 # hook_name = f'blocks.{LAYER}.mlp.hook_post'
@@ -118,28 +64,24 @@ def get_new_word_dense_probe(x: np.ndarray, y: np.ndarray) -> float:
 # %%
 # Trimodal neuron only
 hook_name = f'blocks.{LAYER}.mlp.hook_post'
-x, y = get_new_word_labels_and_activations(model, german_data, hook_name)
-f1, mcc = get_new_word_dense_probe_score(x, y)
-print(f1, mcc) # f1 0.799
+# x, y = get_new_word_labels_and_activations(model, german_data, hook_name)
+# f1, mcc = get_new_word_dense_probe_score(x, y)
+# print(f1, mcc) # f1 0.799
+print(get_and_score_new_word_probe(model, german_data, hook_name))
 # %%
 # The final position's activation has no label and is excluded
 activation_slice = np.s_[0, :-1, [neuron for neuron in range(model.cfg.d_mlp) if neuron != NEURON]]
-x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
-f1, mcc = get_new_word_dense_probe_score(x, y)
-print(f1, mcc) # .888 f1
+print(get_and_score_new_word_probe(model, german_data, hook_name, activation_slice)) # .888 f1
 # %%
 for i in range(model.cfg.d_mlp):
     activation_slice = np.s_[0, :-1, [i]]
-    x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
-    f1, mcc = get_new_word_dense_probe_score(x, y)
-    print(f1, mcc) # .888 f1, 0.94 mcc
+    print(get_and_score_new_word_probe(model, german_data, hook_name, activation_slice)) # .888 f1, 0.94 mcc
 # %% 
 scores = []
 activation_slice = np.s_[0, :-1, :]
 for layer in range(11):
     hook_name = f'blocks.{layer}.hook_mlp_out'
-    x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
-    scores.append(get_new_word_dense_probe_score(x, y))
+    scores.append(get_and_score_new_word_probe(model, german_data, hook_name, activation_slice))
 
 df = pd.DataFrame(scores, columns=["f1", "mcc"])
 fig = haystack_utils.line(df, title="F1 and MCC Scores at MLP out by layer", xlabel="Layer", ylabel="F1 Score")
@@ -164,7 +106,7 @@ def get_new_word_labels_and_resid_activations(
         for i in range(resid.shape[0]):
             activations[i] = np.concatenate((activations[i], resid[i].cpu().numpy()), axis=0)
 
-        prompt_labels = get_new_word_labels(model, tokens)
+        prompt_labels = probing_utils.get_new_word_labels(model, tokens)
         labels.extend(prompt_labels)
 
     labels = np.array(labels)
@@ -174,7 +116,8 @@ activations_dict, labels = get_new_word_labels_and_resid_activations(model, germ
 
 scores = []
 for component in activations_dict.values():
-    scores.append(get_new_word_dense_probe_score(component, labels))
+    probe = probing_utils.get_probe(component[:20_000], labels[:20_000])
+    scores.append(probing_utils.get_probe_score(probe, component[20_000:], labels[20_000:]))
 
 # %% 
 
@@ -187,7 +130,8 @@ l8_n2994_input = model.W_in[LAYER, :, NEURON].cpu().numpy()
 projections = []
 for component in activations_dict.values():
     projection = np.dot(component, l8_n2994_input)[:, np.newaxis]
-    projections.append(get_new_word_dense_probe_score(projection, labels))
+    probe = probing_utils.get_probe(projection[:20_000], labels[:20_000])
+    projections.append(probing_utils.get_probe_score(probe, projection[20_000:], labels[20_000:]))
 
 print(projections)
 haystack_utils.line(projections, xticks=component_labels, title="F1 Score of L8N2994 input direction in residual stream by layer", xlabel="Layer", ylabel="F1 Score")
@@ -250,22 +194,18 @@ fig.show()
 # %%
 hook_name = f'blocks.{5}.mlp.hook_post'
 activation_slice = np.s_[0, :-1, [2649]]
-x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
-score = get_new_word_dense_probe_score(x, y)
-print(score)
+print(get_and_score_new_word_probe(model, german_data, hook_name, activation_slice))
+
 activation_slice = np.s_[0, :-1, [1162]]
-x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
-score = get_new_word_dense_probe_score(x, y)
-print(score)
+print(get_and_score_new_word_probe(model, german_data, hook_name, activation_slice))
+
 activation_slice = np.s_[0, :-1, [2649, 1162]]
-x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
-score = get_new_word_dense_probe_score(x, y)
-print(score)
+print(get_and_score_new_word_probe(model, german_data, hook_name, activation_slice))
+
 # %%
 activation_slice = np.s_[0, :-1, [1, 2]]
-x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
-score = get_new_word_dense_probe_score(x, y)
-print(score)
+print(get_and_score_new_word_probe(model, german_data, hook_name, activation_slice))
+
 # %%
 # Won't work due to exp(model.cfg.d_mlp) directions and each direction
 # takes a while. I feel like a hill climbing method should work starting
@@ -277,7 +217,7 @@ def grid_search():
     lr_model.fit(np.zeros((2, model.cfg.d_mlp)), np.array([0, 1]))
     
     activation_slice = np.s_[0, :-1, :]
-    x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
+    x, y = probing_utils.get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
     scaler = preprocessing.StandardScaler().fit(x)
     x = scaler.transform(x)
 
@@ -337,18 +277,16 @@ print(cosine_sim(is_space_direction, model.W_out[LAYER, NEURON, :]).item())
 # What about the learned probe?
 hook_name = f'blocks.11.hook_resid_post'
 activation_slice = np.s_[0, :-1, :]
-x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
-l8_mlp_out_probe = get_new_word_dense_probe(x, y)
-f1 = get_new_word_dense_probe_score(x, y)
+x, y = probing_utils.get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
+l8_mlp_out_probe = probing_utils.get_new_word_dense_probe(x, y)
 print(cosine_sim(is_space_direction, torch.tensor(l8_mlp_out_probe.coef_[0]).cuda()).item())
 # %%
 # The optimal L8 next token direction is positive but even less similar to the 
 # context neuron direction (0.03)
 hook_name = f'blocks.8.hook_mlp_out'
 activation_slice = np.s_[0, :-1, :]
-x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
-l8_mlp_out_probe = get_new_word_dense_probe(x, y)
-f1 = get_new_word_dense_probe_score(x, y)
+x, y = probing_utils.get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
+l8_mlp_out_probe = probing_utils.get_new_word_dense_probe(x, y)
 print(cosine_sim(is_space_direction, torch.tensor(l8_mlp_out_probe.coef_[0]).cuda()).item())
 
 # %%
@@ -390,10 +328,6 @@ for prompt in german_data:
     original_losses.append(original_loss)
     ablated_losses.append(ablated_loss)
     direct_effect.append(direct_effect)
-
-
-
-
 # %%
 
 # %%
