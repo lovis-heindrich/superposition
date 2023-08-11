@@ -7,8 +7,7 @@ import plotly.io as pio
 import pandas as pd
 import numpy as np
 import plotly.express as px 
-from collections import defaultdict
-from functools import partial
+import pickle
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score
@@ -59,20 +58,35 @@ print(get_and_score_new_word_probe(model, german_data, hook_name))
 activation_slice = np.s_[0, :-1, [neuron for neuron in range(model.cfg.d_mlp) if neuron != NEURON]]
 print(get_and_score_new_word_probe(model, german_data, hook_name, activation_slice)) # .888 f1
 # %%
-for i in range(model.cfg.d_mlp):
+for i in tqdm(range(model.cfg.d_mlp)):
     activation_slice = np.s_[0, :-1, [i]]
-    print(get_and_score_new_word_probe(model, german_data, hook_name, activation_slice)) # .888 f1, 0.94 mcc
+    x, y = probing_utils.get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
+    probe = probing_utils.get_probe(x[:20_000], y[:20_000])
+    f1, mcc = probing_utils.get_probe_score(probe, x[20_000:], y[20_000:])
+    with open(f'data/pythia_160m/layer_8/neuron_{i}.pkl', 'wb') as f:
+        pickle.dump({'f1': f1, 'mcc': mcc, 'probe': probe}, f)
+    # print(get_and_score_new_word_probe(model, german_data, hook_name, activation_slice)) # .888 f1, 0.94 mcc
+# %%
+for i in tqdm(range(282, model.cfg.d_mlp)):
+    activation_slice = np.s_[0, :-1, [i, NEURON]]
+    x, y = probing_utils.get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
+    probe = probing_utils.get_probe(x[:20_000], y[:20_000])
+    f1, mcc = probing_utils.get_probe_score(probe, x[20_000:], y[20_000:])
+    with open(f'data/pythia_160m/layer_8/neuron_{i}_neuron_{NEURON}.pkl', 'wb') as f:
+        pickle.dump({'f1': f1, 
+                     'mcc': mcc, 
+                     'probe': probe, 
+                     'first_neuron': i, 
+                     'second_neuron': NEURON}, f)
 # %% 
 scores = []
 activation_slice = np.s_[0, :-1, :]
-for layer in range(11):
+for layer in range(12):
     hook_name = f'blocks.{layer}.hook_mlp_out'
     scores.append(get_and_score_new_word_probe(model, german_data, hook_name, activation_slice))
 
 df = pd.DataFrame(scores, columns=["f1", "mcc"])
 fig = haystack_utils.line(df, title="F1 and MCC Scores at MLP out by layer", xlabel="Layer", ylabel="F1 Score")
-
-
 # %%
 # Dense probe performance on each residual and MLP out
 # We can do each MLP out using the current method
@@ -80,7 +94,6 @@ fig = haystack_utils.line(df, title="F1 and MCC Scores at MLP out by layer", xla
 # %%
 from probing_utils import get_new_word_labels_and_resid_activations
 activations_dict, labels_dict = get_new_word_labels_and_resid_activations(model, german_data)
-
 scores = []
 for i in range(len(activations_dict.items())):
     component = activations_dict[i]
@@ -88,37 +101,30 @@ for i in range(len(activations_dict.items())):
 
     probe = probing_utils.get_probe(component[:20_000], labels[:20_000])
     scores.append(probing_utils.get_probe_score(probe, component[20_000:], labels[20_000:]))
-
 # %% 
-
 _, cache = model.run_with_cache(german_data[0])
 _, component_labels = cache.decompose_resid(apply_ln=False, return_labels=True)
 haystack_utils.line(scores, xticks=component_labels, title="F1 Score at residual stream by layer", xlabel="Layer", ylabel="F1 Score")
 # %%
 l8_n2994_input = model.W_in[LAYER, :, NEURON].cpu().numpy()
-
 projections = []
 for component in activations_dict.values():
     projection = np.dot(component, l8_n2994_input)[:, np.newaxis]
     probe = probing_utils.get_probe(projection[:20_000], labels[:20_000])
     projections.append(probing_utils.get_probe_score(probe, projection[20_000:], labels[20_000:]))
-
 print(projections)
 haystack_utils.line(projections, xticks=component_labels, title="F1 Score of L8N2994 input direction in residual stream by layer", xlabel="Layer", ylabel="F1 Score")
-
 # %%
-
 # Other good context neuron == L5N2649
 cosine_sim = torch.nn.CosineSimilarity(dim=0)
-ctx_neuron_sims = []
-ctx_neuron_sims.append(cosine_sim(model.W_out[LAYER, NEURON, :], model.W_in[LAYER, :, NEURON]).item())
-ctx_neuron_sims.append(cosine_sim(model.W_out[5, 2649, :], model.W_in[5, :, 2649]).item())
-
-ctx_neuron_sims.append(cosine_sim(model.W_in[5, :, 2649], model.W_in[LAYER, :, NEURON]).item())
-ctx_neuron_sims.append(cosine_sim(model.W_out[5, 2649, :], model.W_out[LAYER, NEURON, :]).item())
-ctx_neuron_sims.append(cosine_sim(model.W_out[5, 2649, :], model.W_in[LAYER, :, NEURON]).item())
-ctx_neuron_sims.append(cosine_sim(model.W_in[5, :, 2649], model.W_out[LAYER, NEURON, :]).item())
-
+ctx_neuron_sims = [
+    cosine_sim(model.W_out[LAYER, NEURON, :], model.W_in[LAYER, :, NEURON]).item(),
+    cosine_sim(model.W_out[5, 2649, :], model.W_in[5, :, 2649]).item(),
+    cosine_sim(model.W_in[5, :, 2649], model.W_in[LAYER, :, NEURON]).item(),
+    cosine_sim(model.W_out[5, 2649, :], model.W_out[LAYER, NEURON, :]).item(),
+    cosine_sim(model.W_out[5, 2649, :], model.W_in[LAYER, :, NEURON]).item(),
+    cosine_sim(model.W_in[5, :, 2649], model.W_out[LAYER, NEURON, :]).item(),
+]
 sims = []
 for neuron_i in range(model.cfg.d_mlp):
     sims.append(cosine_sim(model.W_out[5, 2649, :], model.W_in[LAYER, :, neuron_i]).item())
@@ -127,7 +133,6 @@ for neuron_i in range(model.cfg.d_mlp):
     sims.append(cosine_sim(model.W_in[5, :, 2649], model.W_out[LAYER, neuron_i, :]).item())
 fig = px.histogram(sims, title="Cosine similarity between W_in/W_out of L5N2649 and L8 neurons. \
                    <br> Red lines are the similarity of L5N2649's W_in and W_out to L8N2994's W_in and W_out")
-
 for sim in ctx_neuron_sims:
     fig.add_vline(x=sim, line_dash="dash", line_color="red")
 fig.show()
@@ -165,15 +170,11 @@ fig.show()
 hook_name = f'blocks.{5}.mlp.hook_post'
 activation_slice = np.s_[0, :-1, [2649]]
 print(get_and_score_new_word_probe(model, german_data, hook_name, activation_slice))
-
 activation_slice = np.s_[0, :-1, [1162]]
 print(get_and_score_new_word_probe(model, german_data, hook_name, activation_slice))
-
 activation_slice = np.s_[0, :-1, [2649, 1162]]
 print(get_and_score_new_word_probe(model, german_data, hook_name, activation_slice))
-
-# %%
-activation_slice = np.s_[0, :-1, [1, 2]]
+activation_slice = np.s_[0, :-1, [1, 2]] # Random baseline
 print(get_and_score_new_word_probe(model, german_data, hook_name, activation_slice))
 
 # %%
@@ -229,7 +230,7 @@ def get_space_tokens():
         string_token = model.to_single_str_token(i)
         if not string_token:
             continue
-        if string_token[0] in [" "] # [" ", ",", ".", ":", ";", "!", "?"]:
+        if string_token[0] in [" ", ",", ".", ":", ";", "!", "?"]:
             space_tokens.append(i)
         else:
             non_space_tokens.append(i)
