@@ -10,6 +10,7 @@ import scipy.stats as stats
 import numpy as np
 import pandas as pd
 import plotly.express as px
+from statsmodels.nonparametric.smoothers_lowess import lowess
 
 pio.renderers.default = "notebook_connected+notebook"
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -227,7 +228,7 @@ df = df.sort_values(by=["is_space", "count"], ascending=False)
 grouped = df.groupby(["is_space", "count"]).mean().reset_index()
 px.line(grouped, y="dla", x="count", color="is_space", log_x=True, title="DLA for space and non_space tokens")
 # %%
-from statsmodels.nonparametric.smoothers_lowess import lowess
+
 
 df = pd.DataFrame(data, columns=["token", "is_space", "dla", "count"])
 df = df.sort_values(by=["is_space", "count"], ascending=False)
