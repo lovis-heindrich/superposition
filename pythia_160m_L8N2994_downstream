@@ -91,15 +91,16 @@ def get_neuron_activation_df(prompts, model, layers=(11,), start_index=5, ablati
         result_dfs.append(prompt_df)
     return pd.concat(result_dfs)
 
-df = get_neuron_activation_df(german_data[:10], model, layers=(11,), ablation_hooks=None)
-df_snap_peak_1 = get_neuron_activation_df(german_data[:10], model, layers=(11,), ablation_hooks=snap_to_peak_1_hook)
-df_snap_peak_2 = get_neuron_activation_df(german_data[:10], model, layers=(11,), ablation_hooks=snap_to_peak_2_hook)
+df = get_neuron_activation_df(german_data[:100], model, layers=(9, 10, 11,), ablation_hooks=None)
+df_snap_peak_1 = get_neuron_activation_df(german_data[:100], model, layers=(9, 10, 11,), ablation_hooks=snap_to_peak_1_hook)
+df_snap_peak_2 = get_neuron_activation_df(german_data[:100], model, layers=(9, 10,11,), ablation_hooks=snap_to_peak_2_hook)
 
 # %%
+layers=(9, 10, 11,)
 # Compute neuron wise peak metrics
 def activation_to_neuron_df(df, column_name="", mode: Literal["all", "peaks"] = "all"):
     neuron_data = []
-    for layer in [11]:
+    for layer in layers:
         for neuron in range(model.cfg.d_mlp):
             name = f"L{layer}N{neuron}"
             firing_rate = (df[name] > 0).sum() / ((df[name] > float("-inf")).sum() + 1e-10)
@@ -136,12 +137,30 @@ neuron_df_peak_1 = activation_to_neuron_df(df_snap_peak_1, column_name="P1 snapp
 neuron_df_peak_2 = activation_to_neuron_df(df_snap_peak_2, column_name="P2 snapped", mode="peaks")
 # %%
 full_df = neuron_df.merge(neuron_df_peak_1, on="Neuron").merge(neuron_df_peak_2, on="Neuron")
-p_2_f1_cols = ["Neuron", "Firing Rate"] + [col for col in full_df.columns if ("activation" in col)] + [col for col in full_df.columns if ("P2 F1" in col)]
-p_1_f1_cols = ["Neuron", "Firing Rate"] + [col for col in full_df.columns if ("activation" in col)] + [col for col in full_df.columns if ("P1 F1" in col)]
+p_2_f1_cols = ["Neuron", "Firing Rate", "P1 activation"] + [col for col in full_df.columns if ("P2 activation" in col)] + [col for col in full_df.columns if ("P2 F1" in col)]
+p_1_f1_cols = ["Neuron", "Firing Rate", "P2 activation"] + [col for col in full_df.columns if ("P1 activation" in col)] + [col for col in full_df.columns if ("P1 F1" in col)]
+full_df["P1 F1 increase"] = full_df["P1 F1"] - full_df["P1 F1 (P2 snapped)"]
+full_df["P2 F1 increase"] = full_df["P2 F1"] - full_df["P2 F1 (P1 snapped)"]
 # %%
 full_df = full_df.sort_values("P1 F1", ascending=False)
 full_df[p_1_f1_cols].head(10)
 # %%
 full_df = full_df.sort_values("P2 F1", ascending=False)
 full_df[p_2_f1_cols].head(10)
+# %%
+px.scatter(full_df, x="P1 F1", y="P2 F1", hover_name="Neuron", title="P1 vs P2 F1")
+# %%
+px.scatter(full_df, x="P1 activation", y="P2 activation", hover_name="Neuron", title="P1 vs P2 activation")
+# %%
+px.scatter(full_df, x="P1 F1", y="P1 F1 (P2 snapped)", hover_name="Neuron", title="L11 Neurons' P1 F1 vs P1 F1 (P2 snapped)")
+# %%
+px.scatter(full_df, x="P2 F1", y="P2 F1 (P1 snapped)", hover_name="Neuron", title="L11 Neurons' P2 F1 vs P2 F1 (P1 snapped)")
+# %%
+len(df)
+# %%
+full_df = full_df.sort_values("P1 F1 increase", ascending=False)
+full_df.loc[full_df["P1 F1"]>0.7,p_1_f1_cols].head(10)
+# %%
+full_df = full_df.sort_values("P2 F1 increase", ascending=False)
+full_df.loc[full_df["P2 F1"]>0.7, p_2_f1_cols].head(10)
 # %%
