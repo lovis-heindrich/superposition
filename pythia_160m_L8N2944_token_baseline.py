@@ -144,26 +144,31 @@ print(f"Unigram accuracy: {(TP + TN) / (TP + TN + FP + FN):.4f}")
 # %%
 
 # compute model activations for unigram statistic tokens
-common_german_tokens = haystack_utils.get_common_tokens(german_data[300], model, all_ignore, 500)
+common_german_tokens = haystack_utils.get_common_tokens(german_data[:500], model, all_ignore, 500)
 
 # %%
 def get_token_activations(end_token: str, model):
-    print(end_token)
-    prompts = haystack_utils.generate_random_prompts(end_token, model, common_german_tokens, 400, length=12)
+    prompts = haystack_utils.generate_random_prompts(end_token, model, common_german_tokens, 400, length=20)
     _, cache = model.run_with_cache(prompts)
-    fig = px.histogram(cache[f"blocks.{LAYER}.mlp.hook_post"][:, -1, NEURON].cpu().numpy(), nbins=100)
-    fig.show()
+    #fig = px.histogram(cache[f"blocks.{LAYER}.mlp.hook_post"][:, -1, NEURON].cpu().numpy(), nbins=50)
+    #fig.show()
     return cache[f"blocks.{LAYER}.mlp.hook_post"][:, -1, NEURON].mean().item()
+
+
+get_token_activations(" der", model)
+# %%
 
 # %%
 
 data = []
+common_tokens = torch.argwhere(all_counts > 100).flatten().tolist()
+print(len(common_tokens))
 for i, token in tqdm(enumerate(common_tokens)):
+    #print(token, model.to_single_str_token(token))
     next_is_space_prob = common_tokens_space_prob[i].item()
     average_activation = get_token_activations(model.to_single_str_token(token), model)
     count = all_counts[token].item()
     data.append([token, next_is_space_prob, average_activation, count])
-    break
 
 df = pd.DataFrame(data, columns=["token", "next_is_space_prob", "average_activation", "count"])
 # %%
@@ -172,3 +177,26 @@ px.histogram(df, x="next_is_space_prob", nbins=100)
 px.histogram(df, x="average_activation", nbins=100)
 # %%
 px.scatter(df, y="next_is_space_prob", x="average_activation")
+
+# %%
+# Plot german text activations
+activations = []
+for prompt in tqdm(german_data[:100]):
+    _, cache = model.run_with_cache(prompt)
+    activations.extend(cache[f"blocks.{LAYER}.mlp.hook_post"][:, :, NEURON].flatten().tolist())
+# add probability
+fig = px.histogram(activations, nbins=200, title="L8N2994 on German text", histnorm="probability")
+fig.update_layout(xaxis_title="Activation", yaxis_title="Probability")
+fig.show()
+# %%
+common_german_tokens = haystack_utils.get_common_tokens(german_data[:500], model, all_ignore, 500)
+#%%
+activations = []
+for i in range(50):
+    prompt = haystack_utils.generate_random_prompts(" und", model, common_german_tokens, 50, length=100)[:, :-1]
+    _, cache = model.run_with_cache(prompt)
+    activations.extend(cache[f"blocks.{LAYER}.mlp.hook_post"][:, :, NEURON].flatten().tolist())
+fig = px.histogram(activations, nbins=200, title="L8N2994 on random German tokens", histnorm="probability")
+fig.update_layout(xaxis_title="Activation", yaxis_title="Probability")
+fig.show()
+# %%
