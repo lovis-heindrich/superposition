@@ -41,7 +41,7 @@ def get_new_word_labels_and_activations(
     german_data: list[str], 
     activation_hook_name: str,
     activation_slice=np.s_[0, :-1, 2994:2995],
-    num_class_examples=20_000
+    num_class_examples=20_000, scale_x=True
 ) -> tuple[np.ndarray, np.ndarray]:
     '''Get activations and labels for predicting word end from activation'''
     x_dimension = get_act_dimension(model, german_data[0], activation_hook_name, activation_slice)
@@ -71,12 +71,15 @@ def get_new_word_labels_and_activations(
 
     x = np.concatenate((positive_activations, negative_activations))
     y = np.concatenate((np.full(positive_activations.shape[0], True), np.full(negative_activations.shape[0], False)))
+    if scale_x:
+        scaler = preprocessing.StandardScaler().fit(x)
+        x = scaler.transform(x)
     return shuffle(x, y)
 
 def get_new_word_labels_and_resid_activations(
     model: HookedTransformer, 
     german_data: list[str], 
-    num_class_examples=20_000
+    num_class_examples=20_000, scale_x=True
 ) -> tuple[defaultdict, np.ndarray]:
     '''Get activations and labels for predicting word end from activation'''
     _, cache = model.run_with_cache(model.to_tokens(german_data[0])[0])
@@ -111,20 +114,23 @@ def get_new_word_labels_and_resid_activations(
         activations = np.concatenate((positive_activations[i], negative_activations[i]))
         labels = np.concatenate((np.full(positive_activations[i].shape[0], True), np.full(negative_activations[i].shape[0], False)))
         x[i], y[i] = shuffle(activations, labels)
+    if scale_x:
+        scaler = preprocessing.StandardScaler().fit(x)
+        x = scaler.transform(x)
     return x, y
 
 def get_probe(x: np.ndarray, y: np.ndarray) -> float:
     # z-scoring can help with convergence
-    scaler = preprocessing.StandardScaler().fit(x)
-    x = scaler.transform(x)
+    #scaler = preprocessing.StandardScaler().fit(x)
+    #x = scaler.transform(x)
     # np.unique on y 
     lr_model = LogisticRegression(max_iter=2000)
     lr_model.fit(x, y)
     return lr_model
 
 def get_probe_score(lr_model: LogisticRegression, x, y) -> tuple[float, float]:
-    scaler = preprocessing.StandardScaler().fit(x)
-    x = scaler.transform(x)
+    #scaler = preprocessing.StandardScaler().fit(x)
+    #x = scaler.transform(x)
     preds = lr_model.predict(x)
     f1 = f1_score(y, preds)
     mcc = matthews_corrcoef(y, preds)
