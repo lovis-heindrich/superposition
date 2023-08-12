@@ -70,6 +70,7 @@ def neuron_wise_activations(layer, num_examples=10000):
 # %%
 def neuron_wise_f1(neuron_pos_activations, neuron_neg_activations, layer, train_size=10000, test_size=10000, column_name=""):
     neuron_data = []
+    column_name = f" ({column_name})" if column_name else ""
     for neuron in tqdm(range(model.cfg.d_mlp)):
         name = f"L{layer}N{neuron}"
         pos_activations = neuron_pos_activations[:(train_size+test_size)//2, neuron]
@@ -85,42 +86,25 @@ def neuron_wise_f1(neuron_pos_activations, neuron_neg_activations, layer, train_
         probe = probing_utils.get_probe(x[:train_size], y[:train_size])
         f1, mcc = probing_utils.get_probe_score(probe, x[train_size:], y[train_size:])
         neuron_data.append([name, f1, mcc, pos_activations.mean(), neg_activations.mean(), layer, neuron])
-        column_name = f" ({column_name})" if column_name else ""
     return pd.DataFrame(neuron_data, columns=["name", "f1"+column_name, "mcc"+column_name, "pos act"+column_name, "neg act"+column_name, "layer", "neuron"])
-
-# def neuron_wise_f1(neuron_space_activations, neuron_non_space_activations, layer, train_size=10000, test_size=10000):
-#     neuron_data = []
-#     for neuron in tqdm(range(model.cfg.d_mlp)):
-#         name = f"L{layer}N{neuron}"
-#         space_activations = neuron_space_activations[:(train_size+test_size)//2, neuron]
-#         non_space_activations = neuron_non_space_activations[:(train_size+test_size)//2, neuron]
-#         x = np.concatenate((space_activations, non_space_activations))
-#         x = x.reshape(-1, 1) # Reshape for sklearn
-#         scaler = preprocessing.StandardScaler()
-#         x = scaler.fit_transform(x)
-        
-#         y = np.concatenate((np.full((train_size+test_size)//2, True), np.full((train_size+test_size)//2, False)))
-#         x, y = shuffle(x, y, random_state=42)
-        
-#         probe = probing_utils.get_probe(x[:train_size], y[:train_size])
-#         f1, mcc = probing_utils.get_probe_score(probe, x[train_size:], y[train_size:])
-#         neuron_data.append([name, f1, mcc, space_activations.mean(), non_space_activations.mean(), layer, neuron])
-#     return pd.DataFrame(neuron_data, columns=["name", "f1", "mcc", "space_act", "non_space_act", "layer", "neuron"])
 # %%
-train_size=10000
-test_size=10000
-neuron_dfs = []
-for layer in [8]:#range(9):
-    neuron_space_activations, neuron_non_space_activations = neuron_wise_activations(layer, num_examples=(train_size+test_size)//2)
-    neuron_df = neuron_wise_f1(neuron_space_activations, neuron_non_space_activations, layer, train_size=train_size, test_size=test_size, column_name="is_space")
-    neuron_dfs.append(neuron_df)
-full_df = pd.concat(neuron_dfs)
-
-# %%
-#full_df.to_csv("data/pythia_160m/space_probing_baseline.csv")
+TRAIN = False
+if TRAIN:
+    train_size=10000
+    test_size=10000
+    neuron_dfs = []
+    for layer in range(9):
+        neuron_space_activations, neuron_non_space_activations = neuron_wise_activations(layer, num_examples=(train_size+test_size)//2)
+        neuron_df = neuron_wise_f1(neuron_space_activations, neuron_non_space_activations, layer, train_size=train_size, test_size=test_size, column_name="is_space")
+        neuron_dfs.append(neuron_df)
+    space_df = pd.concat(neuron_dfs)
+    space_df.to_csv("data/pythia_160m/space_probing_baseline.csv")
+else:
+    space_df = pd.read_csv("data/pythia_160m/space_probing_baseline.csv")
 #%%
-full_df = full_df.sort_values("f1", ascending=False)
-full_df.head(10)
+print(space_df.columns)
+space_df = space_df.sort_values("f1 (next_is_space)", ascending=False)
+space_df.head(10)
 # %%
 
 ## GERMAN PROBES
@@ -154,23 +138,32 @@ def neuron_wise_german_activations(layer, num_examples=10000):
     print(german_activations.shape, english_activations.shape)
     return german_activations, english_activations
 
-def neuron_wise_f1(pos_activations, neg_activations, layer, train_size=10000, test_size=10000, column_name=""):
-    neuron_data = []
-    for neuron in tqdm(range(model.cfg.d_mlp)):
-        name = f"L{layer}N{neuron}"
-        pos_activations_activations = pos_activations[:(train_size+test_size)//2, neuron]
-        neg_activations = neg_activations[:(train_size+test_size)//2, neuron]
-        x = np.concatenate((pos_activations_activations, neg_activations))
-        x = x.reshape(-1, 1) # Reshape for sklearn
-        scaler = preprocessing.StandardScaler()
-        x = scaler.fit_transform(x)
-        
-        y = np.concatenate((np.full((train_size+test_size)//2, True), np.full((train_size+test_size)//2, False)))
-        x, y = shuffle(x, y, random_state=42)
-        
-        probe = probing_utils.get_probe(x[:train_size], y[:train_size])
-        f1, mcc = probing_utils.get_probe_score(probe, x[train_size:], y[train_size:])
-        neuron_data.append([name, f1, mcc, pos_activations_activations.mean(), neg_activations.mean(), layer, neuron])
-        column_name = f" ({column_name})" if column_name else ""
-    return pd.DataFrame(neuron_data, columns=["name", "f1"+column_name, "mcc"+column_name, "pos act"+column_name, "neg act"+column_name, "layer", "neuron"])
+# %%
+TRAIN = False
+if TRAIN:
+    train_size=10000
+    test_size=10000
+    neuron_dfs = []
+    for layer in range(9):
+        german_activations, english_activations = neuron_wise_german_activations(layer, num_examples=(train_size+test_size)//2)
+        neuron_df = neuron_wise_f1(german_activations, english_activations, layer, train_size=train_size, test_size=test_size, column_name="is_german")
+        neuron_dfs.append(neuron_df)
+    german_df = pd.concat(neuron_dfs)
+    german_df.to_csv("data/pythia_160m/german_probing_baseline.csv")
+else:
+    german_df = pd.read_csv("data/pythia_160m/german_probing_baseline.csv")
+#%%
+print(german_df.columns)
+german_df = german_df.sort_values("f1 (is_german)", ascending=False)
+german_df.head(10)
+# %%
+space_df = space_df.sort_values("f1 (next_is_space)", ascending=False)
+space_df.head(10)
+# %%
+full_df = pd.merge(space_df, german_df, on=["layer", "neuron", "name"])
+full_df.columns
+# %%
+px.scatter(full_df, x="f1 (next_is_space)", y="f1 (is_german)", hover_name="name", hover_data=["pos act (next_is_space)", "neg act (next_is_space)", "pos act (is_german)", "neg act (is_german)"], 
+           color="layer", color_continuous_scale='Rainbow', title="Neuron-wise F1 score for is_german and next_next_is_space")
 
+# %%
