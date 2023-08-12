@@ -14,17 +14,14 @@ from sklearn.metrics import f1_score
 
 import haystack_utils
 import hook_utils
-import plotting_utils
 import probing_utils
 from probing_utils import get_and_score_new_word_probe
-from sklearn import preprocessing
 
 pio.renderers.default = "notebook_connected+notebook"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 torch.autograd.set_grad_enabled(False)
 torch.set_grad_enabled(False)
 
-# %%
 %reload_ext autoreload
 %autoreload 2
 
@@ -39,46 +36,44 @@ english_data = haystack_utils.load_json_data("data/english_europarl.json")[:200]
 
 LAYER, NEURON = 8, 2994
 
-# %%
-# Check out the learned weights
-# hook_name = f'blocks.{LAYER}.mlp.hook_post'
-# activation_slice = np.s_[0, :-1, [neuron for neuron in range(model.cfg.d_mlp) if neuron != NEURON]]
-# x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
-# probe = get_new_word_dense_probe(x, y)
-# haystack_utils.line(np.sort(np.absolute(probe.coef_[0])), title="Probe Coefficients", xlabel="Neuron", ylabel="Coefficient")
+hook_name = f'blocks.{LAYER}.mlp.hook_post'
 # %%
 # Trimodal neuron only
-hook_name = f'blocks.{LAYER}.mlp.hook_post'
-# x, y = get_new_word_labels_and_activations(model, german_data, hook_name)
-# f1, mcc = get_new_word_dense_probe_score(x, y)
-# print(f1, mcc) # f1 0.799
 print(get_and_score_new_word_probe(model, german_data, hook_name))
-# %%
-# The final position's activation has no label and is excluded
 activation_slice = np.s_[0, :-1, [neuron for neuron in range(model.cfg.d_mlp) if neuron != NEURON]]
 print(get_and_score_new_word_probe(model, german_data, hook_name, activation_slice)) # .888 f1
 # %%
 activation_slice = np.s_[0, :-1, :]
 x, y = probing_utils.get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
-single_neurons = []
+# %%
+one_sparse_probe_scores = []
 for i in tqdm(range(model.cfg.d_mlp)):
     probe = probing_utils.get_probe(x[:20_000, [i]], y[:20_000])
     f1, mcc = probing_utils.get_probe_score(probe, x[20_000:, [i]], y[20_000:])
-    single_neurons.append([f1, mcc])
+    one_sparse_probe_scores.append([f1, mcc])
 
-single_neurons_df = pd.DataFrame(single_neurons, columns=["f1", "mcc"])
+one_sparse_probe_scores_df = pd.DataFrame(one_sparse_probe_scores, columns=["f1", "mcc"])
 with open(f'data/pythia_160m/layer_8/single_neurons_df.pkl', 'wb') as f:
-    pickle.dump(single_neurons_df, f)
+    pickle.dump(one_sparse_probe_scores_df, f)
 
-neuron_and_2994 = []
-for i in tqdm(range(model.cfg.d_mlp)):
-    probe = probing_utils.get_probe(x[:20_000, [i, NEURON]], y[:20_000])
-    f1, mcc = probing_utils.get_probe_score(probe, x[20_000:, [i, NEURON]], y[20_000:])
-    neuron_and_2994.append([f1, mcc, NEURON])
+# %%
+with open(f'data/pythia_160m/layer_8/single_neurons_df.pkl', 'rb') as f:
+    one_sparse_probe_scores_df = pickle.load(f)
 
-neuron_and_2994_df = pd.DataFrame(neuron_and_2994, columns=["f1", "mcc", "neuron"])
-with open(f'data/pythia_160m/layer_8/neuron_and_2994_df.pkl', 'wb') as f:
-    pickle.dump(neuron_and_2994_df, f)
+top_one_neurons = one_sparse_probe_scores_df.sort_values(by="mcc", ascending=False).head(10).index.tolist()
+
+two_sparse_probe_scores = []
+for i in top_one_neurons:
+    for j in tqdm(range(model.cfg.d_mlp)):
+        if i == j:
+            continue
+        probe = probing_utils.get_probe(x[:20_000, [i, j]], y[:20_000])
+        f1, mcc = probing_utils.get_probe_score(probe, x[20_000:, [i, j]], y[20_000:])
+        two_sparse_probe_scores.append([f1, mcc, i, j])
+
+two_sparse_probe_scores_df = pd.DataFrame(two_sparse_probe_scores, columns=["f1", "mcc", "neuron_1", "neuron_2"])
+with open(f'data/pythia_160m/layer_8/probes_two_sparse_df.pkl', 'wb') as f:
+    pickle.dump(two_sparse_probe_scores_df, f)
 
 # %%
 scores = []
@@ -191,8 +186,6 @@ def grid_search():
     
     activation_slice = np.s_[0, :-1, :]
     x, y = probing_utils.get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
-    scaler = preprocessing.StandardScaler().fit(x)
-    x = scaler.transform(x)
 
     # Define bias range for grid search
     bias_range = np.linspace(-5, 5, 100)
@@ -301,7 +294,6 @@ for prompt in german_data:
     original_losses.append(original_loss)
     ablated_losses.append(ablated_loss)
     direct_effect.append(direct_effect)
-# %%
 
 # %%
 # Can get top 10,000 german tokens, take the elbow, then filter our positive class 
@@ -319,11 +311,15 @@ for prompt in german_data:
 # with model.hooks(deactivate_context_hooks):
 #     ablated_logits = model(german_data[:50], return_type='logits')
 
-# %%
-
-print(german_data[1])
-model.generate(german_data[1], max_new_tokens=100)
+# print(german_data[1])
+# model.generate(german_data[1], max_new_tokens=100)
 
 # %%
 # Context neuron activations with L5 context neuron ablated
 
+# Check out the learned weights
+# hook_name = f'blocks.{LAYER}.mlp.hook_post'
+# activation_slice = np.s_[0, :-1, [neuron for neuron in range(model.cfg.d_mlp) if neuron != NEURON]]
+# x, y = get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
+# probe = get_new_word_dense_probe(x, y)
+# haystack_utils.line(np.sort(np.absolute(probe.coef_[0])), title="Probe Coefficients", xlabel="Neuron", ylabel="Coefficient")

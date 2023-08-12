@@ -140,6 +140,7 @@ def get_and_score_new_word_probe(
     model: HookedTransformer, 
     german_data: list[str], 
     activation_hook_name: str,
+    # The final position's activation has no label and is excluded
     activation_slice=np.s_[0, :-1, 2994:2995]
 ):
     x, y = get_new_word_labels_and_activations(model, german_data, activation_hook_name, activation_slice)
