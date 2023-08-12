@@ -61,7 +61,6 @@ with open(f'data/pythia_160m/layer_8/single_neurons_df.pkl', 'rb') as f:
     one_sparse_probe_scores_df = pickle.load(f)
 
 top_one_neurons = one_sparse_probe_scores_df.sort_values(by="mcc", ascending=False).head(10).index.tolist()
-
 two_sparse_probe_scores = []
 for i in top_one_neurons:
     for j in tqdm(range(model.cfg.d_mlp)):
@@ -72,7 +71,24 @@ for i in top_one_neurons:
         two_sparse_probe_scores.append([f1, mcc, i, j])
 
 two_sparse_probe_scores_df = pd.DataFrame(two_sparse_probe_scores, columns=["f1", "mcc", "neuron_1", "neuron_2"])
-with open(f'data/pythia_160m/layer_8/probes_two_sparse_df.pkl', 'wb') as f:
+with open(f'data/pythia_160m/layer_8/probes_two_sparse_df_10_mcc.pkl', 'wb') as f:
+    pickle.dump(two_sparse_probe_scores_df, f)
+
+# %%
+with open(f'data/pythia_160m/layer_8/single_neurons_df.pkl', 'rb') as f:
+    one_sparse_probe_scores_df = pickle.load(f)
+top_one_neurons_by_f1 = one_sparse_probe_scores_df.sort_values(by="f1", ascending=False).head(10).index.tolist()
+two_sparse_probe_scores = []
+for i in top_one_neurons_by_f1:
+    for j in tqdm(range(model.cfg.d_mlp)):
+        if i == j:
+            continue
+        probe = probing_utils.get_probe(x[:20_000, [i, j]], y[:20_000])
+        f1, mcc = probing_utils.get_probe_score(probe, x[20_000:, [i, j]], y[20_000:])
+        two_sparse_probe_scores.append([f1, mcc, i, j])
+
+two_sparse_probe_scores_df = pd.DataFrame(two_sparse_probe_scores, columns=["f1", "mcc", "neuron_1", "neuron_2"])
+with open(f'data/pythia_160m/layer_8/probes_two_sparse_df_10_f1.pkl', 'wb') as f:
     pickle.dump(two_sparse_probe_scores_df, f)
 
 # %%
