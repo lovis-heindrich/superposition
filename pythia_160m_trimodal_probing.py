@@ -58,27 +58,26 @@ print(get_and_score_new_word_probe(model, german_data, hook_name))
 activation_slice = np.s_[0, :-1, [neuron for neuron in range(model.cfg.d_mlp) if neuron != NEURON]]
 print(get_and_score_new_word_probe(model, german_data, hook_name, activation_slice)) # .888 f1
 # %%
-for i in tqdm(range(model.cfg.d_mlp)):
-    activation_slice = np.s_[0, :-1, [i]]
-    x, y = probing_utils.get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
-    probe = probing_utils.get_probe(x[:20_000], y[:20_000])
-    f1, mcc = probing_utils.get_probe_score(probe, x[20_000:], y[20_000:])
+activation_slice = np.s_[0, :-1, :]
+x, y = probing_utils.get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
+
+# %%
+for i in tqdm(range(403, model.cfg.d_mlp)):
+    probe = probing_utils.get_probe(x[:20_000, [i]], y[:20_000])
+    f1, mcc = probing_utils.get_probe_score(probe, x[20_000:, [i]], y[20_000:])
     with open(f'data/pythia_160m/layer_8/neuron_{i}.pkl', 'wb') as f:
         pickle.dump({'f1': f1, 'mcc': mcc, 'probe': probe}, f)
-    # print(get_and_score_new_word_probe(model, german_data, hook_name, activation_slice)) # .888 f1, 0.94 mcc
 # %%
-for i in tqdm(range(282, model.cfg.d_mlp)):
-    activation_slice = np.s_[0, :-1, [i, NEURON]]
-    x, y = probing_utils.get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
-    probe = probing_utils.get_probe(x[:20_000], y[:20_000])
-    f1, mcc = probing_utils.get_probe_score(probe, x[20_000:], y[20_000:])
+for i in tqdm(range(0, 282)):
+    probe = probing_utils.get_probe(x[:20_000, [i, NEURON]], y[:20_000])
+    f1, mcc = probing_utils.get_probe_score(probe, x[20_000:, [i, NEURON]], y[20_000:])
     with open(f'data/pythia_160m/layer_8/neuron_{i}_neuron_{NEURON}.pkl', 'wb') as f:
         pickle.dump({'f1': f1, 
                      'mcc': mcc, 
                      'probe': probe, 
                      'first_neuron': i, 
                      'second_neuron': NEURON}, f)
-# %% 
+# %%
 scores = []
 activation_slice = np.s_[0, :-1, :]
 for layer in range(12):
