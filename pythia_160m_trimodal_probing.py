@@ -60,23 +60,26 @@ print(get_and_score_new_word_probe(model, german_data, hook_name, activation_sli
 # %%
 activation_slice = np.s_[0, :-1, :]
 x, y = probing_utils.get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
-
-# %%
-for i in tqdm(range(403, model.cfg.d_mlp)):
+single_neurons = []
+for i in tqdm(range(model.cfg.d_mlp)):
     probe = probing_utils.get_probe(x[:20_000, [i]], y[:20_000])
     f1, mcc = probing_utils.get_probe_score(probe, x[20_000:, [i]], y[20_000:])
-    with open(f'data/pythia_160m/layer_8/neuron_{i}.pkl', 'wb') as f:
-        pickle.dump({'f1': f1, 'mcc': mcc, 'probe': probe}, f)
-# %%
-for i in tqdm(range(0, 282)):
+    single_neurons.append([f1, mcc])
+
+single_neurons_df = pd.DataFrame(single_neurons, columns=["f1", "mcc"])
+with open(f'data/pythia_160m/layer_8/single_neurons_df.pkl', 'wb') as f:
+    pickle.dump(single_neurons_df, f)
+
+neuron_and_2994 = []
+for i in tqdm(range(model.cfg.d_mlp)):
     probe = probing_utils.get_probe(x[:20_000, [i, NEURON]], y[:20_000])
     f1, mcc = probing_utils.get_probe_score(probe, x[20_000:, [i, NEURON]], y[20_000:])
-    with open(f'data/pythia_160m/layer_8/neuron_{i}_neuron_{NEURON}.pkl', 'wb') as f:
-        pickle.dump({'f1': f1, 
-                     'mcc': mcc, 
-                     'probe': probe, 
-                     'first_neuron': i, 
-                     'second_neuron': NEURON}, f)
+    neuron_and_2994.append([f1, mcc, NEURON])
+
+neuron_and_2994_df = pd.DataFrame(neuron_and_2994, columns=["f1", "mcc", "neuron"])
+with open(f'data/pythia_160m/layer_8/neuron_and_2994_df.pkl', 'wb') as f:
+    pickle.dump(neuron_and_2994_df, f)
+
 # %%
 scores = []
 activation_slice = np.s_[0, :-1, :]
