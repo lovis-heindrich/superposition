@@ -106,7 +106,12 @@ def weighted_mean(mean_acts: list[Float[Tensor, "n_acts n_neurons"]], batch_size
     return weighted_mean
 
 
-def get_average_loss(data: List[str], model: HookedTransformer, crop_context=-1, fwd_hooks=[], positionwise=False):
+def get_average_loss(
+        data: list[str], 
+        model: HookedTransformer, 
+        crop_context=-1, 
+        fwd_hooks=[], 
+        positionwise=False):
     """
     Mean over all tokens in the data, not the mean of the mean of each batch. 
     Uses a mask to account for padding tokens, differing prompt lengths, and final tokens not having a loss value.
