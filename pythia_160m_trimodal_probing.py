@@ -40,6 +40,9 @@ hook_name = f'blocks.{LAYER}.mlp.hook_post'
 # %%
 # Trimodal neuron only
 print(get_and_score_new_word_probe(model, german_data, hook_name))
+# %%
+print(get_and_score_new_word_probe(model, german_data, hook_name, np.s_[0, :-1, :]))
+# %%
 activation_slice = np.s_[0, :-1, [neuron for neuron in range(model.cfg.d_mlp) if neuron != NEURON]]
 print(get_and_score_new_word_probe(model, german_data, hook_name, activation_slice)) # .888 f1
 # %%

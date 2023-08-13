@@ -119,7 +119,7 @@ def get_new_word_labels_and_resid_activations(
         x = scaler.transform(x)
     return x, y
 
-def get_probe(x: np.ndarray, y: np.ndarray) -> float:
+def get_probe(x: np.ndarray, y: np.ndarray) -> LogisticRegression:
     # z-scoring can help with convergence
     #scaler = preprocessing.StandardScaler().fit(x)
     #x = scaler.transform(x)
@@ -128,9 +128,7 @@ def get_probe(x: np.ndarray, y: np.ndarray) -> float:
     lr_model.fit(x, y)
     return lr_model
 
-def get_probe_score(lr_model: LogisticRegression, x, y) -> tuple[float, float]:
-    #scaler = preprocessing.StandardScaler().fit(x)
-    #x = scaler.transform(x)
+def get_probe_score(lr_model: LogisticRegression, x: np.ndarray, y: np.ndarray) -> tuple[float, float]:
     preds = lr_model.predict(x)
     f1 = f1_score(y, preds)
     mcc = matthews_corrcoef(y, preds)
