@@ -201,8 +201,8 @@ mid_word_prompt = " Das Museum bot ihnen einen Rabatt an, weil sie Studenten"
 #new_word_prompt = " Zum Wandern gehen sie gerne in der Region im"
 #mid_word_prompt = " Zum Wandern gehen sie gerne in den Regionen"
 
-new_word_prompt = " Guten Wein kann man besonders in der Region s"
-mid_word_prompt = " Guten Wein kann man besonders in den Regionen"
+# new_word_prompt = " Guten Wein kann man besonders in der Region s"
+# mid_word_prompt = " Guten Wein kann man besonders in den Regionen"
 
 
 haystack_utils.print_tokenized_word(mid_word_prompt, model), haystack_utils.print_tokenized_word(new_word_prompt, model)
@@ -222,7 +222,7 @@ for prompt in tqdm(german_data):
     # 3. Apply is_space mask
     is_space = haystack_utils.get_next_token_punctuation_mask(tokens, model)[:-1]
     # 4. Store next_is_space per token
-    all_counts.index_add_(0, tokens[:-1], torch.ones_like(tokens, dtype=torch.float))
+    all_counts.index_add_(0, tokens[:-1], torch.ones_like(tokens[:-1], dtype=torch.float))
     next_is_space_counts.index_add_(0, tokens, is_space.to(torch.float))
 
 print(all_counts.sum(), next_is_space_counts.sum(), all_counts.sum() - next_is_space_counts.sum())
@@ -261,7 +261,7 @@ print(len(difficult_tokens))
 print(model.to_str_tokens(difficult_tokens.flatten()))
 
 # %%
-substr = "tokoll"
+substr = " Außen"
 for prompt in german_data[:50]:
     if substr in prompt:
         index = prompt.index(substr)
