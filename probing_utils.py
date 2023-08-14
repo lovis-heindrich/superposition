@@ -8,6 +8,7 @@ from transformer_lens import HookedTransformer
 import plotly.io as pio
 import pandas as pd
 import numpy as np
+from concept_erasure import LeaceEraser
 
 from sklearn import preprocessing
 from sklearn.linear_model import LogisticRegression
@@ -145,3 +146,10 @@ def get_and_score_new_word_probe(
     probe = get_probe(x[:20_000], y[:20_000])
     f1, mcc = get_probe_score(probe, x[20_000:], y[20_000:])
     return f1, mcc
+
+
+def get_leace_eraser(x: np.ndarray, y: np.ndarray):
+    X_t = torch.from_numpy(x)
+    Y_t = torch.from_numpy(~y)
+    eraser = LeaceEraser.fit(X_t, Y_t)
+    return eraser
