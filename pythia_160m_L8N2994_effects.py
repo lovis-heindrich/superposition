@@ -7,15 +7,15 @@ from tqdm.auto import tqdm
 import plotly.io as pio
 import haystack_utils
 import pandas as pd
+import numpy as np
 import plotly.express as px
 import scipy.stats as stats
+import probing_utils
 
 pio.renderers.default = "notebook_connected+notebook"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 torch.autograd.set_grad_enabled(False)
 torch.set_grad_enabled(False)
-
-
 
 %reload_ext autoreload
 %autoreload 2
@@ -278,6 +278,55 @@ fig = px.bar(grouped_df, x="Type", y="mean", error_y="CI", title="Loss on contin
 fig.update_layout(
     yaxis=dict(range=[1, 2]),
     xaxis=dict(categoryorder='array', categoryarray=["Original", "Activated P1", "Direct P2", "Indirect P2", "Total P2"]),
+    xaxis_title="",
+    yaxis_title="Loss"
+)
+fig.show()
+# %%
+# Ablate LEACE direction, evaluate continuation token loss
+x, y = probing_utils.get_new_word_labels_and_activations(model, german_data, 'blocks.8.mlp.hook_post', np.s_[0, :-1, :])
+eraser = probing_utils.get_leace_eraser(x, y)
+def erase_next_token_is_space_l8(value, hook):
+    value = eraser(value.cpu()).cuda()
+    return value
+erase_feature_l8_hooks = [('blocks.8.mlp.hook_post', erase_next_token_is_space_l8)]
+
+data = []
+for prompt in tqdm(german_data[:200]):
+    tokens = model.to_tokens(prompt)[0]
+    mask = get_next_token_punctuation_mask(tokens)[:-1].cpu()
+
+    original_leace, activated, ablated_leace, direct_effect_leace, indirect_effect_leace = haystack_utils.get_context_effect(prompt, model,
+                            context_ablation_hooks=erase_feature_l8_hooks, context_activation_hooks=[],
+                            downstream_components=downstream_components, pos=None)
+
+    # Check new word losses when snapping to peak 1
+    original_leace = original_leace.flatten()[mask].tolist()
+    activated = activated.flatten()[mask].tolist()
+    ablated_leace = ablated_leace.flatten()[mask].tolist()
+    direct_effect_leace = direct_effect_leace.flatten()[mask].tolist()#
+    indirect_effect_leace = indirect_effect_leace.flatten()[mask].tolist()
+
+    data.extend([["Original", loss] for loss in original_leace])
+    data.extend([["Total LEACE", loss] for loss in ablated_leace])
+    data.extend([["Direct LEACE", loss] for loss in direct_effect_leace])
+    data.extend([["Indirect LEACE", loss] for loss in indirect_effect_leace])
+    #break
+
+df = pd.DataFrame(data, columns=["Type", "Loss"])
+
+# Group by 'Type' and calculate mean and 95% confidence interval
+grouped_df = df.groupby('Type')['Loss'].agg(['mean', 'count', 'std'])
+grouped_df['CI'] = grouped_df['std'] / grouped_df['count']**0.5 * stats.t.ppf((1 + 0.95) / 2, grouped_df['count'] - 1)
+
+# Reset index to use 'Type' as a column
+grouped_df.reset_index(inplace=True)
+# Create the barplot
+# %%
+fig = px.bar(grouped_df, x="Type", y="mean", error_y="CI", title="Loss on continuation tokens when removing the next_token_is_space direction")
+fig.update_layout(
+    yaxis=dict(range=[3.5, 4]),
+    xaxis=dict(categoryorder='array', categoryarray=["Original", "Direct LEACE", "Indirect LEACE", "Total LEACE"]),
     xaxis_title="",
     yaxis_title="Loss"
 )
