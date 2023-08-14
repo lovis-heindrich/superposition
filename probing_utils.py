@@ -114,10 +114,55 @@ def get_new_word_labels_and_resid_activations(
     for i in range(resid.shape[0]):
         activations = np.concatenate((positive_activations[i], negative_activations[i]))
         labels = np.concatenate((np.full(positive_activations[i].shape[0], True), np.full(negative_activations[i].shape[0], False)))
+        if scale_x:
+            scaler = preprocessing.StandardScaler().fit(activations)
+            activations = scaler.transform(activations)
         x[i], y[i] = shuffle(activations, labels)
+    return x, y
+
+def get_is_german_labels_and_resid_activations(
+    model: HookedTransformer, 
+    german_data: list[str], 
+    english_data: list[str],
+    layer=8,
+    num_class_examples=20_000, scale_x=True
+) -> tuple[defaultdict, np.ndarray]:
+    '''Get activations and labels for predicting word end from activation'''
+    positive_activations = np.empty((num_class_examples, model.cfg.d_model))
+    start = 0
+    for prompt in german_data:
+        tokens = model.to_tokens(prompt)[0]
+        _, cache = model.run_with_cache(tokens)
+        acts = cache[f'blocks.{layer}.hook_resid_pre'][0].cpu().numpy()
+
+
+        if start < num_class_examples:
+            end = min(start + acts.shape[0], num_class_examples)
+            positive_activations[start:end] = acts[:end - start]
+            start = end
+        if start >= num_class_examples:
+            break
+
+    negative_activations = np.empty((num_class_examples, model.cfg.d_model))
+    start = 0
+    for prompt in english_data:
+        tokens = model.to_tokens(prompt)[0]
+        _, cache = model.run_with_cache(tokens)
+        acts = cache[f'blocks.{layer}.hook_resid_pre'][0].cpu().numpy()
+
+        if start < num_class_examples:
+            end = min(start + acts.shape[0], num_class_examples)
+            negative_activations[start:end] = acts[:end - start]
+            start = end
+        if start >= num_class_examples:
+            break
+        
+    activations = np.concatenate((positive_activations, negative_activations))
+    labels = np.concatenate((np.full(positive_activations.shape[0], True), np.full(negative_activations.shape[0], False)))
     if scale_x:
-        scaler = preprocessing.StandardScaler().fit(x)
-        x = scaler.transform(x)
+        scaler = preprocessing.StandardScaler().fit(activations)
+        activations = scaler.transform(activations)
+    x, y = shuffle(activations, labels)
     return x, y
 
 def get_probe(x: np.ndarray, y: np.ndarray) -> LogisticRegression:

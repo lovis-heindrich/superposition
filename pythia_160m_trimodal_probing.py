@@ -93,7 +93,6 @@ for i in top_one_neurons_by_f1:
 two_sparse_probe_scores_df = pd.DataFrame(two_sparse_probe_scores, columns=["f1", "mcc", "neuron_1", "neuron_2"])
 with open(f'data/pythia_160m/layer_8/probes_two_sparse_df_10_f1.pkl', 'wb') as f:
     pickle.dump(two_sparse_probe_scores_df, f)
-
 # %%
 scores = []
 activation_slice = np.s_[0, :-1, :]
@@ -104,6 +103,22 @@ for layer in range(12):
 df = pd.DataFrame(scores, columns=["f1", "mcc"])
 fig = haystack_utils.line(df, title="F1 and MCC Scores at MLP out by layer", xlabel="Layer", ylabel="F1 Score")
 # %%
+cosine_sim = torch.nn.CosineSimilarity(dim=0)
+# mean ablate context neuron, train at hook out, compare cosine sim with context neuron
+neuron_out = model.W_out[8, 2994] # 768
+activation_slice = np.s_[0, :-1, :]
+
+mlp_out_sims = []
+with model.hooks([hook_utils.get_ablate_neuron_hook(8, 2994, 4.5)]):
+    for layer in range(12):
+        hook_name = f'blocks.{layer}.hook_mlp_out'
+        x, y = probing_utils.get_new_word_labels_and_activations(model, german_data, hook_name, activation_slice)
+        probe = probing_utils.get_probe(x[:20_000], y[:20_000])
+        mlp_out_sims.append(cosine_sim(torch.from_numpy(probe.coef_[0]).cuda(), neuron_out).cpu())
+
+# %%
+haystack_utils.line([sim.cpu() for sim in mlp_out_sims], title='Cosine sim between MLP out probe at each layer and context neuron')
+# %%
 # Dense probe performance on each residual and MLP out
 # We can do each MLP out using the current method
 # Need a new method for the dimensions of the residual
@@ -111,16 +126,44 @@ fig = haystack_utils.line(df, title="F1 and MCC Scores at MLP out by layer", xla
 from probing_utils import get_new_word_labels_and_resid_activations
 activations_dict, labels_dict = get_new_word_labels_and_resid_activations(model, german_data)
 scores = []
-for i in range(len(activations_dict.items())):
-    component = activations_dict[i]
-    labels = labels_dict[i]
+resid_sims = []
+with model.hooks([hook_utils.get_ablate_neuron_hook(8, 2994, 4.5)]):
+    for i in range(len(activations_dict.items())):
+        component = activations_dict[i]
+        labels = labels_dict[i]
+        probe = probing_utils.get_probe(component[:20_000], labels[:20_000])
+        resid_sims.append(cosine_sim(torch.from_numpy(probe.coef_[0]).cuda(), neuron_out).cpu())
+        scores.append(probing_utils.get_probe_score(probe, component[20_000:], labels[20_000:]))
 
-    probe = probing_utils.get_probe(component[:20_000], labels[:20_000])
-    scores.append(probing_utils.get_probe_score(probe, component[20_000:], labels[20_000:]))
-# %% 
 _, cache = model.run_with_cache(german_data[0])
 _, component_labels = cache.decompose_resid(apply_ln=False, return_labels=True)
 haystack_utils.line(scores, xticks=component_labels, title="F1 Score at residual stream by layer", xlabel="Layer", ylabel="F1 Score")
+haystack_utils.line(resid_sims, xticks=component_labels, title='Cosine sim between resid probe at each layer and context neuron')
+
+# %%
+# Dense probe on whether the residual stream is in German or not, try ablating that direction
+x, y = probing_utils.get_is_german_labels_and_resid_activations(model, german_data, english_data, 8)
+probe = probing_utils.get_probe(component[:20_000], labels[:20_000])
+probe_coefs = torch.from_numpy(probe.coef_[0]).cuda().float()
+
+hook_name = f'blocks.8.hook_resid_pre'
+def hook_fn(value, hook):
+    value = value - torch.einsum('k,ijk->ijk', probe_coefs, value)
+    return value
+hooks = [(hook_name, hook_fn)]
+def is_german_ablation():
+    with model.hooks(hooks + [('blocks.8.mlp.hook_post', hook_utils.save_activation)]):
+        original_loss = haystack_utils.get_average_loss(german_data, model)
+    with model.hooks(hooks + [hook_utils.get_snap_to_peak_1_hook()]):
+        ablated_loss = haystack_utils.get_average_loss(german_data, model)
+    with model.hooks(hooks + [hook_utils.get_snap_to_peak_2_hook()]):
+        second_ablated_loss = haystack_utils.get_average_loss(german_data, model)
+    print(original_loss, ablated_loss, second_ablated_loss)
+
+is_german_ablation()
+
+acts = model.hook_dict['blocks.8.mlp.hook_post'].ctx['activation']
+print(acts)
 # %%
 l8_n2994_input = model.W_in[LAYER, :, NEURON].cpu().numpy()
 projections = []
