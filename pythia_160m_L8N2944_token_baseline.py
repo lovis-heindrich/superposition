@@ -42,11 +42,9 @@ next_is_space_counts = torch.zeros(model.cfg.d_vocab)
 
 for prompt in tqdm(german_data):
     tokens = model.to_tokens(prompt, prepend_bos=False).flatten().cpu()
-    # 2. Align next and current tokens
-    next_tokens = tokens[1:].clone()
-    tokens = tokens[:-1]
     # 3. Apply is_space mask
-    is_space = haystack_utils.get_next_token_punctuation_mask(next_tokens, model)    
+    is_space = haystack_utils.get_next_token_punctuation_mask(tokens, model, fill_last_pos=False)    
+    tokens = tokens[:-1]
     # 4. Store next_is_space per token
     all_counts.index_add_(0, tokens, torch.ones_like(tokens, dtype=torch.float))
     next_is_space_counts.index_add_(0, tokens, is_space.to(torch.float))
@@ -91,10 +89,10 @@ for prompt in tqdm(german_data):
     tokens = model.to_tokens(prompt, prepend_bos=False).flatten().cpu()
     # 2. Align previous, current, and next tokens
     prev_tokens = tokens[:-2]
-    current_tokens = tokens[1:-1]
-    next_tokens = tokens[2:]
+    current_tokens = tokens[1:]
     # 3. Apply is_space mask
-    is_space = haystack_utils.get_next_token_punctuation_mask(next_tokens, model).to(torch.float)
+    is_space = haystack_utils.get_next_token_punctuation_mask(current_tokens, model, fill_last_pos=False).to(torch.float)
+    current_tokens = current_tokens[:-1]
     # 4. Store next_is_space per trigram
     for pt, ct, space in zip(prev_tokens, current_tokens, is_space):
         all_counts[pt, ct] += 1
@@ -102,9 +100,9 @@ for prompt in tqdm(german_data):
             next_is_space_counts[pt, ct] += 1
 
 # %%
-common_tokens = torch.argwhere(all_counts > 1)
+common_tokens = torch.argwhere(all_counts > 10)
 print(f"Number of bigrams: {common_tokens.shape[0]}")
-
+#%%
 next_is_space = next_is_space_counts[common_tokens]
 next_is_not_space = all_counts[common_tokens] - next_is_space_counts[common_tokens]
 predict_space = (next_is_space_counts[common_tokens] / all_counts[common_tokens]) > 0.5

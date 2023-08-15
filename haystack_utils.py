@@ -1913,7 +1913,8 @@ def get_context_effect(prompt: str | list[str], model: HookedTransformer, contex
         return original_metric[:, pos], activated_metric[:, pos], ablated_metric[:, pos], direct_effect_metric[:, pos], indirect_effect_metric[:, pos]
 
 def get_next_token_punctuation_mask(tokens: torch.LongTensor, model: HookedTransformer, fill_last_pos=True) -> torch.BoolTensor:
-    """ Input should not have a batch dimension! """
+    """ Returns boolean mask where True indicates that the next token is a new word.
+    Input should not have a batch dimension! """
     next_token_punctuation_mask = torch.zeros_like(tokens, dtype=torch.bool)
     token_strs = model.to_str_tokens(tokens)
     for i in range(tokens.shape[0] - 1):
