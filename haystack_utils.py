@@ -67,7 +67,7 @@ def get_mlp_activations(
     """
     acts = []
     if mean:
-        act_lens = []
+        act_counts = []
 
     if hook_pre:
         act_label = f"blocks.{layer}.mlp.hook_pre"
@@ -86,13 +86,17 @@ def get_mlp_activations(
             act = act[:, pos, :].unsqueeze(1)
         act = act[:, :, neurons]
         act = einops.rearrange(act, "batch pos n_neurons -> (batch pos) n_neurons")
+        assert act.dim() == 2
         if mean:
-            act_lens.append(tokens.shape[1])
+            act_counts.append(act.shape[0])
             act = torch.mean(act, dim=0)
+            assert act.dim() == 1
         acts.append(act)
     if mean:
-        sum_act_lens = sum(act_lens)
-        weighted_mean = torch.sum(torch.stack([a*b/sum_act_lens for a, b in zip(acts, act_lens)]), dim=0)
+        sum_act_counts = sum(act_counts) + 1e-6
+        weighted_mean = torch.sum(torch.stack([
+            mean_act * act_count / sum_act_counts for mean_act, act_count in zip(acts, act_counts)
+        ]), dim=0)
         return weighted_mean
     acts = torch.concat(acts, dim=0)
     return acts

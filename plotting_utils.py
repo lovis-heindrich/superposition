@@ -6,6 +6,8 @@ from plotly.colors import qualitative
 from haystack_utils import get_mlp_activations, get_neurons_by_layer
 from transformer_lens import HookedTransformer
 import scipy.stats as stats
+from scipy.stats import skew, kurtosis
+import pandas as pd
 
 def line(x, xlabel="", ylabel="", title="", xticks=None, width=800, yaxis=None, hover_data=None, show_legend=True, plot=True):
     
@@ -116,13 +118,30 @@ def color_binned_histogram(data, ranges, labels, title):
 
 def plot_neuron_acts(
         model: HookedTransformer, data: list[str], neurons: list[tuple[int, int]], disable_tqdm=True, 
-        width=700
+        width=700, range_x=None, hook_pre=False
 ) -> None:
     '''Plot activation histograms for each neuron specified'''
     neurons_by_layer = get_neurons_by_layer(neurons)
     for layer, layer_neurons in neurons_by_layer.items():
         acts = get_mlp_activations(data, layer, model, neurons=torch.tensor(layer_neurons), mean=False, 
-                                   disable_tqdm=disable_tqdm).cpu()
+                                   disable_tqdm=disable_tqdm, hook_pre=hook_pre).cpu()
         for i, neuron in enumerate(layer_neurons):
             fig = px.histogram(acts[:, i], title=f"L{layer}N{neuron}", width=width)
+            fig.update_xaxes(range=range_x)
             fig.show()
+
+
+def get_neuron_moments(
+        model: HookedTransformer, data: list[str], neurons: list[tuple[int, int]], disable_tqdm=True,
+        hook_pre=False
+) -> pd.DataFrame:
+    '''Plot activation histograms for each neuron specified'''
+    neurons_by_layer = get_neurons_by_layer(neurons)
+    neuron_moments = []
+    for layer, layer_neurons in neurons_by_layer.items():
+        acts = get_mlp_activations(data, layer, model, neurons=torch.tensor(layer_neurons), mean=False, 
+                                   disable_tqdm=disable_tqdm, hook_pre=hook_pre).cpu()
+        for i, neuron in enumerate(layer_neurons):
+            tensor_numpy = acts[:, i].numpy()
+            neuron_moments.append((layer, neuron, skew(tensor_numpy), kurtosis(tensor_numpy)))
+    return pd.DataFrame(neuron_moments, columns=['layer', 'neuron', 'skew', 'kurtosis'])
