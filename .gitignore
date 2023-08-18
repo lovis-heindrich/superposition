@@ -1,5 +1,6 @@
 data/TinyStories-train.txt
 TinyStories-train.txt
+data_large/*
 
 *.zst
 wmt_europarl.pkl
