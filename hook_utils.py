@@ -3,7 +3,7 @@ import torch
 from jaxtyping import Int, Float
 from torch import Tensor
 from collections import defaultdict
-
+import haystack_utils
 
 def save_activation(value, hook):
     """
@@ -44,6 +44,18 @@ def get_ablate_neurons_hook(neuron: int | list[int], ablated_cache, layer=5, hoo
         value[:, :, neuron] = ablated_cache[f'blocks.{layer}.mlp.{hook_point}'][:, :, neuron]
         return value
     return [(f'blocks.{layer}.mlp.{hook_point}', ablate_neurons_hook)]
+
+
+def get_resample_neurons_hooks(neurons: list[tuple[int, int]], resampled_cache, hook_point="hook_post"):
+    layer_neurons = haystack_utils.get_neurons_by_layer(neurons)
+    hooks = []
+    for layer, neurons in layer_neurons.items():
+        def resample_neurons_hook(value, hook):
+            value[:, :, neurons] = resampled_cache[f'blocks.{layer}.mlp.{hook_point}'][:value.shape[0], :value.shape[1], neurons]
+            return value
+        hooks.append((f'blocks.{layer}.mlp.{hook_point}', resample_neurons_hook))
+    return hooks
+
 
 def get_snap_to_peak_1_hook():
     def snap_to_peak_1(value, hook):
