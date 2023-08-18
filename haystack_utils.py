@@ -1703,6 +1703,11 @@ def get_neurons_by_layer(neurons: list[(int, int)]) -> dict[int, list[int]]:
         result[layer].append(neuron)
     return result
 
+def get_neurons_tuples(neurons: dict[int, list[int]]) -> list[(int, int)]:
+    result = []
+    for layer, neurons in neurons.items():
+        result.extend([(layer, neuron) for neuron in neurons])
+    return result
 
 def compute_and_conditions(prompts, model, option, type: Literal["logits", "loss"], common_tokens, activate_context_hook, deactivate_context_hooks):
     ANSWER_TOKEN_ID = model.to_tokens(option).flatten()[-1].item()
