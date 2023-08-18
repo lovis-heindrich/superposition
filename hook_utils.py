@@ -45,15 +45,17 @@ def get_ablate_neurons_hook(neuron: int | list[int], ablated_cache, layer=5, hoo
         return value
     return [(f'blocks.{layer}.mlp.{hook_point}', ablate_neurons_hook)]
 
-
+import numpy as np
 def get_resample_neurons_hooks(neurons: list[tuple[int, int]], resampled_cache, hook_point="hook_post"):
     layer_neurons = haystack_utils.get_neurons_by_layer(neurons)
     hooks = []
     for layer, neurons in layer_neurons.items():
+        hook_name = f'blocks.{layer}.mlp.{hook_point}'
         def resample_neurons_hook(value, hook):
-            value[:, :, neurons] = resampled_cache[f'blocks.{layer}.mlp.{hook_point}'][:value.shape[0], :value.shape[1], neurons]
+            resample_cache_slice = np.s_[:value.shape[0], :value.shape[1], neurons]
+            value[:, :, neurons] = resampled_cache[hook_name][resample_cache_slice]
             return value
-        hooks.append((f'blocks.{layer}.mlp.{hook_point}', resample_neurons_hook))
+        hooks.append((hook_name, resample_neurons_hook))
     return hooks
 
 
