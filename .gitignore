@@ -1,3 +1,6 @@
+data/TinyStories-train.txt
+TinyStories-train.txt
+
 *.zst
 wmt_europarl.pkl
 # Byte-compiled / optimized / DLL files
