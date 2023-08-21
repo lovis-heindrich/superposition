@@ -1945,3 +1945,10 @@ def get_token_counts(data, model) -> Tensor:
 
     _, top_tokens = torch.topk(token_counts, model.cfg.d_vocab)
     return token_counts, top_tokens
+
+
+def orthogonal_vector_decomposition(a: torch.Tensor, b: torch.Tensor):
+    '''Decompose a into components parallel and orthogonal to b'''
+    a_parallel = (torch.dot(a, b) / torch.norm(b)**2) * b
+    a_orthogonal = a - a_parallel
+    return a_parallel, a_orthogonal
