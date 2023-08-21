@@ -321,7 +321,7 @@ def imshow(tensor, xaxis="", yaxis="", title="", **kwargs):
     px.imshow(tensor, **plot_kwargs, title=title).show()
 
 
-def line(x, xlabel="", ylabel="", title="", xticks=None, width=800, hover_data=None, show_legend=True, plot=True):
+def line(x, xlabel="", ylabel="", title="", xticks=None, width=800, hover_data=None, show_legend=True, plot=True, height=800):
     
     # Avoid empty plot when x contains a single element
     if len(x) > 1:
@@ -329,7 +329,7 @@ def line(x, xlabel="", ylabel="", title="", xticks=None, width=800, hover_data=N
     else:
         fig = px.scatter(x, title=title)
 
-    fig.update_layout(xaxis_title=xlabel, yaxis_title=ylabel, width=width, showlegend=show_legend)
+    fig.update_layout(xaxis_title=xlabel, yaxis_title=ylabel, width=width, showlegend=show_legend, height=height)
     if xticks != None:
         fig.update_layout(
             xaxis = dict(
