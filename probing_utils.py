@@ -8,7 +8,7 @@ from transformer_lens import HookedTransformer
 import plotly.io as pio
 import pandas as pd
 import numpy as np
-from concept_erasure import LeaceEraser
+#from concept_erasure import LeaceEraser
 
 from sklearn import preprocessing
 from sklearn.linear_model import LogisticRegression
