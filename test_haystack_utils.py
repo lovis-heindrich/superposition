@@ -22,7 +22,6 @@ def test_batched_projection():
     expected_projection = torch.tensor([[1., 0.], [3., 0.]])
     projection = batched_projection(u, v)
     assert torch.allclose(projection, expected_projection), f"Expected {expected_projection} but got {projection}"
-    print("Test passed")
 
 
 def test_get_average_loss_unbatched():
