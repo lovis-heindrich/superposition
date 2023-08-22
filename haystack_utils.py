@@ -1957,3 +1957,8 @@ def remove_collinear_component(a: torch.Tensor, b: torch.Tensor):
     '''Remove the component of a that is collinear with b'''
     projection = torch.dot(a, b) / torch.norm(b).pow(2) * b
     return a - projection
+
+def remove_orthogonal_component(a: torch.Tensor, b: torch.Tensor):
+    '''Remove the component of a that is orthogonal with b'''
+    projection = torch.dot(a, b) / torch.norm(b).pow(2) * b
+    return projection
