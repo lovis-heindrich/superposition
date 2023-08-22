@@ -5,6 +5,26 @@ from transformer_lens import HookedTransformer
 import hook_utils
 
 
+def test_batched_projection():
+    batched_projection = torch.vmap(haystack_utils.get_collinear_component, (0, None))
+
+    a = torch.zeros(5, 3)
+    b = torch.ones(3)
+    assert batched_projection(a, b).shape == (5, 3)
+    torch.testing.assert_close(batched_projection(a, b), torch.zeros(5, 3))
+
+    a = torch.ones(5, 3)
+    b = torch.ones(3)
+    torch.testing.assert_close(batched_projection(a, b), torch.ones(5, 3))
+
+    u = torch.tensor([[1., 2.], [3., 4.]])
+    v = torch.tensor([1., 0.])
+    expected_projection = torch.tensor([[1., 0.], [3., 0.]])
+    projection = batched_projection(u, v)
+    assert torch.allclose(projection, expected_projection), f"Expected {expected_projection} but got {projection}"
+    print("Test passed")
+
+
 def test_get_average_loss_unbatched():
     model = HookedTransformer.from_pretrained("pythia-70m-v0", fold_ln=True, device="cuda")
 
