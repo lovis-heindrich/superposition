@@ -866,7 +866,7 @@ def plot_barplot(data: list[list[float]], names: list[str], short_names = None,
         yaxis_title=ylabel,
         barmode='group',
         width=width,
-        showlegend=legend
+        showlegend=legend,
     )
     
     if show:
