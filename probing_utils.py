@@ -165,12 +165,12 @@ def get_is_german_labels_and_resid_activations(
     x, y = shuffle(activations, labels)
     return x, y
 
-def get_probe(x: np.ndarray, y: np.ndarray) -> LogisticRegression:
+def get_probe(x: np.ndarray, y: np.ndarray, max_iter=2000) -> LogisticRegression:
     # z-scoring can help with convergence
     #scaler = preprocessing.StandardScaler().fit(x)
     #x = scaler.transform(x)
     # np.unique on y 
-    lr_model = LogisticRegression(max_iter=2000)
+    lr_model = LogisticRegression(max_iter=max_iter)
     lr_model.fit(x, y)
     return lr_model
 
