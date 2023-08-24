@@ -38,6 +38,28 @@ def DLA(prompts: List[str], model: HookedTransformer) -> tuple[Float[Tensor, "co
     logit_attributions = torch.stack(logit_attributions)
     return logit_attributions, labels
 
+def pos_batch_DLA(tokens: Tensor, model: HookedTransformer, pos=-1) -> tuple[Float[Tensor, "component"], list[str]]:
+    answers = tokens[:, pos]
+    answer_residual_directions = model.tokens_to_residual_directions(answers)  # [batch pos d_model]
+    _, cache = model.run_with_cache(tokens)
+    accumulated_residual, labels = cache.decompose_resid(layer=-1, pos_slice=pos-1, return_labels=True)
+    scaled_residual_stack = cache.apply_ln_to_stack(accumulated_residual, layer = -1, pos_slice=pos-1)
+    logit_attribution = einsum(scaled_residual_stack, answer_residual_directions, "component batch d_model, batch d_model -> batch component")
+    return logit_attribution.mean(0), labels
+
+def pos_batch_neuron_dla(tokens: Int[Tensor, "batch pos"], model: HookedTransformer, layer: int, pos=None) -> Float[Tensor, "pos n_neurons"] | Float[Tensor, "n_neurons"]:
+    _, cache = model.run_with_cache(tokens)
+    W_U_token = model.W_U[:, tokens.flatten()]
+    W_out_U_token = model.W_out[layer] @ W_U_token
+    if pos is None:
+        neuron_dla = cache[f"blocks.{layer}.mlp.hook_post"][0, :-1] * W_out_U_token[:, 1:].T
+        scale = cache["ln_final.hook_scale"][0, :-1]
+    else:
+        neuron_dla = cache[f"blocks.{layer}.mlp.hook_post"][0, pos-1] * W_out_U_token[:, pos]
+        scale = cache["ln_final.hook_scale"][0, pos-1]
+    neuron_dla = neuron_dla / scale
+    return neuron_dla
+
 
 def get_mlp_activations(
     prompts: List[str],
@@ -1383,7 +1405,7 @@ def get_average_loss_plot_method(activate_context_fwd_hooks, deactivate_context_
             return original_losses, ablated_losses, context_and_activated_losses, only_activated_losses
     return average_loss_plot
 
-def get_common_tokens(data, model, ignore_tokens, k=100, return_counts=False, return_unsorted_counts=True) -> Tensor:
+def get_common_tokens(data, model, ignore_tokens, k=100, return_counts=False, return_unsorted_counts=False) -> Tensor:
     # Get top common german tokens excluding punctuation
     token_counts = torch.zeros(model.cfg.d_vocab).cuda()
     for example in tqdm(data):
