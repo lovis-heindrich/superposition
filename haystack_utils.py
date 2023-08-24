@@ -1383,7 +1383,7 @@ def get_average_loss_plot_method(activate_context_fwd_hooks, deactivate_context_
             return original_losses, ablated_losses, context_and_activated_losses, only_activated_losses
     return average_loss_plot
 
-def get_common_tokens(data, model, ignore_tokens, k=100, return_counts=False) -> Tensor:
+def get_common_tokens(data, model, ignore_tokens, k=100, return_counts=False, return_unsorted_counts=True) -> Tensor:
     # Get top common german tokens excluding punctuation
     token_counts = torch.zeros(model.cfg.d_vocab).cuda()
     for example in tqdm(data):
@@ -1396,7 +1396,8 @@ def get_common_tokens(data, model, ignore_tokens, k=100, return_counts=False) ->
     punctuation_tokens = model.to_tokens(punctuation + leading_space_punctuation + [' –', " ", '  ', "<|endoftext|>"])[:, 1].flatten()
     token_counts[punctuation_tokens] = 0
     token_counts[ignore_tokens] = 0
-
+    if return_unsorted_counts:
+        return token_counts
     top_counts, top_tokens = torch.topk(token_counts, k)
     if return_counts:
         return top_counts, top_tokens
