@@ -175,6 +175,7 @@ print(projections)
 haystack_utils.line(projections, xticks=component_labels, title="F1 Score of L8N2994 input direction in residual stream by layer", xlabel="Layer", ylabel="F1 Score")
 # %%
 # Other good context neuron == L5N2649
+LAYER, NEURON = 8, 2994
 cosine_sim = torch.nn.CosineSimilarity(dim=0)
 ctx_neuron_sims = [
     cosine_sim(model.W_out[LAYER, NEURON, :], model.W_in[LAYER, :, NEURON]).item(),
@@ -195,6 +196,40 @@ fig = px.histogram(sims, title="Cosine similarity between W_in/W_out of L5N2649 
 for sim in ctx_neuron_sims:
     fig.add_vline(x=sim, line_dash="dash", line_color="red")
 fig.show()
+# %%
+# import plotly.graph_objects as go
+# import networkx as nx
+
+# # Create a directed graph using NetworkX
+# G = nx.DiGraph()
+# G.add_edges_from([(1, 2), (2, 3), (1, 3), (3, 4)])
+# weights = [0.5, 0.2, 0.9, 0.7]
+
+# # Create positions for nodes
+# pos = nx.spring_layout(G)
+
+# # Extract coordinates
+# x_nodes = [pos[k][0] for k in pos]
+# y_nodes = [pos[k][1] for k in pos]
+
+# # Create edge traces
+# edge_x = []
+# edge_y = []
+# edge_width = []
+# for edge, weight in zip(G.edges(), weights):
+#     x0, y0 = pos[edge[0]]
+#     x1, y1 = pos[edge[1]]
+#     edge_x += [x0, x1, None]
+#     edge_y += [y0, y1, None]
+#     edge_width.append(weight)
+
+# # Plot nodes and edges
+# node_trace = go.Scatter(x=x_nodes, y=y_nodes, mode='markers')
+# edge_trace = go.Scatter(x=edge_x, y=edge_y, mode='lines', line=dict(width=edge_width))
+# fig = go.Figure(data=[edge_trace, node_trace])
+
+# # Show plot
+# fig.show()
 # %%
 # All layers
 sims = []
