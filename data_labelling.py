@@ -1,6 +1,7 @@
 import csv
 import os
 import pickle
+import numpy as np
 from datasets import load_dataset
 from transformer_lens import HookedTransformer
 
@@ -37,11 +38,16 @@ def main():
         ]
     text = load_text()
     df = read_data(DATA_PATH)
+    indices = np.arange(len(df))
+    df['row_index'] = indices
+    df = df.sample(frac=1).reset_index(drop=True)
+
     labels = read_labels(LABEL_PATH)
     print(len(labels.keys()), 'labels')
     for i in range(len(df)):
-        if str(i) in labels:
-            continue
+        index = df.loc[i, 'row_index']
+        if str(index) in labels:
+          continue
 
         prompt_index = df.loc[i, 'prompt_index']
         tokens = model.to_tokens(text[prompt_index])[0]
@@ -51,7 +57,7 @@ def main():
 
         if tokens[token_index + 1].item() in an_tokens:
             print('Skipping \' an\'')
-            write_label(LABEL_PATH, i, '3')
+            write_label(LABEL_PATH, index, '3')
             continue
 
         starting_index = max(0, token_index - 50)
@@ -61,7 +67,7 @@ def main():
         label = input(f'Label for token after {model.to_single_str_token(token)}, enter 1 for implausible \' an\', or 2 for plausible \' an\':')
         while label not in ['1', '2']:
             label = input('Invalid input. Enter 1 for implausible \' an\', or 2 for plausible \' an\':')
-        write_label(LABEL_PATH, i, label)
+        write_label(LABEL_PATH, index, label)
 
 if __name__ == '__main__':
     main()
