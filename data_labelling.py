@@ -55,7 +55,7 @@ def main():
             continue
 
         starting_index = max(0, token_index - 50)
-        str_tokens = model.to_str_tokens(tokens[starting_index:token_index + 2])
+        str_tokens = model.to_str_tokens(tokens[starting_index:token_index + 1])
         str_tokens[-1] = CYAN_COL + str_tokens[-1] + END_COL
         print(''.join(str_tokens))
         label = input(f'Label for token after {model.to_single_str_token(token)}, enter 1 for implausible \' an\', or 2 for plausible \' an\':')
