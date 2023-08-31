@@ -4,14 +4,14 @@ import pickle
 import numpy as np
 from datasets import load_dataset
 from transformer_lens import HookedTransformer
+import torch
 
-
-DATA_PATH = 'data/gpt2_large_spectrum.pkl'
-LABEL_PATH = 'data/gp2_large_spectrum_labels.csv'
+DATA_PATH = 'data/gpt2_large_spectrum_v2.pkl'
+LABEL_PATH = 'data/gp2_large_spectrum_labels_v2.csv'
 
 def load_text():
     text = load_dataset("stas/openwebtext-10k", split="train")
-    return [item for i, item in enumerate(text["text"]) if len(item) > 2000 and i < 5000]
+    return text['text']
 
 def read_data(file_path):
     with open(file_path, 'rb') as f:
@@ -36,6 +36,31 @@ def main():
         model.to_single_token(' An'), 
         model.to_single_token(' AN')
         ]
+    plausible_pre_and_tokens = [
+        model.to_single_token(' about'),
+        model.to_single_token(' around'),
+        model.to_single_token(' have'),
+        model.to_single_token(' in'),
+        model.to_single_token(' is'),
+        model.to_single_token(' of'),
+        model.to_single_token(' at'),
+        model.to_single_token(' am'),
+        model.to_single_token(' to'),
+        model.to_single_token(' put'),
+        model.to_single_token(' than'),
+        model.to_single_token(' half'),
+        model.to_single_token(' was'),
+        model.to_single_token(' with'),
+        model.to_single_token(' within'),
+        model.to_single_token(' said'),
+        model.to_single_token(' considering'),
+        model.to_single_token(' using'),
+        model.to_single_token(' keep'),
+        model.to_single_token(' Keep'),
+        model.to_single_token(' me'),
+        model.to_single_token(' About'),
+        model.to_single_token('roximately'),
+    ]
     text = load_text()
     df = read_data(DATA_PATH)
     indices = np.arange(len(df))
@@ -54,6 +79,11 @@ def main():
 
         token_index = df.loc[i, 'token_index']
         token = tokens[token_index].item()
+
+        if token in plausible_pre_and_tokens:
+            print('Skipping \' an\' after plausible preposition')
+            write_label(LABEL_PATH, index, '2')
+            continue
 
         if tokens[token_index + 1].item() in an_tokens:
             print('Skipping \' an\'')
