@@ -69,18 +69,20 @@ def plot_barplot(data: list[list[float]], names: list[str], short_names = None, 
                 name=names[i]
             ))
     
+    
+    if yrange is not None:
+        fig.update_yaxes(range=yrange)
+        
     fig.update_layout(
         title=title,
+        yaxis=yaxis,
         xaxis_title=xlabel,
         yaxis_title=ylabel,
-        yaxis=yaxis,
         barmode='group',
         width=width,
         showlegend=legend
     )
 
-    if yrange is not None:
-        fig.update_yaxes(range=yrange)
     
     if show:
         fig.show()
