@@ -6,8 +6,8 @@ from datasets import load_dataset
 from transformer_lens import HookedTransformer
 import torch
 
-DATA_PATH = 'data/gpt2_large_spectrum_v2.pkl'
-LABEL_PATH = 'data/gp2_large_spectrum_labels_v2.csv'
+DATA_PATH = 'data/gpt2_large_spectrum_pre_v2.pkl'
+LABEL_PATH = 'data/gp2_large_spectrum_labels_pre_v2.csv'
 
 def load_text():
     text = load_dataset("stas/openwebtext-10k", split="train")
@@ -31,36 +31,12 @@ END_COL = '\033[0m'
 CYAN_COL = '\033[96m'
 def main():
     model = HookedTransformer.from_pretrained("gpt2-large")
-    an_tokens = [
-        model.to_single_token(' an'), 
-        model.to_single_token(' An'), 
-        model.to_single_token(' AN')
-        ]
-    plausible_pre_and_tokens = [
-        model.to_single_token(' about'),
-        model.to_single_token(' around'),
-        model.to_single_token(' have'),
-        model.to_single_token(' in'),
-        model.to_single_token(' is'),
-        model.to_single_token(' of'),
-        model.to_single_token(' at'),
-        model.to_single_token(' am'),
-        model.to_single_token(' to'),
-        model.to_single_token(' put'),
-        model.to_single_token(' than'),
-        model.to_single_token(' half'),
-        model.to_single_token(' was'),
-        model.to_single_token(' with'),
-        model.to_single_token(' within'),
-        model.to_single_token(' said'),
-        model.to_single_token(' considering'),
-        model.to_single_token(' using'),
-        model.to_single_token(' keep'),
-        model.to_single_token(' Keep'),
-        model.to_single_token(' me'),
-        model.to_single_token(' About'),
-        model.to_single_token('roximately'),
-    ]
+    an_tokens = [model.to_single_token(' an'), model.to_single_token(' An'), model.to_single_token(' AN')]
+    plausible_pre_and_strings = [
+        ' about', ' around', ' have', ' in', ' is', ' of', ' be', ' at', ' am', ' to', ' put', ' than', ' half', 
+        ' was', ' with', ' within', ' said', ' using', ' keep', ' Keep', ' About', 'roximately']
+    plausible_pre_and_tokens = [model.to_single_token(string) for string in plausible_pre_and_strings]
+
     text = load_text()
     df = read_data(DATA_PATH)
     indices = np.arange(len(df))
@@ -90,12 +66,12 @@ def main():
             write_label(LABEL_PATH, index, '3')
             continue
 
-        starting_index = max(0, token_index - 50)
+        starting_index = max(0, token_index - 100)
         str_tokens = model.to_str_tokens(tokens[starting_index:token_index + 1])
         str_tokens[-1] = CYAN_COL + str_tokens[-1] + END_COL
         print(''.join(str_tokens))
-        label = input(f'Label for token after {model.to_single_str_token(token)}, enter 1 for implausible \' an\', or 2 for plausible \' an\':')
-        while label not in ['1', '2']:
+        label = input(f'Label for token after {model.to_single_str_token(token)}, enter 1 for unlikely \' an\', 2 for plausible \' an\', 4 for question mark symbol:')
+        while label not in ['1', '2', '4']:
             label = input('Invalid input. Enter 1 for implausible \' an\', or 2 for plausible \' an\':')
         write_label(LABEL_PATH, index, label)
 
