@@ -4,10 +4,9 @@ import pickle
 import numpy as np
 from datasets import load_dataset
 from transformer_lens import HookedTransformer
-import torch
 
-DATA_PATH = 'data/gpt2_large_spectrum_pre_v2.pkl'
-LABEL_PATH = 'data/gp2_large_spectrum_labels_pre_v2.csv'
+DATA_PATH = 'data/gpt2_large_spectrum_pre_v3.pkl'
+LABEL_PATH = 'data/gp2_large_spectrum_pre_labels_v3.csv'
 
 def load_text():
     text = load_dataset("stas/openwebtext-10k", split="train")
@@ -45,6 +44,7 @@ def main():
 
     labels = read_labels(LABEL_PATH)
     print(len(labels.keys()), 'labels')
+    print(len(df), 'rows')
     for i in range(len(df)):
         index = df.loc[i, 'row_index']
         if str(index) in labels:
