@@ -4,6 +4,8 @@ import gzip
 from io import StringIO
 import re
 
+# Assumes you have downloaded your own copy of europarl.tgz from https://www.statmt.org/europarl/
+
 europarl_languages = ["bg", "cs", "da", "de", "el", "es", "et", "fi", "fr", "ga", "hr", "hu", "it", "lt", "lv", "mt", "nl", "pl", "pt", "ro", "sk", "sl", "sv"]
 datasets = {lang: [] for lang in europarl_languages}
 
