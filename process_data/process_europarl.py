@@ -23,7 +23,7 @@ def create_dataset(text, language, num_samples=200, min_chars=500):
     content = preprocess_data(text.read().decode('utf-8'))
     for line in content.split('\n'):
         if len(line) > min_chars:
-            datasets[language].append(text)
+            datasets[language].append(line)
             if len(datasets[language]) >= num_samples:
                 with open(f'data/europarl/{language}_200_samples.txt', 'w', encoding='utf-8') as f:
                         f.write('\n'.join(datasets[language]))
