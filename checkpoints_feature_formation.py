@@ -106,7 +106,7 @@ def train_probe(
 
 
 def get_mlp_activations(
-    prompts: list[str], layer: int, model: HookedTransformer, k=10_000
+    prompts: list[str], layer: int, model: HookedTransformer
 ) -> torch.Tensor:
     act_label = f"blocks.{layer}.mlp.hook_post"
 
@@ -121,6 +121,11 @@ def get_mlp_activations(
     return acts[:k]
 
 
+def zero_ablate_hook(value, hook):
+    value[:, :, :] = 0
+    return value
+
+
 def get_layer_probe_performance(
     model: HookedTransformer,
     checkpoint: int,
@@ -130,8 +135,8 @@ def get_layer_probe_performance(
 ) -> pd.DataFrame:
     """Probe performance for each neuron."""
 
-    german_activations = get_mlp_activations(german_data, layer, model)
-    non_german_activations = get_mlp_activations(non_german_data, layer, model)
+    german_activations = get_mlp_activations(german_data[:30], layer, model)[:10_000]
+    non_german_activations = get_mlp_activations(non_german_data[:30], layer, model)[:10_000]
 
     mean_german_activations = german_activations.mean(0).cpu().numpy()
     mean_non_german_activations = non_german_activations.mean(0).cpu().numpy()
@@ -166,16 +171,32 @@ def get_layer_probe_performance(
     return layer_df
 
 
+def get_layer_ablation_loss(model: HookedTransformer, german_data: list, checkpoint: int, layer: int):
+    loss_data = []
+
+    for prompt in german_data[:100]:
+        loss = model(prompt, return_type="loss").item()
+        with model.hooks([(f'blocks.{layer}.mlp.hook_post', zero_ablate_hook)]):
+            ablated_loss = model(prompt, return_type="loss").item()
+        loss_difference = (ablated_loss - loss)
+        loss_data.append([checkpoint, layer, loss_difference, loss, ablated_loss])
+
+    layer_df = pd.DataFrame(loss_data, columns=["Checkpoint", "Layer", "LossDifference", "OriginalLoss", "AblatedLoss"])
+    return layer_df
+
+
 def run_probe_analysis(
     model_name: str,
     num_checkpoints: int,
     german_data: list,
     non_german_data: list,
     output_dir: str,
+    include_layer_ablations=True
 ) -> None:
     n_layers = get_model(model_name, 0).cfg.n_layers
 
-    dfs = []
+    probe_dfs = []
+    layer_ablation_dfs = []
     with tqdm(total=checkpoints * n_layers) as pbar:
         for checkpoint in range(num_checkpoints):
             model = get_model(checkpoint)
@@ -183,18 +204,24 @@ def run_probe_analysis(
                 checkpoint_layer_df = get_layer_probe_performance(
                     model, checkpoint, layer, german_data, non_german_data
                 )
-                dfs.append(checkpoint_layer_df)
+                probe_dfs.append(checkpoint_layer_df)
                 # Save progress to allow for checkpointing the analysis
                 with open(output_dir + model_name + '_checkpoint_features.pkl.gz', 'wb') as f:
-                    pickle.dump(dfs, f)
+                    pickle.dump({"probe_dfs": probe_dfs, "layer_ablation_dfs": layer_ablation_dfs}, f)
+
+                if include_layer_ablations:
+                    layer_ablation_df = get_layer_ablation_loss(model, german_data, checkpoint, layer)
+                    layer_ablation_dfs.append(layer_ablation_df)
+
                 pbar.update(1)
 
     # Open the pickle file
     with open(output_dir + model_name + '_checkpoint_features.pkl.gz', 'rb') as f:
-        dfs = pickle.load(f)
+        data = pickle.load(f)
 
     # Concatenate the dataframes
-    probe_df = pd.concat(dfs)
+    probe_df = pd.concat(data["probe_dfs"])
+    layer_ablation_df = pd.concat(data["layer_ablation_dfs"])
 
     # Compress with gzip using high compression and save
     with gzip.open(
@@ -202,16 +229,21 @@ def run_probe_analysis(
     ) as f_out:
         pickle.dump(probe_df, f_out)
 
+    with gzip.open(
+        output_dir + model_name + '_layer_ablation_features.pkl.gz', 'wb', compresslevel=9
+    ) as f_out:
+        pickle.dump(layer_ablation_df, f_out)
+
 
 def analyze_model_checkpoints(model_name: str, output_dir: str) -> None:
     set_seeds()
 
     # Load probe data
     lang_data = load_language_data()
-    german_data = lang_data["de"][:30]
+    german_data = lang_data["de"]
     non_german_data = np.random.shuffle(
         np.concatenate([lang_data[lang] for lang in lang_data.keys() if lang != "de"])
-    ).tolist()[:30]
+    ).tolist()
 
     # Will take about 50GB of disk space for Pythia 70M models
     num_checkpoints = preload_models()
@@ -244,14 +276,16 @@ def process_data(output_dir: str, model_name: str) -> None:
         width=800,
         height=400,
     )
+    # TODO Save plot
 
-    neurons = probe_df[
+    accurate_neurons = probe_df[
         (probe_df["MCC"] > 0.85)
         & (probe_df["MeanGermanActivation"] > probe_df["MeanNonGermanActivation"])
     ][["NeuronLabel", "MCC"]].copy()
-    neurons = neurons.sort_values(by="MCC", ascending=False)
-    print(len(neurons["NeuronLabel"].unique()))
-    good_neurons = neurons["NeuronLabel"].unique()[:50]
+    accurate_neurons = accurate_neurons.sort_values(by="MCC", ascending=False)
+    print(len(accurate_neurons["NeuronLabel"].unique()), "neurons with an MCC > 0.85 for German text recognition at any point during training.")
+    
+    good_neurons = accurate_neurons["NeuronLabel"].unique()[:50]
 
     def get_mean_non_german(df, neuron, layer, checkpoint):
         label = f"C{checkpoint}L{layer}N{neuron}"
