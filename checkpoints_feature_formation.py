@@ -92,19 +92,30 @@ def load_language_data() -> dict:
     return lang_data
 
 
-def get_common_ngrams(model: HookedTransformer, prompts: list[str], n: int, top_k=100) -> list[str]:
-    '''
+def get_common_ngrams(
+    model: HookedTransformer, prompts: list[str], n: int, top_k=100
+) -> list[str]:
+    """
     n: n-gram length
     top_k: number of n-grams to return
 
     Returns: List of most common n-grams in prompts sorted by frequency
-    '''
+    """
     all_ngrams = []
     for prompt in tqdm(prompts):
         str_tokens = model.to_str_tokens(prompt)
         all_ngrams.extend(ngrams(str_tokens, n))
     # Filter n-grams which contain punctuation
-    all_ngrams = [x for x in all_ngrams if all([y.strip() not in ["\n", "-", "(", ")", ".", ",", ";", "!", "?", ""] for y in x])]
+    all_ngrams = [
+        x
+        for x in all_ngrams
+        if all(
+            [
+                y.strip() not in ["\n", "-", "(", ")", ".", ",", ";", "!", "?", ""]
+                for y in x
+            ]
+        )
+    ]
     return Counter(all_ngrams).most_common(top_k)
 
 
@@ -218,7 +229,9 @@ def get_layer_ablation_loss(
     return layer_df
 
 
-def get_language_losses(model: HookedTransformer, checkpoint: int, lang_data: dict) -> pd.DataFrame:
+def get_language_losses(
+    model: HookedTransformer, checkpoint: int, lang_data: dict
+) -> pd.DataFrame:
     data = []
     for lang in lang_data.keys():
         losses = []
@@ -230,16 +243,26 @@ def get_language_losses(model: HookedTransformer, checkpoint: int, lang_data: di
     return pd.DataFrame(data, columns=["Checkpoint", "Language", "Loss"], index=[0])
 
 
-def get_ngram_losses(model: HookedTransformer, checkpoint: int, ngrams: list[str], common_tokens: list[str]) -> pd.DataFrame:
+def get_ngram_losses(
+    model: HookedTransformer,
+    checkpoint: int,
+    ngrams: list[str],
+    common_tokens: list[str],
+) -> pd.DataFrame:
     data = []
     for ngram in ngrams:
-        prompts = haystack_utils.generate_random_prompts(ngram, model, common_tokens, 100, 20)
+        prompts = haystack_utils.generate_random_prompts(
+            ngram, model, common_tokens, 100, 20
+        )
         loss = eval_prompts(prompts, model)
         with model.hooks(deactivate_neurons_fwd_hooks):
             ablated_loss = eval_prompts(prompts, model)
         data.append([loss, ablated_loss, ablated_loss - loss, checkpoint, ngram])
 
-    df = pd.DataFrame(data, columns=["OriginalLoss", "AblatedLoss", "LossIncrease", "Checkpoint", "Ngram"])
+    df = pd.DataFrame(
+        data,
+        columns=["OriginalLoss", "AblatedLoss", "LossIncrease", "Checkpoint", "Ngram"],
+    )
     return df
 
 
@@ -250,7 +273,7 @@ def run_probe_analysis(
     top_german_trigrams: list[str],
     output_dir: str,
 ) -> None:
-    '''Collect several dataframes covering whole layer ablation losses, ngram loss, language losses, and neuron probe performance.'''
+    """Collect several dataframes covering whole layer ablation losses, ngram loss, language losses, and neuron probe performance."""
     n_layers = get_model(model_name, 0).cfg.n_layers
     german_data = lang_data["de"]
     non_german_data = np.random.shuffle(
@@ -258,9 +281,13 @@ def run_probe_analysis(
     ).tolist()
 
     all_ignore, _ = haystack_utils.get_weird_tokens(model, plot_norms=False)
-    common_tokens = haystack_utils.get_common_tokens(german_data, model, all_ignore, k=100)
+    common_tokens = haystack_utils.get_common_tokens(
+        german_data, model, all_ignore, k=100
+    )
 
-    random_trigram_indices = np.random.choice(range(len(top_trigrams)), 20, replace=False)
+    random_trigram_indices = np.random.choice(
+        range(len(top_trigrams)), 20, replace=False
+    )
     random_trigrams = ["".join(top_trigrams[i][0]) for i in random_trigram_indices]
 
     probe_dfs = []
@@ -282,7 +309,9 @@ def run_probe_analysis(
 
                 layer_ablation_dfs.append(partial_layer_ablation_df)
                 lang_loss_dfs.append(get_language_losses(model, checkpoint, lang_data))
-                ngram_loss_dfs.append(get_ngram_losses(model, checkpoint, random_trigrams, common_tokens))
+                ngram_loss_dfs.append(
+                    get_ngram_losses(model, checkpoint, random_trigrams, common_tokens)
+                )
 
                 # Save progress to allow for checkpointing the analysis
                 with open(
