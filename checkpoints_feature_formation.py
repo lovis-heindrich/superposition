@@ -200,18 +200,34 @@ def get_layer_ablation_loss(
     return layer_df
 
 
+def get_language_losses(model: HookedTransformer, checkpoint: int, lang_data: dict) -> pd.DataFrame:
+    data = []
+    for lang in lang_data.keys():
+        losses = []
+        for prompt in lang_data[lang]:
+            loss = model(prompt, return_type="loss").item()
+            losses.append(loss)
+        data.append([checkpoint, lang, np.mean(losses)])
+
+    return pd.DataFrame(data, columns=["Checkpoint", "Language", "Loss"], index=[0])
+
+
 def run_probe_analysis(
     model_name: str,
     num_checkpoints: int,
-    german_data: list,
-    non_german_data: list,
+    lang_data: dict,
     output_dir: str,
-    include_layer_ablations=True,
 ) -> None:
     n_layers = get_model(model_name, 0).cfg.n_layers
+    german_data = lang_data["de"]
+    non_german_data = np.random.shuffle(
+        np.concatenate([lang_data[lang] for lang in lang_data.keys() if lang != "de"])
+    ).tolist()
 
     probe_dfs = []
     layer_ablation_dfs = []
+    lang_loss_dfs = []
+
     with tqdm(total=checkpoints * n_layers) as pbar:
         for checkpoint in range(num_checkpoints):
             model = get_model(checkpoint)
@@ -221,11 +237,12 @@ def run_probe_analysis(
                 )
                 probe_dfs.append(partial_probe_df)
 
-                if include_layer_ablations:
-                    partial_layer_ablation_df = get_layer_ablation_loss(
-                        model, german_data, checkpoint, layer
-                    )
-                    layer_ablation_dfs.append(partial_layer_ablation_df)
+                partial_layer_ablation_df = get_layer_ablation_loss(
+                    model, german_data, checkpoint, layer
+                )
+                layer_ablation_dfs.append(partial_layer_ablation_df)
+
+                lang_loss_dfs.append(get_language_losses(model, checkpoint, lang_data))
 
                 # Save progress to allow for checkpointing the analysis
                 with open(
@@ -233,8 +250,9 @@ def run_probe_analysis(
                 ) as f:
                     pickle.dump(
                         {
-                            "probe_dfs": probe_dfs,
-                            "layer_ablation_dfs": layer_ablation_dfs,
+                            "probe": probe_dfs,
+                            "layer_ablation": layer_ablation_dfs,
+                            "lang_loss": lang_loss_dfs,
                         },
                         f,
                     )
@@ -246,20 +264,13 @@ def run_probe_analysis(
         data = pickle.load(f)
 
     # Concatenate the dataframes
-    probe_df = pd.concat(data["probe_dfs"])
-    layer_ablation_df = pd.concat(data["layer_ablation_dfs"])
+    data = {df_name: pd.concat(dfs) for dfs_name, dfs in data.items()}
 
     # Compress with gzip using high compression and save
     with gzip.open(
-        output_dir + model_name + "_checkpoint_neurons.pkl.gz", "wb", compresslevel=9
+        output_dir + model_name + "_checkpoint_features.pkl.gz", "wb", compresslevel=9
     ) as f_out:
-        pickle.dump(probe_df, f_out)
-    with gzip.open(
-        output_dir + model_name + "_checkpoint_layer_ablations.pkl.gz",
-        "wb",
-        compresslevel=9,
-    ) as f_out:
-        pickle.dump(layer_ablation_df, f_out)
+        pickle.dump(data, f_out)
 
 
 def analyze_model_checkpoints(model_name: str, output_dir: str) -> None:
@@ -267,16 +278,12 @@ def analyze_model_checkpoints(model_name: str, output_dir: str) -> None:
 
     # Load probe data
     lang_data = load_language_data()
-    german_data = lang_data["de"]
-    non_german_data = np.random.shuffle(
-        np.concatenate([lang_data[lang] for lang in lang_data.keys() if lang != "de"])
-    ).tolist()
 
     # Will take about 50GB of disk space for Pythia 70M models
     num_checkpoints = preload_models()
 
     run_probe_analysis(
-        model_name, num_checkpoints, german_data, non_german_data, output_dir
+        model_name, num_checkpoints, lang_data, output_dir
     )
 
 
