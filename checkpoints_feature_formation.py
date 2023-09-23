@@ -296,7 +296,7 @@ def process_data(output_dir: str, model_name: str) -> None:
         checkpoint_df = probe_df[probe_df["Checkpoint"] == checkpoint]
         top_probe.append(checkpoint_df["MCC"].max())
         checkpoints.append(checkpoint)
-    px.line(
+    fig = px.line(
         x=checkpoints,
         y=top_probe,
         title="Top Probe MCC by Checkpoint",
@@ -334,7 +334,7 @@ def process_data(output_dir: str, model_name: str) -> None:
     ]
     random_neurons = random_neurons["NeuronLabel"].unique()
 
-    px.line(
+    fig = px.line(
         probe_df[
             probe_df["NeuronLabel"].isin(good_neurons)
             | probe_df["NeuronLabel"].isin(bad_neurons)
@@ -344,20 +344,22 @@ def process_data(output_dir: str, model_name: str) -> None:
         color="NeuronLabel",
         title="Neurons with max MCC >= 0.85",
     )
+    fig.write_image(output_dir + "high_mcc_neurons.png")
 
     context_neuron_df = probe_df[probe_df["NeuronLabel"] == "L3N669"]
-    px.line(
+    fig = px.line(
         context_neuron_df,
         x="Checkpoint",
         y=["MeanGermanActivation", "MeanEnglishActivation"],
     )
+    fig.write_image(output_dir + "mean_activations.png")
 
     with gzip.open(
         output_dir + model_name + "_checkpoint_layer_ablations.pkl.gz", "rb"
     ) as f:
         layer_ablation_df = pickle.load(f)
 
-    px.line(
+    fig = px.line(
         layer_ablation_df.groupby(["Checkpoint", "Layer"]).mean().reset_index(),
         x="Checkpoint",
         y="LossDifference",
@@ -365,6 +367,7 @@ def process_data(output_dir: str, model_name: str) -> None:
         title="Loss difference for zero-ablating MLP layers on German data",
         width=900,
     )
+    fig.write_image(output_dir + "layer_ablation_losses.png")
 
 
 if __name__ == "__main__":
@@ -380,9 +383,13 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    results = analyze_model_checkpoints(args.model, args.output_dir)
+    analyze_model_checkpoints(args.model, args.output_dir)
 
     save_path = os.path.join(args.output_dir, args.model)
     os.makedirs(save_path, exist_ok=True)
     save_file = os.path.join(save_path, f"{args.feature_dataset}_neurons.csv")
     results.to_csv(save_file, index=False)
+
+    save_image = os.path.join(save_path, "images")
+    os.makedirs(save_image, exist_ok=True)
+    process_data(args.output_dir, args.model, save_image)
