@@ -145,20 +145,22 @@ def get_layer_probe_performance(
         )
         f1s.append(f1)
         mccs.append(mcc)
-
-    neuron_labels = [f"C{checkpoint}L{layer}N{i}" for i in range(model.cfg.d_mlp)]
+    
+    checkpoint_neuron_labels = [f"C{checkpoint}L{layer}N{i}" for i in range(model.cfg.d_mlp)]
+    neuron_labels = [f"L{layer}N{i}" for i in range(model.cfg.d_mlp)]
     neuron_indices = [i for i in range(model.cfg.d_mlp)]
 
     layer_df = pd.DataFrame(
         {
-            "Label": neuron_labels,
+            "Label": checkpoint_neuron_labels,
+            "NeuronLabel": neuron_labels,
             "Neuron": neuron_indices,
             "F1": f1s,
             "MCC": mccs,
             "MeanGermanActivation": mean_german_activations,
             "MeanNonGermanActivation": mean_non_german_activations,
-            "Checkpoint": checkpoint * len(neuron_labels),
-            "Layer": layer * len(neuron_labels),
+            "Checkpoint": checkpoint * len(checkpoint_neuron_labels),
+            "Layer": layer * len(checkpoint_neuron_labels),
         }
     )
     return layer_df
@@ -178,17 +180,27 @@ def run_probe_analysis(
         for checkpoint in range(num_checkpoints):
             model = get_model(checkpoint)
             for layer in range(n_layers):
-                tmp_df = get_layer_probe_performance(
+                checkpoint_layer_df = get_layer_probe_performance(
                     model, checkpoint, layer, german_data, non_german_data
                 )
-                dfs.append(tmp_df)
+                dfs.append(checkpoint_layer_df)
+                # Save progress to allow for checkpointing the analysis
+                with open(output_dir + model_name + '_checkpoint_features.pkl.gz', 'wb') as f:
+                    pickle.dump(dfs, f)
                 pbar.update(1)
+
+    # Open the pickle file
+    with open(output_dir + model_name + '_checkpoint_features.pkl.gz', 'rb') as f:
+        dfs = pickle.load(f)
+
+    # Concatenate the dataframes
+    probe_df = pd.concat(dfs)
 
     # Compress with gzip using high compression and save
     with gzip.open(
-        output_dir + model_name + "_checkpoint_features.pkl.gz", "wb", compresslevel=9
+        output_dir + model_name + '_checkpoint_features.pkl.gz', 'wb', compresslevel=9
     ) as f_out:
-        pickle.dump(dfs, f_out)
+        pickle.dump(probe_df, f_out)
 
 
 def analyze_model_checkpoints(model_name: str, output_dir: str) -> None:
@@ -209,27 +221,21 @@ def analyze_model_checkpoints(model_name: str, output_dir: str) -> None:
     )
 
 
-def process_data() -> None:
+def process_data(output_dir: str, model_name: str) -> None:
     def load_probe_analysis():
         with gzip.open(
-            output_data_dir + "layer_probe_performance_pile.pkl.gz", "rb"
+            output_dir + model_name + "_checkpoint_features.pkl.gz", "rb"
         ) as f:
             data = pickle.load(f)
         return data
 
-    dfs = load_probe_analysis()
-
-    probe_df = pd.concat(dfs)
-    probe_df["NeuronLabel"] = probe_df.apply(
-        lambda row: f"L{row['Layer']}N{row['Neuron']}", axis=1
-    )
-    probe_df.head()
+    probe_df = load_probe_analysis()
 
     checkpoints = []
     top_probe = []
     for checkpoint in probe_df["Checkpoint"].unique():
-        tmp_df = probe_df[probe_df["Checkpoint"] == checkpoint]
-        top_probe.append(tmp_df["MCC"].max())
+        checkpoint_df = probe_df[probe_df["Checkpoint"] == checkpoint]
+        top_probe.append(checkpoint_df["MCC"].max())
         checkpoints.append(checkpoint)
     px.line(
         x=checkpoints,
