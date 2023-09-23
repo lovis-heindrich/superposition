@@ -393,24 +393,15 @@ context_neuron_df = probe_df[probe_df["NeuronLabel"]=="L3N669"]
 px.line(context_neuron_df, x="Checkpoint", y=["MeanGermanActivation", "MeanEnglishActivation"])
 
 # %%
-### probe_df analysis over checkpoints
-
+### neurons' MCC analysis over checkpoints (probe_df)
 ### L3N669 and vorschlagen losses analysis (context_neuron_eval) 
-
 ### DLA of L3N669 inputs over checkpoints - definitely a different script
-
 ### L3N669 losses on Pile datasets - could add the other languages here
-
 ### gradients analysis over whole model and good neurons (checkpoint_df)
-
 ### n-gram losses analysis (df)
-
 ### ablation analysis for L5N1712 on two languages (single_neuron_df_english, single_neuron_df_german)
-
 ### print activations for neurons on prompts
-
 ### layer ablation analysis (layer_df)
-
 ### ablating L3N669 on English data analysis (ablation_english_df)
 
 
@@ -420,29 +411,33 @@ px.line(context_neuron_df, x="Checkpoint", y=["MeanGermanActivation", "MeanEngli
 # - Add the other languages to the ablation analysis
 # - New structure
 
-For each checkpoint:
-    layer ablation analysis (layer_df)
+
+# Script 1: checkpoints feature formation
+# Input: --model_name="EleutherAI/pythia-70m"
+# For each checkpoint:
+    ### Don't include: neurons' MCC analysis over checkpoints - english vs. german (probe_df)
+    # neurons' MCC analysis over checkpoints - all langs vs. german (probe_df)
+    # Generate csv containing each neurons' final MCC
+
+    # layer ablation analysis (layer_df)
+    # German n-gram losses over checkpoints (df)
+
+# Script 2: checkpoints contextual n-grams formation
+# Input: --model_name="EleutherAI/pythia-70m" --context_neurons=[(3, 669)] --n_grams --dla=True --lang_losses=True --losses=True 
+# For each checkpoint:
+    # neuron and vorschlagen loss increases from neuron ablation (context_neuron_eval)
+    # neuron losses over other Pile datasets - could add the other Europarl languages here
+    # DLA of neuron input components over checkpoints
+    # If gradients specified:
+        # gradients analysis over whole model and good neurons (checkpoint_df)
+    # If prompt activations specified:
+        # print activations for neurons on prompts
 
 
-### L3N669 and vorschlagen losses analysis (context_neuron_eval) 
-
-
-
-### L3N669 losses on Pile datasets - could add the other languages here
-
-### gradients analysis over whole model and good neurons (checkpoint_df)
-
-### n-gram losses analysis (df)
-
+# Not included (or generalize so that it is implicitly available):
 ### ablation analysis for L5N1712 on two languages (single_neuron_df_english, single_neuron_df_german)
-
-### print activations for neurons on prompts
-
-### layer ablation analysis (layer_df)
-
 ### ablating L3N669 on English data analysis (ablation_english_df)
 
-### DLA of L3N669 inputs over checkpoints - definitely a different script
 
 
 
