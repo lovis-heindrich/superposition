@@ -58,9 +58,18 @@ def get_model(checkpoint: int) -> HookedTransformer:
     return model
 
 
-def preload_models(NUM_CHECKPOINTS: int) -> None:
-    for i in tqdm(range(NUM_CHECKPOINTS)):
-        get_model(i)
+def preload_models() -> int:
+    """Preload models into cache so we can iterate over them quickly and return the model checkpoint count."""
+    i = 0
+    try:
+        with tqdm(total=None) as pbar:
+            while True:
+                get_model(i)
+                i += 1
+                pbar.update(1)
+
+    except IndexError:
+        return i
 
 
 def load_language_data() -> dict:
@@ -82,7 +91,7 @@ def load_language_data() -> dict:
 
 
 def train_probe(
-    positive_data: np.array, negative_data: np.array
+    positive_data: torch.Tensor, negative_data: torch.Tensor
 ) -> tuple[float, float]:
     labels = np.concatenate([np.ones(len(positive_data)), np.zeros(len(negative_data))])
     data = np.concatenate([positive_data.cpu().numpy(), negative_data.cpu().numpy()])
@@ -96,6 +105,22 @@ def train_probe(
     return f1, mcc
 
 
+def get_mlp_activations(
+    prompts: list[str], layer: int, model: HookedTransformer, k=10_000
+) -> torch.Tensor:
+    act_label = f"blocks.{layer}.mlp.hook_post"
+
+    acts = []
+    for prompt in prompts:
+        with model.hooks([(act_label, save_activation)]):
+            model(prompt)
+            act = model.hook_dict[act_label].ctx["activation"][:, 10:400, :]
+        act = einops.rearrange(act, "batch pos n_neurons -> (batch pos) n_neurons")
+        acts.append(act)
+    acts = torch.concat(acts, dim=0)
+    return acts[:k]
+
+
 def get_layer_probe_performance(
     model: HookedTransformer,
     checkpoint: int,
@@ -103,19 +128,14 @@ def get_layer_probe_performance(
     german_data: np.array,
     non_german_data: np.array,
 ) -> pd.DataFrame:
-    """Probe performance for each neuron"""
+    """Probe performance for each neuron."""
 
-    # english_activations = haystack_utils.get_mlp_activations(english_data[:30], layer, model, mean=False, disable_tqdm=True)[:10000]
-    german_activations = haystack_utils.get_mlp_activations(
-        german_data, layer, model, mean=False, disable_tqdm=True
-    )[:10000]
-    non_german_activations = haystack_utils.get_mlp_activations(
-        non_german_data, layer, model, mean=False, disable_tqdm=True
-    )[:10000]
+    german_activations = get_mlp_activations(german_data, layer, model)
+    non_german_activations = get_mlp_activations(non_german_data, layer, model)
 
-    neuron_labels = [f"C{checkpoint}L{layer}N{i}" for i in range(model.cfg.d_mlp)]
-    mean_non_german_activations = non_german_activations.mean(0).cpu().numpy()
     mean_german_activations = german_activations.mean(0).cpu().numpy()
+    mean_non_german_activations = non_german_activations.mean(0).cpu().numpy()
+
     f1s = []
     mccs = []
     for neuron in range(model.cfg.d_mlp):
@@ -125,10 +145,14 @@ def get_layer_probe_performance(
         )
         f1s.append(f1)
         mccs.append(mcc)
+
+    neuron_labels = [f"C{checkpoint}L{layer}N{i}" for i in range(model.cfg.d_mlp)]
+    neuron_indices = [i for i in range(model.cfg.d_mlp)]
+
     layer_df = pd.DataFrame(
         {
             "Label": neuron_labels,
-            "Neuron": [i for i in range(model.cfg.d_mlp)],
+            "Neuron": neuron_indices,
             "F1": f1s,
             "MCC": mccs,
             "MeanGermanActivation": mean_german_activations,
@@ -141,35 +165,30 @@ def get_layer_probe_performance(
 
 
 def run_probe_analysis(
-    model_name: str, german_data: list, non_german_data: list
+    model_name: str,
+    num_checkpoints: int,
+    german_data: list,
+    non_german_data: list,
+    output_dir: str,
 ) -> None:
     n_layers = get_model(model_name, 0).cfg.n_layers
 
     dfs = []
-    checkpoints = list(range(40)) + [40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140]
-    with tqdm(total=len(checkpoints) * n_layers) as pbar:
-        for checkpoint in checkpoints:
+    with tqdm(total=checkpoints * n_layers) as pbar:
+        for checkpoint in range(num_checkpoints):
             model = get_model(checkpoint)
             for layer in range(n_layers):
                 tmp_df = get_layer_probe_performance(
                     model, checkpoint, layer, german_data, non_german_data
                 )
                 dfs.append(tmp_df)
-                with open(
-                    output_data_dir + "layer_probe_performance_pile.pkl", "wb"
-                ) as f:
-                    pickle.dump(dfs, f)
                 pbar.update(1)
-
-    # Open the pickle file
-    with open(output_data_dir + "layer_probe_performance_pile.pkl", "rb") as f:
-        data = pickle.load(f)
 
     # Compress with gzip using high compression and save
     with gzip.open(
-        output_data_dir + "layer_probe_performance_pile.pkl.gz", "wb", compresslevel=9
+        output_dir + model_name + "_checkpoint_features.pkl.gz", "wb", compresslevel=9
     ) as f_out:
-        pickle.dump(data, f_out)
+        pickle.dump(dfs, f_out)
 
 
 def analyze_model_checkpoints(model_name: str, output_dir: str) -> None:
@@ -183,9 +202,11 @@ def analyze_model_checkpoints(model_name: str, output_dir: str) -> None:
     ).tolist()[:30]
 
     # Will take about 50GB of disk space for Pythia 70M models
-    preload_models(NUM_CHECKPOINTS)
+    num_checkpoints = preload_models()
 
-    run_probe_analysis(model_name, german_data, non_german_data)
+    run_probe_analysis(
+        model_name, num_checkpoints, german_data, non_german_data, output_dir
+    )
 
 
 def process_data() -> None:
