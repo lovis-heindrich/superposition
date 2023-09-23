@@ -73,29 +73,34 @@ def train_probe(
     return f1, mcc
 
 
-# Will take about 50GB of disk space for Pythia 70M models
 def preload_models(NUM_CHECKPOINTS: int) -> None:
     for i in tqdm(range(NUM_CHECKPOINTS)):
         get_model(i)
 
 
-def load_pile_data() -> dict:
-    pile = {}
-    europarl_data_dir = Path("data/europarl/")
-    output_data_dir = Path("data/checkpoint/europarl/")
+def load_language_data() -> dict:
+    '''
+    Returns: dictionary keyed by language code, containing 200 lines of each Europarl language and English.
+    '''
+    lang_data = {}
+    lang_data['en'] = haystack_utils.load_json_data("data/english_europarl.json")[:200]
 
+    europarl_data_dir = Path("data/europarl/")
     for file in os.listdir(europarl_data_dir):
         if file.endswith(".txt"):
             lang = file.split("_")[0]
-            pile[lang] = haystack_utils.load_txt_data(europarl_data_dir + file)
+            lang_data[lang] = haystack_utils.load_txt_data(europarl_data_dir + file)
 
-    for lang in pile.keys():
-        print(lang, len(pile[lang]))
-    return pile
+    for lang in lang_data.keys():
+        print(lang, len(lang_data[lang]))
+    return lang_data
+
+def get_german_classification_data() -> tuple[list, list]:
+
 
 
 def get_layer_probe_performance(
-    model, checkpoint, layer, german_data, non_german_data
+    model: HookedTransformer, checkpoint: int, layer: int, german_data: np.array, non_german_data: np.array
 ) -> pd.DataFrame:
     """Probe performance for each neuron"""
 
@@ -119,7 +124,7 @@ def get_layer_probe_performance(
         )
         f1s.append(f1)
         mccs.append(mcc)
-    df = pd.DataFrame(
+    layer_df = pd.DataFrame(
         {
             "Label": neuron_labels,
             "Neuron": [i for i in range(model.cfg.d_mlp)],
@@ -127,14 +132,14 @@ def get_layer_probe_performance(
             "MCC": mccs,
             "MeanGermanActivation": mean_german_activations,
             "MeanNonGermanActivation": mean_non_german_activations,
+            "Checkpoint": checkpoint * len(neuron_labels),
+            "Layer": layer * len(neuron_labels),
         }
     )
-    df["Checkpoint"] = checkpoint
-    df["Layer"] = layer
-    return df
+    return layer_df
 
 
-def run_probe_analysis(model_name) -> None:
+def run_probe_analysis(model_name: str, german_data: list, non_german_data: list) -> None:
     n_layers = get_model(model_name, 0).cfg.n_layers
 
     dfs = []
@@ -143,7 +148,7 @@ def run_probe_analysis(model_name) -> None:
         for checkpoint in checkpoints:
             model = get_model(checkpoint)
             for layer in range(n_layers):
-                tmp_df = get_layer_probe_performance(model, checkpoint, layer)
+                tmp_df = get_layer_probe_performance(model, checkpoint, layer, german_data, non_german_data)
                 dfs.append(tmp_df)
                 with open(
                     output_data_dir + "layer_probe_performance_pile.pkl", "wb"
@@ -161,6 +166,20 @@ def run_probe_analysis(model_name) -> None:
     ) as f_out:
         pickle.dump(data, f_out)
 
+def analyze_model_checkpoints(model_name: str, output_dir: str) -> None:
+    setup()
+
+    # Load probe data
+    lang_data = load_language_data()
+    german_data = lang_data["de"]
+    non_german_data = np.random.shuffle(
+        np.concatenate([lang_data[lang] for lang in lang_data.keys() if lang != "de"])
+    ).tolist()
+    
+    # Will take about 50GB of disk space for Pythia 70M models
+    preload_models(NUM_CHECKPOINTS)
+
+    run_probe_analysis(model_name, german_data, non_german_data)
 
 def process_data() -> None:
     def load_probe_analysis():
@@ -236,67 +255,6 @@ def process_data() -> None:
     )
 
 
-### neurons' MCC analysis over checkpoints (probe_df)
-### L3N669 and vorschlagen losses analysis (context_neuron_eval)
-### DLA of L3N669 inputs over checkpoints - definitely a different script
-### L3N669 losses on Pile datasets - could add the other languages here
-### gradients analysis over whole model and good neurons (checkpoint_df)
-### n-gram losses analysis (df)
-### ablation analysis for L5N1712 on two languages (single_neuron_df_english, single_neuron_df_german)
-### print activations for neurons on prompts
-### layer ablation analysis (layer_df)
-### ablating L3N669 on English data analysis (ablation_english_df)
-
-
-### Tasks:
-# - Move to this script
-# - Add the other languages to the pile loss analysis
-# - Add the other languages to the ablation analysis
-# - New structure
-
-
-# Script 1: checkpoints feature formation
-# Input: --model_name="EleutherAI/pythia-70m"
-# For each checkpoint:
-### Don't include: neurons' MCC analysis over checkpoints - english vs. german (probe_df)
-# neurons' MCC analysis over checkpoints - all langs vs. german (probe_df)
-# Generate csv containing each neurons' final MCC
-
-# layer ablation analysis (layer_df)
-# German n-gram losses over checkpoints (df)
-
-# Script 2: checkpoints contextual n-grams formation
-# Input: --model_name="EleutherAI/pythia-70m" --context_neurons=[(3, 669)] --n_grams --dla=True --lang_losses=True --losses=True
-# For each checkpoint:
-# neuron and vorschlagen loss increases from neuron ablation (context_neuron_eval)
-# neuron losses over other Pile datasets - could add the other Europarl languages here
-# DLA of neuron input components over checkpoints
-# If gradients specified:
-# gradients analysis over whole model and good neurons (checkpoint_df)
-# If prompt activations specified:
-# print activations for neurons on prompts
-
-
-# Not included (or generalize so that it is implicitly available):
-### ablation analysis for L5N1712 on two languages (single_neuron_df_english, single_neuron_df_german)
-### ablating L3N669 on English data analysis (ablation_english_df)
-
-
-def analyze_model_checkpoints(model_name: str) -> None:
-    setup()
-
-    german_data = haystack_utils.load_json_data("data/german_europarl.json")[:200]
-    english_data = haystack_utils.load_json_data("data/english_europarl.json")[:200]
-    pile_data = load_pile_data()
-    non_german_data = np.random.shuffle(
-        np.concatenate([pile_data[lang] for lang in pile_data.keys() if lang != "de"])
-    ).tolist()
-
-    preload_models(NUM_CHECKPOINTS)
-
-    run_probe_analysis(model_name)
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
@@ -310,7 +268,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    results = analyze_model_checkpoints(args.model)
+    results = analyze_model_checkpoints(args.model, args.output_dir)
 
     save_path = os.path.join(args.output_dir, args.model)
     os.makedirs(save_path, exist_ok=True)
