@@ -29,7 +29,7 @@ import probing_utils
 import haystack_utils
 
 
-def setup():
+def set_seeds():
     SEED = 42
     torch.manual_seed(SEED)
     np.random.seed(SEED)
@@ -58,6 +58,29 @@ def get_model(checkpoint: int) -> HookedTransformer:
     return model
 
 
+def preload_models(NUM_CHECKPOINTS: int) -> None:
+    for i in tqdm(range(NUM_CHECKPOINTS)):
+        get_model(i)
+
+
+def load_language_data() -> dict:
+    """
+    Returns: dictionary keyed by language code, containing 200 lines of each language included in the Europarl dataset.
+    """
+    lang_data = {}
+    lang_data["en"] = haystack_utils.load_json_data("data/english_europarl.json")[:200]
+
+    europarl_data_dir = Path("data/europarl/")
+    for file in os.listdir(europarl_data_dir):
+        if file.endswith(".txt"):
+            lang = file.split("_")[0]
+            lang_data[lang] = haystack_utils.load_txt_data(europarl_data_dir + file)
+
+    for lang in lang_data.keys():
+        print(lang, len(lang_data[lang]))
+    return lang_data
+
+
 def train_probe(
     positive_data: np.array, negative_data: np.array
 ) -> tuple[float, float]:
@@ -73,43 +96,21 @@ def train_probe(
     return f1, mcc
 
 
-def preload_models(NUM_CHECKPOINTS: int) -> None:
-    for i in tqdm(range(NUM_CHECKPOINTS)):
-        get_model(i)
-
-
-def load_language_data() -> dict:
-    '''
-    Returns: dictionary keyed by language code, containing 200 lines of each Europarl language and English.
-    '''
-    lang_data = {}
-    lang_data['en'] = haystack_utils.load_json_data("data/english_europarl.json")[:200]
-
-    europarl_data_dir = Path("data/europarl/")
-    for file in os.listdir(europarl_data_dir):
-        if file.endswith(".txt"):
-            lang = file.split("_")[0]
-            lang_data[lang] = haystack_utils.load_txt_data(europarl_data_dir + file)
-
-    for lang in lang_data.keys():
-        print(lang, len(lang_data[lang]))
-    return lang_data
-
-def get_german_classification_data() -> tuple[list, list]:
-
-
-
 def get_layer_probe_performance(
-    model: HookedTransformer, checkpoint: int, layer: int, german_data: np.array, non_german_data: np.array
+    model: HookedTransformer,
+    checkpoint: int,
+    layer: int,
+    german_data: np.array,
+    non_german_data: np.array,
 ) -> pd.DataFrame:
     """Probe performance for each neuron"""
 
     # english_activations = haystack_utils.get_mlp_activations(english_data[:30], layer, model, mean=False, disable_tqdm=True)[:10000]
     german_activations = haystack_utils.get_mlp_activations(
-        german_data[:30], layer, model, mean=False, disable_tqdm=True
+        german_data, layer, model, mean=False, disable_tqdm=True
     )[:10000]
     non_german_activations = haystack_utils.get_mlp_activations(
-        non_german_data[:30], layer, model, mean=False, disable_tqdm=True
+        non_german_data, layer, model, mean=False, disable_tqdm=True
     )[:10000]
 
     neuron_labels = [f"C{checkpoint}L{layer}N{i}" for i in range(model.cfg.d_mlp)]
@@ -139,7 +140,9 @@ def get_layer_probe_performance(
     return layer_df
 
 
-def run_probe_analysis(model_name: str, german_data: list, non_german_data: list) -> None:
+def run_probe_analysis(
+    model_name: str, german_data: list, non_german_data: list
+) -> None:
     n_layers = get_model(model_name, 0).cfg.n_layers
 
     dfs = []
@@ -148,7 +151,9 @@ def run_probe_analysis(model_name: str, german_data: list, non_german_data: list
         for checkpoint in checkpoints:
             model = get_model(checkpoint)
             for layer in range(n_layers):
-                tmp_df = get_layer_probe_performance(model, checkpoint, layer, german_data, non_german_data)
+                tmp_df = get_layer_probe_performance(
+                    model, checkpoint, layer, german_data, non_german_data
+                )
                 dfs.append(tmp_df)
                 with open(
                     output_data_dir + "layer_probe_performance_pile.pkl", "wb"
@@ -166,20 +171,22 @@ def run_probe_analysis(model_name: str, german_data: list, non_german_data: list
     ) as f_out:
         pickle.dump(data, f_out)
 
+
 def analyze_model_checkpoints(model_name: str, output_dir: str) -> None:
-    setup()
+    set_seeds()
 
     # Load probe data
     lang_data = load_language_data()
-    german_data = lang_data["de"]
+    german_data = lang_data["de"][:30]
     non_german_data = np.random.shuffle(
         np.concatenate([lang_data[lang] for lang in lang_data.keys() if lang != "de"])
-    ).tolist()
-    
+    ).tolist()[:30]
+
     # Will take about 50GB of disk space for Pythia 70M models
     preload_models(NUM_CHECKPOINTS)
 
     run_probe_analysis(model_name, german_data, non_german_data)
+
 
 def process_data() -> None:
     def load_probe_analysis():
