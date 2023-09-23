@@ -27,9 +27,11 @@ from nltk import ngrams
 
 import neel.utils as nutils
 from neel_plotly import *
-import probing_utils
 import haystack_utils
+import probing_utils
 
+# %reload_ext autoreload
+# %autoreload 2
 
 def set_seeds():
     SEED = 42
@@ -38,12 +40,8 @@ def set_seeds():
     random.seed(SEED)
 
     pio.renderers.default = "notebook_connected+notebook"
-    device = "cuda" if torch.cuda.is_available() else "cpu"
     # torch.autograd.set_grad_enabled(False)
     # torch.set_grad_enabled(False)
-
-    # %reload_ext autoreload
-    # %autoreload 2
 
     NUM_CHECKPOINTS = 143
 
@@ -55,7 +53,7 @@ def get_model(checkpoint: int) -> HookedTransformer:
         center_unembed=True,
         center_writing_weights=True,
         fold_ln=True,
-        device=device,
+        device="cuda" if torch.cuda.is_available() else "cpu",
     )
     return model
 
@@ -85,7 +83,7 @@ def load_language_data() -> dict:
     for file in os.listdir(europarl_data_dir):
         if file.endswith(".txt"):
             lang = file.split("_")[0]
-            lang_data[lang] = haystack_utils.load_txt_data(europarl_data_dir + file)
+            lang_data[lang] = haystack_utils.load_txt_data(europarl_data_dir.joinpath(file))
 
     for lang in lang_data.keys():
         print(lang, len(lang_data[lang]))
@@ -274,7 +272,9 @@ def run_probe_analysis(
     output_dir: str,
 ) -> None:
     """Collect several dataframes covering whole layer ablation losses, ngram loss, language losses, and neuron probe performance."""
-    n_layers = get_model(model_name, 0).cfg.n_layers
+    model = get_model(model_name, 0)
+    n_layers = model.cfg.n_layers
+
     german_data = lang_data["de"]
     non_german_data = np.random.shuffle(
         np.concatenate([lang_data[lang] for lang in lang_data.keys() if lang != "de"])
@@ -284,6 +284,7 @@ def run_probe_analysis(
     common_tokens = haystack_utils.get_common_tokens(
         german_data, model, all_ignore, k=100
     )
+    top_german_trigrams = get_common_ngrams(model, lang_data["de"], 3, 200)
 
     random_trigram_indices = np.random.choice(
         range(len(top_trigrams)), 20, replace=False
@@ -345,12 +346,11 @@ def run_probe_analysis(
 def analyze_model_checkpoints(model_name: str, output_dir: str) -> None:
     set_seeds()
 
-    # Load probe data
-    lang_data = load_language_data()
-    top_german_trigrams = get_common_ngrams(model, lang_data["de"], 3, 200)
-
     # Will take about 50GB of disk space for Pythia 70M models
     num_checkpoints = preload_models()
+
+    # Load probe data
+    lang_data = load_language_data()
 
     run_probe_analysis(
         model_name, num_checkpoints, lang_data, top_german_trigrams, output_dir
@@ -446,7 +446,14 @@ def process_data(output_dir: str, model_name: str) -> None:
     )
     fig.write_image(output_dir + "layer_ablation_losses.png")
 
+# %%
+# TEMP. TEST
+# save_path = os.path.join(Path("feature_formation/"), "EleutherAI/pythia-70m")
+# os.makedirs(save_path, exist_ok=True)
 
+# analyze_model_checkpoints("EleutherAI/pythia-70m", "feature_formation/")
+
+# %%
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
@@ -460,13 +467,14 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    analyze_model_checkpoints(args.model, args.output_dir)
-
     save_path = os.path.join(args.output_dir, args.model)
     os.makedirs(save_path, exist_ok=True)
+
+    analyze_model_checkpoints(args.model, args.output_dir)
+
     save_file = os.path.join(save_path, f"{args.feature_dataset}_neurons.csv")
     results.to_csv(save_file, index=False)
 
     save_image = os.path.join(save_path, "images")
     os.makedirs(save_image, exist_ok=True)
-    process_data(args.output_dir, args.model, save_image)
+    # process_data(args.output_dir, args.model, save_image)
