@@ -5,6 +5,7 @@ import pickle
 import os
 import gzip
 from pathlib import Path
+from collections import Counter
 
 import pandas as pd
 import numpy as np
@@ -22,6 +23,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle
 import plotly.express as px
 import plotly.graph_objects as go
+from nltk import ngrams
 
 import neel.utils as nutils
 from neel_plotly import *
@@ -88,6 +90,22 @@ def load_language_data() -> dict:
     for lang in lang_data.keys():
         print(lang, len(lang_data[lang]))
     return lang_data
+
+
+def get_common_ngrams(model: HookedTransformer, prompts: list[str], n: int, top_k=100) -> list[str]:
+    '''
+    n: n-gram length
+    top_k: number of n-grams to return
+
+    Returns: List of most common n-grams in prompts sorted by frequency
+    '''
+    all_ngrams = []
+    for prompt in tqdm(prompts):
+        str_tokens = model.to_str_tokens(prompt)
+        all_ngrams.extend(ngrams(str_tokens, n))
+    # Filter n-grams which contain punctuation
+    all_ngrams = [x for x in all_ngrams if all([y.strip() not in ["\n", "-", "(", ")", ".", ",", ";", "!", "?", ""] for y in x])]
+    return Counter(all_ngrams).most_common(top_k)
 
 
 def train_probe(
@@ -212,22 +230,43 @@ def get_language_losses(model: HookedTransformer, checkpoint: int, lang_data: di
     return pd.DataFrame(data, columns=["Checkpoint", "Language", "Loss"], index=[0])
 
 
+def get_ngram_losses(model: HookedTransformer, checkpoint: int, ngrams: list[str], common_tokens: list[str]) -> pd.DataFrame:
+    data = []
+    for ngram in ngrams:
+        prompts = haystack_utils.generate_random_prompts(ngram, model, common_tokens, 100, 20)
+        loss = eval_prompts(prompts, model)
+        with model.hooks(deactivate_neurons_fwd_hooks):
+            ablated_loss = eval_prompts(prompts, model)
+        data.append([loss, ablated_loss, ablated_loss - loss, checkpoint, ngram])
+
+    df = pd.DataFrame(data, columns=["OriginalLoss", "AblatedLoss", "LossIncrease", "Checkpoint", "Ngram"])
+    return df
+
+
 def run_probe_analysis(
     model_name: str,
     num_checkpoints: int,
     lang_data: dict,
+    top_german_trigrams: list[str],
     output_dir: str,
 ) -> None:
+    '''Collect several dataframes covering whole layer ablation losses, ngram loss, language losses, and neuron probe performance.'''
     n_layers = get_model(model_name, 0).cfg.n_layers
     german_data = lang_data["de"]
     non_german_data = np.random.shuffle(
         np.concatenate([lang_data[lang] for lang in lang_data.keys() if lang != "de"])
     ).tolist()
 
+    all_ignore, _ = haystack_utils.get_weird_tokens(model, plot_norms=False)
+    common_tokens = haystack_utils.get_common_tokens(german_data, model, all_ignore, k=100)
+
+    random_trigram_indices = np.random.choice(range(len(top_trigrams)), 20, replace=False)
+    random_trigrams = ["".join(top_trigrams[i][0]) for i in random_trigram_indices]
+
     probe_dfs = []
     layer_ablation_dfs = []
     lang_loss_dfs = []
-
+    ngram_loss_dfs = []
     with tqdm(total=checkpoints * n_layers) as pbar:
         for checkpoint in range(num_checkpoints):
             model = get_model(checkpoint)
@@ -240,9 +279,10 @@ def run_probe_analysis(
                 partial_layer_ablation_df = get_layer_ablation_loss(
                     model, german_data, checkpoint, layer
                 )
-                layer_ablation_dfs.append(partial_layer_ablation_df)
 
+                layer_ablation_dfs.append(partial_layer_ablation_df)
                 lang_loss_dfs.append(get_language_losses(model, checkpoint, lang_data))
+                ngram_loss_dfs.append(get_ngram_losses(model, checkpoint, random_trigrams, common_tokens))
 
                 # Save progress to allow for checkpointing the analysis
                 with open(
@@ -278,12 +318,13 @@ def analyze_model_checkpoints(model_name: str, output_dir: str) -> None:
 
     # Load probe data
     lang_data = load_language_data()
+    top_german_trigrams = get_common_ngrams(model, lang_data["de"], 3, 200)
 
     # Will take about 50GB of disk space for Pythia 70M models
     num_checkpoints = preload_models()
 
     run_probe_analysis(
-        model_name, num_checkpoints, lang_data, output_dir
+        model_name, num_checkpoints, lang_data, top_german_trigrams, output_dir
     )
 
 
@@ -310,7 +351,7 @@ def process_data(output_dir: str, model_name: str) -> None:
         width=800,
         height=400,
     )
-    # TODO Save plot
+    fig.write_image(output_dir + "top_mcc_by_checkpoint.png")
 
     accurate_neurons = probe_df[
         (probe_df["MCC"] > 0.85)
