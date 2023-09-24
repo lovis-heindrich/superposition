@@ -4,7 +4,6 @@ import pickle
 import os
 import gzip
 from pathlib import Path
-from collections import Counter
 
 import pandas as pd
 import numpy as np
@@ -29,16 +28,11 @@ import probing_utils
 SEED = 42
 
 def set_seeds():
-    
     torch.manual_seed(SEED)
     np.random.seed(SEED)
     random.seed(SEED)
 
     pio.renderers.default = "notebook_connected+notebook"
-    # torch.autograd.set_grad_enabled(False)
-    # torch.set_grad_enabled(False)
-
-    # NUM_CHECKPOINTS = 143
 
 
 def get_model(model_name: str, checkpoint: int) -> HookedTransformer:
@@ -382,7 +376,6 @@ def process_data(model_name: str, output_dir: Path, image_dir: Path) -> None:
     )
     fig.write_image(image_dir.joinpath("mean_activations.png"))
 
-
     layer_ablation_df = data['layer_ablation']
     fig = px.line(
         layer_ablation_df.groupby(["Checkpoint", "Layer"]).mean().reset_index(),
@@ -394,7 +387,7 @@ def process_data(model_name: str, output_dir: Path, image_dir: Path) -> None:
     )
     fig.write_image(image_dir.joinpath("layer_ablation_losses.png"))
 
-# %%
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
@@ -416,6 +409,6 @@ if __name__ == "__main__":
     save_image_path = os.path.join(save_path, "images")
     os.makedirs(save_image_path, exist_ok=True)
     
-    process_data(args.model, save_path, save_image_path)
+    process_data(args.model, Path(save_path), Path(save_image_path))
 
 
