@@ -140,7 +140,32 @@ def get_common_ngrams(
     return Counter(all_ngrams).most_common(top_k)
 
 
-def analyze_contextual_ngrams(model_name, save_path):
+def eval_loss(model, data, mean=True):
+    '''Mean of mean of token losses for each prompt'''
+    losses = []
+    for prompt in data:
+        loss = model(prompt, return_type="loss")
+        losses.append(loss.item())
+    if mean:
+        return np.mean(losses)
+    return losses
+
+    
+def eval_checkpoint(model: HookedTransformer, german_data: list[str], non_german_data: list[str], checkpoint: int, layer: int, neuron: int):
+    model = get_model(checkpoint)
+    german_loss = eval_loss(model, german_data)
+    f1, mcc = get_probe_performance(model, german_data, non_german_data, layer, neuron)
+    return [checkpoint, german_loss, f1, mcc]
+
+
+def analyze_contextual_ngrams(
+        model_name: str, 
+        neurons: list[tuple[int, int]], 
+        ngrams: bool, 
+        dla: bool, 
+        lang_losses: bool, 
+        save_path: Path
+    ):
     set_seeds()
     num_checkpoints = preload_models(model_name)
     lang_data = load_language_data()
@@ -161,6 +186,7 @@ def analyze_contextual_ngrams(model_name, save_path):
     random_trigrams = ["".join(top_trigrams[i][0]) for i in random_trigram_indices]
 
     ngram_loss_dfs = []
+    context_neuron_eval_dfs = []
     with tqdm(total=num_checkpoints * n_layers) as pbar:
         for checkpoint in range(num_checkpoints):
             model = get_model(checkpoint)
@@ -168,6 +194,13 @@ def analyze_contextual_ngrams(model_name, save_path):
                 ngram_loss_dfs.append(
                     get_ngram_losses(model, checkpoint, random_trigrams, common_tokens)
                 )
+                context_neuron_eval_dfs.append()
+                pbar.update(1)
+
+
+def tuple_list_type(value):
+    return [tuple(map(int, t.split(','))) for t in value.split(' ')]
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -178,12 +211,18 @@ if __name__ == "__main__":
         default="EleutherAI/pythia-70m",
         help="Name of model from TransformerLens",
     )
-    parser.add_argument("--output_dir", default="feature_formation")
+    parser.add_argument("--output_dir", default="contextual_ngrams_formation")
+    parser.add_argument("--neurons", default=[(3, 669)], type=tuple_list_type, 
+                        help="Space delimited list of neurons to analyze. \
+                        Each neuron is a comma delimited tuple of layer_index,neuron_index.")
+    parser.add_argument("--ngrams", default=True)
+    parser.add_argument("--dla", default=True)
+    parser.add_argument("--lang_losses", default=True)
 
     args = parser.parse_args()
 
     save_path = os.path.join(args.output_dir, args.model)
     os.makedirs(save_path, exist_ok=True)
     
-    analyze_contextual_ngrams(args.model, Path(save_path))
+    analyze_contextual_ngrams(args.model, args.neurons, args.ngrams, args.dla, args.lang_losses, Path(save_path))
 
