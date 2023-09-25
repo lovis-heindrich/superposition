@@ -150,12 +150,68 @@ def eval_loss(model, data, mean=True):
         return np.mean(losses)
     return losses
 
-    
-def eval_checkpoint(model: HookedTransformer, german_data: list[str], non_german_data: list[str], checkpoint: int, layer: int, neuron: int):
+
+def eval_checkpoint(model: HookedTransformer, probe_df: pd.DataFrame, german_data: list[str], checkpoint: int, layer: int, neuron: int):
     model = get_model(checkpoint)
     german_loss = eval_loss(model, german_data)
-    f1, mcc = get_probe_performance(model, german_data, non_german_data, layer, neuron)
+    f1, mcc = probe_df[(probe_df['Checkpoint']==checkpoint)&(probe_df['Layer']==layer)&(probe_df['Neuron']==neuron)][['F1', 'MCC']].values[0]
     return [checkpoint, german_loss, f1, mcc]
+
+
+def get_common_tokens(model, prompts):
+    all_ignore, _ = haystack_utils.get_weird_tokens(model, plot_norms=False)    
+
+    common_tokens = haystack_utils.get_common_tokens(
+        prompts, model, all_ignore, k=100
+    )
+    return common_tokens
+
+
+def get_random_trigrams(model, prompts, k=20):
+    top_trigrams = get_common_ngrams(model, prompts, 3, 200)
+    random_trigram_indices = np.random.choice(
+        range(len(top_trigrams)), k, replace=False
+    )
+    random_trigrams = ["".join(top_trigrams[i][0]) for i in random_trigram_indices]
+    return random_trigrams
+
+
+def build_dfs(
+        model_name: HookedTransformer,
+        lang_data: dict,
+        probe_df: pd.DataFrame,
+        num_checkpoints: int 
+        neurons: list[tuple[int, int]], 
+        ngrams: bool, 
+        dla: bool, 
+        lang_losses: bool, 
+        save_path: Path 
+    ):
+    german_data = lang_data["de"]
+
+    temp_model = get_model(model_name, 0)
+    n_layers = temp_model.cfg.n_layers
+
+    common_tokens = get_common_tokens(temp_model, german_data)
+    random_trigrams = get_random_trigrams(temp_model, german_data)
+
+    ngram_loss_dfs = []
+    context_neuron_eval_dfs = []
+    with tqdm(total=num_checkpoints * n_layers) as pbar:
+        for checkpoint in range(num_checkpoints):
+            model = get_model(checkpoint)
+            for layer in range(n_layers):
+                ngram_loss_dfs.append(
+                    get_ngram_losses(model, checkpoint, random_trigrams, common_tokens)
+                )
+                context_neuron_eval_dfs.append()
+                pbar.update(1)
+    
+
+def load_probe_data(save_path):
+    with gzip.open(save_path.joinpath("_checkpoint_features.pkl.gz"), "rb") as f:
+        feature_data = pickle.load(f)
+    return feature_data['probe']
 
 
 def analyze_contextual_ngrams(
@@ -169,33 +225,9 @@ def analyze_contextual_ngrams(
     set_seeds()
     num_checkpoints = preload_models(model_name)
     lang_data = load_language_data()
-    german_data = lang_data["de"]
+    probe_df = load_probe_data(save_path)
 
-    temp_model = get_model(model_name, 0)
-    n_layers = temp_model.cfg.n_layers
-
-    all_ignore, _ = haystack_utils.get_weird_tokens(model, plot_norms=False)    
-
-    common_tokens = haystack_utils.get_common_tokens(
-        german_data, model, all_ignore, k=100
-    )
-    top_trigrams = get_common_ngrams(model, lang_data["de"], 3, 200)
-    random_trigram_indices = np.random.choice(
-        range(len(top_trigrams)), 20, replace=False
-    )
-    random_trigrams = ["".join(top_trigrams[i][0]) for i in random_trigram_indices]
-
-    ngram_loss_dfs = []
-    context_neuron_eval_dfs = []
-    with tqdm(total=num_checkpoints * n_layers) as pbar:
-        for checkpoint in range(num_checkpoints):
-            model = get_model(checkpoint)
-            for layer in range(n_layers):
-                ngram_loss_dfs.append(
-                    get_ngram_losses(model, checkpoint, random_trigrams, common_tokens)
-                )
-                context_neuron_eval_dfs.append()
-                pbar.update(1)
+    build_dfs(model_name, lang_data, probe_df, num_checkpoints, neurons, ngrams, dla, lang_losses, save_path)
 
 
 def tuple_list_type(value):
