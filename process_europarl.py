@@ -19,8 +19,8 @@ def add_to_dataset(data: str, language: str, num_samples=200, min_chars=500):
         if len(line) > min_chars:
             datasets[language].append(line)
             if len(datasets[language]) >= num_samples:
-                with open(f'{language}_200_samples.txt', 'w', encoding='utf-8') as f:
-                        json.dump('\n'.join(datasets[language]), f)
+                with open(f'{language}_{num_samples}_samples.json', 'w', encoding='utf-8') as f:
+                        json.dump(datasets[language], f)
                 europarl_languages.remove(language)
                 break
 
@@ -35,6 +35,6 @@ with tarfile.open('europarl.tgz', 'r:gz') as tar:
             text = file.read().decode('utf-8')
             data = preprocess_data(text)
             add_to_dataset(data, lang)
-            
+
     print("Languages with insufficient data:", europarl_languages)
             
