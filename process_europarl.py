@@ -4,23 +4,18 @@ import json
 
 # Assumes you have downloaded your own copy of europarl.tgz from https://www.statmt.org/europarl/
 
-europarl_languages = ["bg", "cs", "da", "de", "el", "es", "et", "fi", "fr", "ga", "hr", "hu", "it", "lt", "lv", "mt", "nl", "pl", "pt", "ro", "sk", "sl", "sv"]
+europarl_languages = ["bg", "cs", "da", "de", "el", "es", "en", "et", "fi", "fr", "ga", "hr", "hu", "it", "lt", "lv", "mt", "nl", "pl", "pt", "ro", "sk", "sl", "sv"]
 datasets = {lang: [] for lang in europarl_languages}
 
-def preprocess_data(text):
+
+def preprocess_data(text: str):
     '''Roughly remove the metadata lines, e.g. <Chapter 1> and <Speaker 1>'''
-    result = []
-    for line in text.split('\n'):
-        line = re.sub(r'<.*>', '', line)
-        if line:
-            result.append(line)
-    return '\n'.join(result)
+    return re.sub(r'<.*>', '', text)
 
 
-def create_dataset(text, language, num_samples=200, min_chars=500):
+def add_to_dataset(data: str, language: str, num_samples=200, min_chars=500):
     '''Get the first 200 lines of sufficient length and save to a dataset file'''
-    content = preprocess_data(text.read().decode('utf-8'))
-    for line in content.split('\n'):
+    for line in data.split('\n'):
         if len(line) > min_chars:
             datasets[language].append(line)
             if len(datasets[language]) >= num_samples:
@@ -37,5 +32,7 @@ with tarfile.open('europarl.tgz', 'r:gz') as tar:
         lang = member.name.split('/')[1]
         if lang in europarl_languages:
             file = tar.extractfile(member)
-            create_dataset(file, lang)
+            text = file.read().decode('utf-8')
+            data = preprocess_data(text)
+            add_to_dataset(data, lang)
             
