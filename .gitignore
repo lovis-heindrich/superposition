@@ -1,7 +1,9 @@
 data/TinyStories-train.txt
 TinyStories-train.txt
 data_large/*
-
+pythia160m/
+.idea/
+.vscode/
 *.zst
 wmt_europarl.pkl
 # Byte-compiled / optimized / DLL files
