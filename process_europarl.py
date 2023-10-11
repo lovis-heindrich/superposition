@@ -1,7 +1,4 @@
-import os
 import tarfile
-import gzip
-from io import StringIO
 import re
 
 # Assumes you have downloaded your own copy of europarl.tgz from https://www.statmt.org/europarl/
@@ -21,7 +18,6 @@ def preprocess_data(text):
 
 def create_dataset(text, language, num_samples=200, min_chars=500):
     '''Get the first 200 lines of sufficient length and save to a dataset file'''
-    samples = []
     content = preprocess_data(text.read().decode('utf-8'))
     for line in content.split('\n'):
         if len(line) > min_chars:
@@ -40,7 +36,5 @@ with tarfile.open('process_data/europarl.tgz', 'r:gz') as tar:
         lang = member.name.split('/')[1]
         if lang in europarl_languages:
             file = tar.extractfile(member)
-            # with open(f'process_data/inspect_data_{i}.txt', 'w') as f:
-                # f.write(str(preprocess_data(file.read().decode('utf-8'))))
             create_dataset(file, lang)
             
