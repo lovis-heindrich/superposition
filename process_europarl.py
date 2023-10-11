@@ -19,7 +19,7 @@ def add_to_dataset(data: str, language: str, num_samples=200, min_chars=500):
         if len(line) > min_chars:
             datasets[language].append(line)
             if len(datasets[language]) >= num_samples:
-                with open(f'{language}_{num_samples}_samples.json', 'w', encoding='utf-8') as f:
+                with open(f'data/europarl/{language}_{num_samples}_samples.json', 'w', encoding='utf-8') as f:
                         json.dump(datasets[language], f)
                 europarl_languages.remove(language)
                 break
