@@ -1,5 +1,6 @@
 import tarfile
 import re
+import json
 
 # Assumes you have downloaded your own copy of europarl.tgz from https://www.statmt.org/europarl/
 
@@ -13,7 +14,7 @@ def preprocess_data(text):
         line = re.sub(r'<.*>', '', line)
         if line:
             result.append(line)
-    return'\n'.join(result)
+    return '\n'.join(result)
 
 
 def create_dataset(text, language, num_samples=200, min_chars=500):
@@ -23,13 +24,13 @@ def create_dataset(text, language, num_samples=200, min_chars=500):
         if len(line) > min_chars:
             datasets[language].append(line)
             if len(datasets[language]) >= num_samples:
-                with open(f'data/europarl/{language}_200_samples.txt', 'w', encoding='utf-8') as f:
-                        f.write('\n'.join(datasets[language]))
+                with open(f'{language}_200_samples.txt', 'w', encoding='utf-8') as f:
+                        json.dump('\n'.join(datasets[language]), f)
                 europarl_languages.remove(language)
                 break
     
 
-with tarfile.open('process_data/europarl.tgz', 'r:gz') as tar:
+with tarfile.open('europarl.tgz', 'r:gz') as tar:
     for i, member in enumerate(tar.getmembers()):
         if not member.isfile():
             continue
