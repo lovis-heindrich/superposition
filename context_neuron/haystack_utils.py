@@ -1,5 +1,4 @@
 import warnings
-from hook_utils import save_activation
 from transformer_lens import HookedTransformer, ActivationCache, utils
 from transformer_lens.hook_points import HookPoint
 from jaxtyping import Float, Int
@@ -19,6 +18,7 @@ from pathlib import Path
 import json
 import pandas as pd
 from collections import defaultdict
+from hook_utils import save_activation
 import hook_utils
 
 

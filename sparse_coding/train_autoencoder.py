@@ -15,8 +15,8 @@ import argparse
 
 import sys
 
-sys.path.append("../")  # Add the parent directory to the system path
-import context_neuron.haystack_utils as haystack_utils
+sys.path.append("../")  # Add the root directory to the system path to make sibling packages accessible
+import utils.haystack_utils as haystack_utils
 
 
 def log(data):

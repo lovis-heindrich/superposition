@@ -3,7 +3,7 @@ import torch
 from jaxtyping import Int, Float
 from torch import Tensor
 from collections import defaultdict
-import context_neuron.haystack_utils
+import utils.haystack_utils as haystack_utils
 
 
 DEVICE = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"

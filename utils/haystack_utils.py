@@ -1,5 +1,4 @@
 import warnings
-from hook_utils import save_activation
 from transformer_lens import HookedTransformer, ActivationCache, utils
 from transformer_lens.hook_points import HookPoint
 from jaxtyping import Float, Int
@@ -19,7 +18,9 @@ from pathlib import Path
 import json
 import pandas as pd
 from collections import defaultdict
-import hook_utils
+
+from utils.hook_utils import save_activation
+import utils.hook_utils as hook_utils
 
 
 DEVICE = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"

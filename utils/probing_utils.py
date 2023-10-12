@@ -16,7 +16,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score, matthews_corrcoef
 from sklearn.utils import shuffle
 
-from hook_utils import save_activation
+from utils.hook_utils import save_activation
 
 pio.renderers.default = "notebook_connected+notebook"
 device = "cuda" if torch.cuda.is_available() else "cpu"
