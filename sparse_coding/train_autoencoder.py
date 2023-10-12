@@ -18,6 +18,14 @@ sys.path.append('../')  # Add the parent directory to the system path
 import context_neuron.haystack_utils as haystack_utils
 
 
+def log(data):
+    try:
+        wandb.log(data)
+    except Exception as e:
+        print("Failed to log to W&B:", e)
+        pass
+
+
 class AutoEncoder(nn.Module):
     def __init__(self, d_hidden, l1_coeff, d_mlp, dtype=torch.float32, seed=47):
         super().__init__()
@@ -152,11 +160,11 @@ def main(model_name: str, layer: int):
                 dead_directions = torch.ones(size=(autoencoder_dim,)).bool().to(device)            
                 print(f"(Batch {i}) Loss: {loss_dict['loss']:.2f}, L2 loss: {loss_dict['l2_loss']:.2f}, L1 loss: {loss_dict['l1_loss']:.2f}, Avg directions: {loss_dict['avg_directions']:.2f}, Dead directions: {num_dead_directions}")
                 loss_dict["dead_directions"] = num_dead_directions
-            wandb.log(loss_dict)
+            log(loss_dict)
             del loss, x_reconstruct, mid_acts, l2_loss, l1_loss
 
 
-    torch.save(encoder.state_dict(), f'{model_name}/output_mlp_l{layer}')
+    torch.save(encoder.state_dict(), f'{model_name}/output_mlp_l{layer}.pt')
 
 
 if __name__ == "__main__":
@@ -169,7 +177,7 @@ if __name__ == "__main__":
         help="Name of model from TransformerLens",
     )
     parser.add_argument("--layer", default="5")
-    
+
     args = parser.parse_args()
 
     main(args.model, args.layer)
