@@ -3,7 +3,11 @@ import torch
 from jaxtyping import Int, Float
 from torch import Tensor
 from collections import defaultdict
-import haystack_utils
+import context_neuron.haystack_utils
+
+
+DEVICE = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+
 
 def save_activation(value, hook):
     """
@@ -33,8 +37,8 @@ def get_ablate_context_neurons_hooks(context_neurons: list[tuple[int, int]], act
     # Create hooks per layer
     for layer, layer_data in per_layer_neurons.items():
         neurons, activations = zip(*layer_data)
-        neurons = torch.LongTensor(neurons).cuda()
-        activations = torch.Tensor(activations).cuda()
+        neurons = torch.LongTensor(neurons).to(DEVICE)
+        activations = torch.Tensor(activations).to(DEVICE)
         hooks.append(get_ablate_neuron_hook(layer, neurons, activations))
     return hooks
 

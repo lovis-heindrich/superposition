@@ -22,6 +22,9 @@ from collections import defaultdict
 import hook_utils
 
 
+DEVICE = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+
+
 def DLA(prompts: List[str], model: HookedTransformer) -> tuple[Float[Tensor, "component"], list[str]]:
     logit_attributions = []
     for prompt in tqdm(prompts):
@@ -145,11 +148,11 @@ def get_average_loss(
     if crop_context == -1:
         crop_context = model.cfg.n_ctx
 
-    position_counts = torch.zeros(model.cfg.n_ctx).cuda()
-    position_loss = torch.zeros(model.cfg.n_ctx).cuda()
+    position_counts = torch.zeros(model.cfg.n_ctx).to(DEVICE)
+    position_loss = torch.zeros(model.cfg.n_ctx).to(DEVICE)
 
     for item in data:
-        tokens = model.to_tokens(item)[:, :crop_context].cuda()
+        tokens = model.to_tokens(item)[:, :crop_context].to(DEVICE)
         loss = model.run_with_hooks(tokens, return_type="loss", loss_per_token=True, fwd_hooks=fwd_hooks) # includes BOS, excludes final token of longest prompt in batch
 
         # Produce a mask of every token which we expect to produce a valid loss value. Excludes padding tokens and the final token of each row.
@@ -294,7 +297,7 @@ def generate_text(prompt, model, fwd_hooks=[], k=20, truncate_index=None):
     Only tested with a batch size of 1.
     """
     tokens = model.to_tokens(prompt)
-    tokens = tokens.cuda()
+    tokens = tokens.to(DEVICE)
     
     if truncate_index is not None:
         tokens = tokens[:, :truncate_index]
@@ -969,8 +972,8 @@ def get_neuron_loss_attribution(prompt, model, neurons, ablation_hooks: list, po
         if pos is not None:
             value[:, :, neurons] = original_cache[hook.name][:, :, neurons] # [batch pos neuron]
         else:
-            src_tmp = original_cache[hook.name][0, :-1, :].gather(dim=-1, index=neurons.cuda())
-            value[0, :-1, :] = value[0, :-1, :].scatter_(dim=-1, index=neurons.cuda(), src=src_tmp)
+            src_tmp = original_cache[hook.name][0, :-1, :].gather(dim=-1, index=neurons.to(DEVICE))
+            value[0, :-1, :] = value[0, :-1, :].scatter_(dim=-1, index=neurons.to(DEVICE), src=src_tmp)
         return value      
 
     freeze_original_hooks = [(f"blocks.{layer}.mlp.hook_post", freeze_neurons_hook)]
@@ -1407,7 +1410,7 @@ def get_average_loss_plot_method(activate_context_fwd_hooks, deactivate_context_
 
 def get_common_tokens(data, model, ignore_tokens, k=100, return_counts=False, return_unsorted_counts=False) -> Tensor:
     # Get top common german tokens excluding punctuation
-    token_counts = torch.zeros(model.cfg.d_vocab).cuda()
+    token_counts = torch.zeros(model.cfg.d_vocab).to(DEVICE)
     for example in tqdm(data):
         tokens = model.to_tokens(example)
         for token in tokens[0]:
@@ -1434,7 +1437,7 @@ def generate_random_prompts(end_string, model, random_tokens, n=50, length=12):
     end_tokens = model.to_tokens(end_string).flatten()[1:]
     prompts = []
     for i in range(n):
-        prompt = get_random_selection(random_tokens, n=length).cuda()
+        prompt = get_random_selection(random_tokens, n=length).to(DEVICE)
         prompt = torch.cat([prompt, end_tokens])
         prompts.append(prompt)
     prompts = torch.stack(prompts)
@@ -1443,7 +1446,7 @@ def generate_random_prompts(end_string, model, random_tokens, n=50, length=12):
 def replace_column(prompts: Int[Tensor, "n_prompts n_tokens"], token_index: int, replacement_tokens: Int[Tensor, "n_tokens"]):
     # Replaces a specific token position in a batch of prompts with random common German tokens
     new_prompts = prompts.clone()
-    random_tokens = get_random_selection(replacement_tokens, n=prompts.shape[0]).cuda()
+    random_tokens = get_random_selection(replacement_tokens, n=prompts.shape[0]).to(DEVICE)
     new_prompts[:, token_index] = random_tokens
     return new_prompts 
 
@@ -1583,7 +1586,7 @@ def union_where(tensors: list[Float[Tensor, "n"]], cutoff: float, greater: bool 
         else:
             indices = torch.where(tensor < cutoff)[0]
         union = np.intersect1d(union, indices.cpu().numpy())
-    return torch.LongTensor(union).cuda()
+    return torch.LongTensor(union).to(DEVICE)
 
 
 def get_boosted_tokens(prompts, model, ablation_hooks: list, all_ignore: Float[Tensor, "n"], logit_pos=-2, threshold=-7, deboost=False, log=True, k=5):
@@ -1648,7 +1651,7 @@ def compute_mlp_loss(
     layer=5, 
     compute_original_loss=False
 ):
-    mean_activations = torch.Tensor(df[df.index.isin(neurons.tolist())][ablate_mode].tolist()).cuda()
+    mean_activations = torch.Tensor(df[df.index.isin(neurons.tolist())][ablate_mode].tolist()).to(DEVICE)
     with model.hooks([hook_utils.get_ablate_neuron_hook(layer, neurons, mean_activations, 'pre')]):
         ablated_loss = model(prompts, return_type="loss", loss_per_token=True)[:, -1].mean().item()
 
@@ -1960,7 +1963,7 @@ def get_next_token_punctuation_mask(tokens: torch.LongTensor, model: HookedTrans
 
 def get_token_counts(data, model) -> Tensor:
     # Get top common german tokens excluding punctuation
-    token_counts = torch.zeros(model.cfg.d_vocab).cuda()
+    token_counts = torch.zeros(model.cfg.d_vocab).to(DEVICE)
     for example in tqdm(data):
         tokens = model.to_tokens(example)
         for token in tokens[0]:
