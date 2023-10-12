@@ -3,6 +3,7 @@ TinyStories-train.txt
 data_large/*
 pythia160m/
 .idea/
+.DS_Store
 .vscode/
 *.zst
 *.tgz
