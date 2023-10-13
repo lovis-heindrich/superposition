@@ -28,17 +28,17 @@ def log(data):
 
 
 class AutoEncoder(nn.Module):
-    def __init__(self, d_hidden, l1_coeff, d_mlp, dtype=torch.float32, seed=47):
+    def __init__(self, d_hidden, l1_coeff, d_in, dtype=torch.float32, seed=47):
         super().__init__()
         torch.manual_seed(seed)
         self.W_enc = nn.Parameter(
-            torch.nn.init.kaiming_uniform_(torch.empty(d_mlp, d_hidden, dtype=dtype))
+            torch.nn.init.kaiming_uniform_(torch.empty(d_in, d_hidden, dtype=dtype))
         )
         self.W_dec = nn.Parameter(
-            torch.nn.init.kaiming_uniform_(torch.empty(d_hidden, d_mlp, dtype=dtype))
+            torch.nn.init.kaiming_uniform_(torch.empty(d_hidden, d_in, dtype=dtype))
         )
         self.b_enc = nn.Parameter(torch.zeros(d_hidden, dtype=dtype))
-        self.b_dec = nn.Parameter(torch.zeros(d_mlp, dtype=dtype))
+        self.b_dec = nn.Parameter(torch.zeros(d_in, dtype=dtype))
 
         self.W_dec.data[:] = self.W_dec / self.W_dec.norm(dim=-1, keepdim=True)
 
@@ -63,7 +63,7 @@ class AutoEncoder(nn.Module):
         self.W_dec.grad -= W_dec_grad_proj
 
 
-def main(model_name: str, layer: int):
+def main(model_name: str, layer: int, act_name: str):
     device = (
         "cuda"
         if torch.cuda.is_available()
@@ -109,16 +109,22 @@ def main(model_name: str, layer: int):
     d_head = model.cfg.d_head
     d_mlp = model.cfg.d_mlp
     d_vocab = model.cfg.d_vocab
+    if act_name == "mlp.hook_post" or act_name == "mlp.hook_pre":
+        d_in = d_mlp
+    elif act_name == "hook_mlp_out":
+        d_in = d_model
+    else:
+        raise ValueError(f"Unknown act_name: {act_name}")
 
     @torch.no_grad()
     def get_mlp_acts(prompts, layer=layer):
         acts = []
         for prompt in prompts:
             _, cache = model.run_with_cache(
-                prompt, names_filter=f"blocks.{layer}.mlp.hook_post"
+                prompt, names_filter=f"blocks.{layer}.{act_name}"
             )
-            mlp_acts = cache[f"blocks.{layer}.mlp.hook_post"]
-            mlp_acts = mlp_acts.reshape(-1, d_mlp).cpu()
+            mlp_acts = cache[f"blocks.{layer}.{act_name}"]
+            mlp_acts = mlp_acts.reshape(-1, d_in).cpu()
             acts.append(mlp_acts)
         return torch.cat(acts, dim=0)
 
@@ -137,9 +143,9 @@ def main(model_name: str, layer: int):
     l1_coeff = 0.01
     expansion_factor = 4
 
-    autoencoder_dim = d_mlp * expansion_factor
+    autoencoder_dim = d_in * expansion_factor
     encoder = AutoEncoder(
-        autoencoder_dim, l1_coeff=cfg["l1_coeff"], d_mlp=d_mlp, seed=SEED
+        autoencoder_dim, l1_coeff=cfg["l1_coeff"], d_in=d_in, seed=SEED
     ).to(device)
     encoder_optim = torch.optim.AdamW(
         encoder.parameters(),
@@ -213,7 +219,8 @@ if __name__ == "__main__":
         help="Name of model from TransformerLens",
     )
     parser.add_argument("--layer", default="5")
+    parser.add_argument("--act", default="mlp.hook_post")
 
     args = parser.parse_args()
 
-    main(args.model, args.layer)
+    main(args.model, args.layer, args.act)
