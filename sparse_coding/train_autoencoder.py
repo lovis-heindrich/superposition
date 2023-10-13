@@ -12,6 +12,7 @@ import plotly.express as px
 import pandas as pd
 import torch.nn.init as init
 import argparse
+from pathlib import Path
 
 import sys
 
@@ -206,7 +207,8 @@ def main(model_name: str, layer: int, act_name: str):
             log(loss_dict)
             del loss, x_reconstruct, mid_acts, l2_loss, l1_loss
 
-    torch.save(encoder.state_dict(), f"{model_name}/output_mlp_l{layer}.pt")
+    Path(model_name).mkdir(exist_ok=True)
+    torch.save(encoder.state_dict(), f"{model_name}/{act_name}_l{layer}.pt")
 
 
 if __name__ == "__main__":
