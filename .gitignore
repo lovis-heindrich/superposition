@@ -2,6 +2,7 @@ data/TinyStories-train.txt
 TinyStories-train.txt
 data_large/*
 pythia160m/
+europarl/
 .idea/
 .DS_Store
 .vscode/

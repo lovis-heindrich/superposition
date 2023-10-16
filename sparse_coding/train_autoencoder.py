@@ -2,24 +2,15 @@ import torch
 from tqdm.auto import tqdm
 from transformer_lens import HookedTransformer
 from tqdm.auto import tqdm
-import plotly.io as pio
 import numpy as np
 import random
 import torch.nn as nn
 import torch.nn.functional as F
 import wandb
-import plotly.express as px
-import pandas as pd
-import torch.nn.init as init
 import argparse
 from pathlib import Path
 from itertools import islice
 from torch import Tensor
-
-import sys
-
-sys.path.append("../")  # Add the root directory to the system path to make sibling packages accessible
-import utils.haystack_utils as haystack_utils
 
 
 def log(data):
@@ -82,12 +73,6 @@ def main(model_name: str, layer: int, act_name: str, expansion_factor: int, cfg:
         device=device,
     )
 
-    # german_data = haystack_utils.load_json_data("data/german_europarl.json")
-    # english_data = haystack_utils.load_json_data("data/english_europarl.json")
-
-    # german_data = haystack_utils.load_json_data("data/europarl/de_samples.json")
-    # english_data = haystack_utils.load_json_data("data/europarl/en_samples.json")
-
     german_data = torch.load("data/europarl/de_batched.pt")
     english_data = torch.load("data/europarl/en_batched.pt")
 
@@ -109,31 +94,6 @@ def main(model_name: str, layer: int, act_name: str, expansion_factor: int, cfg:
         d_in = d_model
     else:
         raise ValueError(f"Unknown act_name: {act_name}")
-
-    # @torch.no_grad()
-    # def get_mlp_acts(prompts, layer=layer):
-    #     acts = []
-    #     for prompt in prompts:
-    #         _, cache = model.run_with_cache(
-    #             prompt, names_filter=f"blocks.{layer}.{act_name}"
-    #         )
-    #         mlp_acts = cache[f"blocks.{layer}.{act_name}"]
-    #         mlp_acts = mlp_acts.reshape(-1, d_in).cpu()
-    #         acts.append(mlp_acts)
-    #     return torch.cat(acts, dim=0)
-
-    # def get_batched_mlp_activations(
-    #     prompt_data: list[list[str]], num_prompts_per_batch=10
-    # ):
-    #     iters = min([len(language_data) for language_data in prompt_data])
-    #     print(iters, num_prompts_per_batch)
-    #     for i in range(0, iters, num_prompts_per_batch):
-    #         data = []
-    #         for language_data in prompt_data:
-    #             data.extend(language_data[i : i + num_prompts_per_batch])
-    #         acts = get_mlp_acts(data)
-    #         random_order = torch.randperm(acts.shape[0], generator=GENERATOR)
-    #         yield acts[random_order]
     
     @torch.no_grad()
     def get_batched_mlp_activations(
@@ -170,12 +130,6 @@ def main(model_name: str, layer: int, act_name: str, expansion_factor: int, cfg:
     prompt_data = [german_data, english_data]
     num_samples_per_batch = 2
     num_batches = min([len(language_data) for language_data in prompt_data]) // num_samples_per_batch
-    # num_prompts_per_batch = 2
-    # num_batches = (
-    #     min([len(language_data) for language_data in prompt_data])
-    #     // num_prompts_per_batch
-    # )
-    # print(num_batches)
 
     wandb.init(project="pythia_autoencoder")
     Path(model_name).mkdir(exist_ok=True)
