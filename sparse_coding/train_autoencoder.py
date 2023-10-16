@@ -131,7 +131,7 @@ def main(model_name: str, layer: int, act_name: str, expansion_factor: int, cfg:
     num_samples_per_batch = 2
     num_batches = min([len(language_data) for language_data in prompt_data]) // num_samples_per_batch
 
-    wandb.init(project="pythia_autoencoder")
+    wandb.init(project="pythia_autoencoder", config=cfg)
     Path(model_name).mkdir(exist_ok=True)
 
     @torch.no_grad()
@@ -222,7 +222,7 @@ def get_config():
         "epochs": 2,
         "seed": 47,
         "lr": 1e-4,
-        "l1_coeff": 1e-3,
+        "l1_coeff": 3e-4,
         "wd": 1e-2,
         "beta1": 0.9,
         "beta2": 0.99,
