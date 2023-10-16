@@ -13,6 +13,7 @@ import pandas as pd
 import torch.nn.init as init
 import argparse
 from pathlib import Path
+from itertools import islice
 
 import sys
 
@@ -152,12 +153,39 @@ def main(model_name: str, layer: int, act_name: str, expansion_factor: int, cfg:
     wandb.init(project="pythia_autoencoder")
     Path(model_name).mkdir(exist_ok=True)
 
+    def resample_dead_directions(encoder, eval_batch, dead_directions):
+        with torch.no_grad():
+            num_dead_directions = dead_directions.sum().item()
+            if num_dead_directions > 0:
+                eval_batch = eval_batch.to(device)
+                dead_direction_indices = torch.argwhere(dead_directions).flatten()
+                _, x_reconstruct, mid_acts, _, l1_loss = encoder(eval_batch)
+                l2_loss = (x_reconstruct - eval_batch).pow(2).sum(-1)
+                l1_loss = encoder.l1_coeff * (mid_acts.abs().sum(-1))
+                loss = (l2_loss + l1_loss).pow(2)
+                loss_probs = loss / loss.sum()
+                indices = torch.multinomial(loss_probs, num_dead_directions, replacement=True).cpu()
+                neuron_inputs = eval_batch[indices]
+                neuron_inputs = F.normalize(neuron_inputs, dim=-1) # batch d_mlp
+                encoder.W_dec[dead_direction_indices, :] = neuron_inputs.clone()
+
+                # Encoder
+                active_directions = torch.argwhere(~dead_directions).flatten()
+                active_direction_norms = F.normalize(encoder.W_enc[:, active_directions], dim=0) # d_mlp d_active_dir
+                mean_active_norm = active_direction_norms.mean() * 0.2
+                newly_normalized_inputs = neuron_inputs * mean_active_norm
+
+                encoder.W_enc[:, dead_direction_indices] = newly_normalized_inputs.T.clone()
+                encoder.b_enc[dead_direction_indices] = 0
+            return num_dead_directions
+
     with tqdm(total=num_batches * cfg['epochs'], position=0, leave=True) as pbar:
         dead_directions = torch.ones(size=(autoencoder_dim,)).bool().to(device)
         for epoch in range(cfg['epochs']):
             batched_mlp_acts = get_batched_mlp_activations(
                 prompt_data, num_prompts_per_batch=num_prompts_per_batch
             )
+            eval_batch = torch.cat(list(islice(batched_mlp_acts, 10)), dim=0)
             for i, batch in enumerate(batched_mlp_acts):
                 loss, x_reconstruct, mid_acts, l2_loss, l1_loss = encoder(batch.to(device))
                 loss.backward()
@@ -178,19 +206,12 @@ def main(model_name: str, layer: int, act_name: str, expansion_factor: int, cfg:
                 }
 
                 pbar.update(1)
-                if i % 1000 == 0:
+                if (i+1) % 500 == 0:
                     torch.save(encoder.state_dict(), f"{model_name}/{act_name}_l{layer}_{i}.pt")
-                    num_dead_directions = dead_directions.sum().item()
-                    if num_dead_directions > 0:
-                        dead_direction_indices = torch.argwhere(dead_directions).flatten()
-                        with torch.no_grad():
-                            # Inplace doesn't work for some reason
-                            encoder.W_enc[:, dead_direction_indices] = init.kaiming_uniform_(encoder.W_enc[:, dead_direction_indices])
-                            encoder.b_enc[dead_direction_indices] = 0
-                            encoder.W_dec[dead_direction_indices, :] = init.kaiming_uniform_(encoder.W_dec[dead_direction_indices, :])
+                    num_dead_directions = resample_dead_directions(encoder, eval_batch, dead_directions)
                     dead_directions = torch.ones(size=(autoencoder_dim,)).bool().to(device)
                     print(
-                        f"(Batch {i}) Loss: {loss_dict['loss']:.2f}, L2 loss: {loss_dict['l2_loss']:.2f}, L1 loss: {loss_dict['l1_loss']:.2f}, Avg directions: {loss_dict['avg_directions']:.2f}, Dead directions: {num_dead_directions}"
+                        f"\n(Batch {i}) Loss: {loss_dict['loss']:.2f}, L2 loss: {loss_dict['l2_loss']:.2f}, L1 loss: {loss_dict['l1_loss']:.2f}, Avg directions: {loss_dict['avg_directions']:.2f}, Dead directions: {num_dead_directions}"
                     )
                     loss_dict["dead_directions"] = num_dead_directions
                 log(loss_dict)
@@ -209,11 +230,10 @@ def get_config():
         "model": "pythia-70m",
         "layer": 5,
         "act": "mlp.hook_post",
-        "expansion_factor": 4,
+        "expansion_factor": 2,
         "epochs": 1,
         "seed": 47,
         "lr": 1e-4,
-        "num_tokens": int(1e7),
         "l1_coeff": 3e-3,
         "wd": 1e-2,
         "beta1": 0.9,
