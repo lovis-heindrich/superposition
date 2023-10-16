@@ -80,10 +80,13 @@ def main(model_name: str, layer: int, act_name: str, expansion_factor: int, cfg:
         device=device,
     )
 
-    german_data = haystack_utils.load_json_data("data/german_europarl.json")
-    english_data = haystack_utils.load_json_data("data/english_europarl.json")
+    # german_data = haystack_utils.load_json_data("data/german_europarl.json")
+    # english_data = haystack_utils.load_json_data("data/english_europarl.json")
 
-    SEED = cfg["seed"]
+    german_data = haystack_utils.load_json_data("data/europarl/de_samples.json")
+    english_data = haystack_utils.load_json_data("data/europarl/en_samples.json")
+
+    SEED = cfg["seed"]  
     GENERATOR = torch.manual_seed(SEED)
     np.random.seed(SEED)
     random.seed(SEED)
@@ -147,8 +150,9 @@ def main(model_name: str, layer: int, act_name: str, expansion_factor: int, cfg:
     print(num_batches)
 
     wandb.init(project="pythia_autoencoder")
+    Path(model_name).mkdir(exist_ok=True)
 
-    with tqdm(total=num_batches * cfg['epochs']) as pbar:
+    with tqdm(total=num_batches * cfg['epochs'], position=0, leave=True) as pbar:
         dead_directions = torch.ones(size=(autoencoder_dim,)).bool().to(device)
         for epoch in range(cfg['epochs']):
             batched_mlp_acts = get_batched_mlp_activations(
@@ -159,7 +163,6 @@ def main(model_name: str, layer: int, act_name: str, expansion_factor: int, cfg:
                 loss.backward()
                 encoder.remove_parallel_component_of_grads()
                 encoder_optim.step()
-                encoder_optim.zero_grad()
 
                 active_directions = (
                     (mid_acts != 0).sum(dim=-1).mean(dtype=torch.float32).item()
@@ -167,7 +170,7 @@ def main(model_name: str, layer: int, act_name: str, expansion_factor: int, cfg:
                 dead_directions = ((mid_acts != 0).sum(dim=0) == 0) & dead_directions
 
                 loss_dict = {
-                    "batch": batch,
+                    "batch": i,
                     "loss": loss.item(),
                     "l2_loss": l2_loss.item(),
                     "l1_loss": l1_loss.item(),
@@ -175,20 +178,25 @@ def main(model_name: str, layer: int, act_name: str, expansion_factor: int, cfg:
                 }
 
                 pbar.update(1)
-                if i % 250 == 0:
+                if i % 1000 == 0:
+                    torch.save(encoder.state_dict(), f"{model_name}/{act_name}_l{layer}_{i}.pt")
                     num_dead_directions = dead_directions.sum().item()
-                    dead_direction_indices = torch.argwhere(dead_directions).flatten()
-                    init.kaiming_uniform_(encoder.W_enc[:, dead_direction_indices])
-                    init.kaiming_uniform_(encoder.W_dec[dead_direction_indices, :])
+                    if num_dead_directions > 0:
+                        dead_direction_indices = torch.argwhere(dead_directions).flatten()
+                        with torch.no_grad():
+                            # Inplace doesn't work for some reason
+                            encoder.W_enc[:, dead_direction_indices] = init.kaiming_uniform_(encoder.W_enc[:, dead_direction_indices])
+                            encoder.b_enc[dead_direction_indices] = 0
+                            encoder.W_dec[dead_direction_indices, :] = init.kaiming_uniform_(encoder.W_dec[dead_direction_indices, :])
                     dead_directions = torch.ones(size=(autoencoder_dim,)).bool().to(device)
                     print(
                         f"(Batch {i}) Loss: {loss_dict['loss']:.2f}, L2 loss: {loss_dict['l2_loss']:.2f}, L1 loss: {loss_dict['l1_loss']:.2f}, Avg directions: {loss_dict['avg_directions']:.2f}, Dead directions: {num_dead_directions}"
                     )
                     loss_dict["dead_directions"] = num_dead_directions
                 log(loss_dict)
+                encoder_optim.zero_grad()
                 del loss, x_reconstruct, mid_acts, l2_loss, l1_loss
-
-    Path(model_name).mkdir(exist_ok=True)
+    
     torch.save(encoder.state_dict(), f"{model_name}/{act_name}_l{layer}.pt")
 
 
@@ -204,18 +212,13 @@ def get_config():
         "expansion_factor": 4,
         "epochs": 1,
         "seed": 47,
-        "batch_size": 32,
-        "model_batch_size": 128,
         "lr": 1e-4,
         "num_tokens": int(1e7),
         "l1_coeff": 3e-3,
         "wd": 1e-2,
         "beta1": 0.9,
         "beta2": 0.99,
-        "dict_mult": 0.5,
-        "seq_len": 128,
     }
-    cfg["model_batch_size"] = cfg["batch_size"] // cfg["seq_len"] * 16
 
     for key, value in cfg.items():
         if type(value) == bool:
