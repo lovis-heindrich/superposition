@@ -14,6 +14,7 @@ import torch.nn.init as init
 import argparse
 from pathlib import Path
 from itertools import islice
+from torch import Tensor
 
 import sys
 
@@ -84,8 +85,11 @@ def main(model_name: str, layer: int, act_name: str, expansion_factor: int, cfg:
     # german_data = haystack_utils.load_json_data("data/german_europarl.json")
     # english_data = haystack_utils.load_json_data("data/english_europarl.json")
 
-    german_data = haystack_utils.load_json_data("data/europarl/de_samples.json")
-    english_data = haystack_utils.load_json_data("data/europarl/en_samples.json")
+    # german_data = haystack_utils.load_json_data("data/europarl/de_samples.json")
+    # english_data = haystack_utils.load_json_data("data/europarl/en_samples.json")
+
+    german_data = torch.load("data/europarl/de_batched.pt")
+    english_data = torch.load("data/europarl/en_batched.pt")
 
     SEED = cfg["seed"]  
     GENERATOR = torch.manual_seed(SEED)
@@ -106,30 +110,51 @@ def main(model_name: str, layer: int, act_name: str, expansion_factor: int, cfg:
     else:
         raise ValueError(f"Unknown act_name: {act_name}")
 
-    @torch.no_grad()
-    def get_mlp_acts(prompts, layer=layer):
-        acts = []
-        for prompt in prompts:
-            _, cache = model.run_with_cache(
-                prompt, names_filter=f"blocks.{layer}.{act_name}"
-            )
-            mlp_acts = cache[f"blocks.{layer}.{act_name}"]
-            mlp_acts = mlp_acts.reshape(-1, d_in).cpu()
-            acts.append(mlp_acts)
-        return torch.cat(acts, dim=0)
+    # @torch.no_grad()
+    # def get_mlp_acts(prompts, layer=layer):
+    #     acts = []
+    #     for prompt in prompts:
+    #         _, cache = model.run_with_cache(
+    #             prompt, names_filter=f"blocks.{layer}.{act_name}"
+    #         )
+    #         mlp_acts = cache[f"blocks.{layer}.{act_name}"]
+    #         mlp_acts = mlp_acts.reshape(-1, d_in).cpu()
+    #         acts.append(mlp_acts)
+    #     return torch.cat(acts, dim=0)
 
+    # def get_batched_mlp_activations(
+    #     prompt_data: list[list[str]], num_prompts_per_batch=10
+    # ):
+    #     iters = min([len(language_data) for language_data in prompt_data])
+    #     print(iters, num_prompts_per_batch)
+    #     for i in range(0, iters, num_prompts_per_batch):
+    #         data = []
+    #         for language_data in prompt_data:
+    #             data.extend(language_data[i : i + num_prompts_per_batch])
+    #         acts = get_mlp_acts(data)
+    #         random_order = torch.randperm(acts.shape[0], generator=GENERATOR)
+    #         yield acts[random_order]
+    
+    @torch.no_grad()
     def get_batched_mlp_activations(
-        prompt_data: list[list[str]], num_prompts_per_batch=10
+        prompt_data: list[Tensor], num_samples_per_batch=2
     ):
         iters = min([len(language_data) for language_data in prompt_data])
-        print(iters, num_prompts_per_batch)
-        for i in range(0, iters, num_prompts_per_batch):
-            data = []
-            for language_data in prompt_data:
-                data.extend(language_data[i : i + num_prompts_per_batch])
-            acts = get_mlp_acts(data)
-            random_order = torch.randperm(acts.shape[0], generator=GENERATOR)
-            yield acts[random_order]
+        for i in range(0, iters, num_samples_per_batch):
+            batch = []
+            for prompt_type in prompt_data:
+                for j in range(num_samples_per_batch):
+                    prompt = prompt_type[i+j].cuda()
+                    _, cache = model.run_with_cache(
+                        prompt, names_filter=f"blocks.{layer}.{act_name}"
+                        )
+                    acts = cache[f"blocks.{layer}.{act_name}"]
+                    acts = acts.reshape(-1, d_in).cpu()
+                    batch.append(acts)
+            batch = torch.cat(batch, dim=0)
+            random_order = torch.randperm(batch.shape[0], generator=GENERATOR)
+            yield batch[random_order]
+            
 
     autoencoder_dim = d_in * expansion_factor
     encoder = AutoEncoder(
@@ -143,50 +168,51 @@ def main(model_name: str, layer: int, act_name: str, expansion_factor: int, cfg:
     )
 
     prompt_data = [german_data, english_data]
-    num_prompts_per_batch = 2
-    num_batches = (
-        min([len(language_data) for language_data in prompt_data])
-        // num_prompts_per_batch
-    )
-    print(num_batches)
+    num_samples_per_batch = 2
+    num_batches = min([len(language_data) for language_data in prompt_data]) // num_samples_per_batch
+    # num_prompts_per_batch = 2
+    # num_batches = (
+    #     min([len(language_data) for language_data in prompt_data])
+    #     // num_prompts_per_batch
+    # )
+    # print(num_batches)
 
     wandb.init(project="pythia_autoencoder")
     Path(model_name).mkdir(exist_ok=True)
 
-    def resample_dead_directions(encoder, eval_batch, dead_directions):
-        with torch.no_grad():
-            num_dead_directions = dead_directions.sum().item()
-            if num_dead_directions > 0:
-                eval_batch = eval_batch.to(device)
-                dead_direction_indices = torch.argwhere(dead_directions).flatten()
-                _, x_reconstruct, mid_acts, _, l1_loss = encoder(eval_batch)
-                l2_loss = (x_reconstruct - eval_batch).pow(2).sum(-1)
-                l1_loss = encoder.l1_coeff * (mid_acts.abs().sum(-1))
-                loss = (l2_loss + l1_loss).pow(2)
-                loss_probs = loss / loss.sum()
-                indices = torch.multinomial(loss_probs, num_dead_directions, replacement=True).cpu()
-                neuron_inputs = eval_batch[indices]
-                neuron_inputs = F.normalize(neuron_inputs, dim=-1) # batch d_mlp
-                encoder.W_dec[dead_direction_indices, :] = neuron_inputs.clone()
+    @torch.no_grad()
+    def resample_dead_directions(encoder, eval_batch, dead_directions, num_dead_directions):
+        if num_dead_directions > 0:
+            eval_batch = eval_batch.to(device)
+            dead_direction_indices = torch.argwhere(dead_directions).flatten()
+            _, x_reconstruct, mid_acts, _, l1_loss = encoder(eval_batch)
+            l2_loss = (x_reconstruct - eval_batch).pow(2).sum(-1)
+            l1_loss = encoder.l1_coeff * (mid_acts.abs().sum(-1))
+            loss = (l2_loss + l1_loss).pow(2)
+            loss_probs = loss / loss.sum()
+            indices = torch.multinomial(loss_probs, num_dead_directions, replacement=True).cpu()
+            neuron_inputs = eval_batch[indices]
+            neuron_inputs = F.normalize(neuron_inputs, dim=-1) # batch d_mlp
+            encoder.W_dec[dead_direction_indices, :] = neuron_inputs.clone()
 
-                # Encoder
-                active_directions = torch.argwhere(~dead_directions).flatten()
-                active_direction_norms = F.normalize(encoder.W_enc[:, active_directions], dim=0) # d_mlp d_active_dir
-                mean_active_norm = active_direction_norms.mean() * 0.2
-                newly_normalized_inputs = neuron_inputs * mean_active_norm
+            # Encoder
+            active_directions = torch.argwhere(~dead_directions).flatten()
+            active_direction_norms = F.normalize(encoder.W_enc[:, active_directions], dim=0) # d_mlp d_active_dir
+            mean_active_norm = active_direction_norms.mean() * 0.2
+            newly_normalized_inputs = neuron_inputs * mean_active_norm
 
-                encoder.W_enc[:, dead_direction_indices] = newly_normalized_inputs.T.clone()
-                encoder.b_enc[dead_direction_indices] = 0
-            return num_dead_directions
+            encoder.W_enc[:, dead_direction_indices] = newly_normalized_inputs.T.clone()
+            encoder.b_enc[dead_direction_indices] = 0
 
     with tqdm(total=num_batches * cfg['epochs'], position=0, leave=True) as pbar:
         dead_directions = torch.ones(size=(autoencoder_dim,)).bool().to(device)
         for epoch in range(cfg['epochs']):
             batched_mlp_acts = get_batched_mlp_activations(
-                prompt_data, num_prompts_per_batch=num_prompts_per_batch
-            )
-            eval_batch = torch.cat(list(islice(batched_mlp_acts, 10)), dim=0)
+                prompt_data, num_samples_per_batch=num_samples_per_batch)
+            num_eval_batches = 10
+            eval_batch = torch.cat(list(islice(batched_mlp_acts, num_eval_batches)), dim=0)
             for i, batch in enumerate(batched_mlp_acts):
+                batch_index = (num_batches*epoch - num_eval_batches)+i
                 loss, x_reconstruct, mid_acts, l2_loss, l1_loss = encoder(batch.to(device))
                 loss.backward()
                 encoder.remove_parallel_component_of_grads()
@@ -196,24 +222,27 @@ def main(model_name: str, layer: int, act_name: str, expansion_factor: int, cfg:
                     (mid_acts != 0).sum(dim=-1).mean(dtype=torch.float32).item()
                 )
                 dead_directions = ((mid_acts != 0).sum(dim=0) == 0) & dead_directions
+                num_dead_directions = dead_directions.sum().item()
 
                 loss_dict = {
-                    "batch": i,
+                    "batch": batch_index,
                     "loss": loss.item(),
                     "l2_loss": l2_loss.item(),
                     "l1_loss": l1_loss.item(),
                     "avg_directions": active_directions,
+                    "dead_directions": num_dead_directions
                 }
 
                 pbar.update(1)
-                if (i+1) % 500 == 0:
-                    torch.save(encoder.state_dict(), f"{model_name}/{act_name}_l{layer}_{i}.pt")
-                    num_dead_directions = resample_dead_directions(encoder, eval_batch, dead_directions)
+                if batch_index in [1000, 5000, 10000, 15000]:
+                    resample_dead_directions(encoder, eval_batch, dead_directions, num_dead_directions)
                     dead_directions = torch.ones(size=(autoencoder_dim,)).bool().to(device)
+
+                if (batch_index+1) % 2500 == 0:
+                    torch.save(encoder.state_dict(), f"{model_name}/{act_name}_l{layer}_{i+1}.pt")
                     print(
                         f"\n(Batch {i}) Loss: {loss_dict['loss']:.2f}, L2 loss: {loss_dict['l2_loss']:.2f}, L1 loss: {loss_dict['l1_loss']:.2f}, Avg directions: {loss_dict['avg_directions']:.2f}, Dead directions: {num_dead_directions}"
                     )
-                    loss_dict["dead_directions"] = num_dead_directions
                 log(loss_dict)
                 encoder_optim.zero_grad()
                 del loss, x_reconstruct, mid_acts, l2_loss, l1_loss
@@ -231,10 +260,10 @@ def get_config():
         "layer": 5,
         "act": "mlp.hook_post",
         "expansion_factor": 2,
-        "epochs": 1,
+        "epochs": 2,
         "seed": 47,
         "lr": 1e-4,
-        "l1_coeff": 3e-3,
+        "l1_coeff": 1e-3,
         "wd": 1e-2,
         "beta1": 0.9,
         "beta2": 0.99,
