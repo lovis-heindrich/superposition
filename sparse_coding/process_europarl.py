@@ -2,6 +2,7 @@ import tarfile
 import re
 import json
 from tqdm import tqdm
+import os
 
 # Assumes you have downloaded your own copy of europarl.tgz from https://www.statmt.org/europarl/
 
@@ -15,7 +16,7 @@ def preprocess_data(text: str):
     return re.sub(r'<.*>', '', text)
 
 def add_to_dataset(text: str, language: str, min_chars=500):
-    '''Get the first 200 lines of sufficient length and save to a dataset file'''
+    '''Get lines of sufficient length and add to the global datasets dictionary'''
     data = preprocess_data(text)
     for line in data.split('\n'):
         if len(line) > min_chars:
@@ -31,6 +32,8 @@ if __name__ == "__main__":
                 file = tar.extractfile(member)
                 text = file.read().decode('utf-8')
                 add_to_dataset(text, lang)
+    
+    os.makedirs('data/europarl', exist_ok=True)
     for language in europarl_languages:
         print(f'{language}: {len(datasets[language])}')
         with open(f'data/europarl/{language}_samples.json', 'w', encoding='utf-8') as f:
