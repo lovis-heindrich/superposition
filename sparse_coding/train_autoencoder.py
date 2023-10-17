@@ -14,14 +14,6 @@ from torch import Tensor
 from jaxtyping import Int, Float, Bool
 
 
-def log(data):
-    try:
-        wandb.log(data)
-    except Exception as e:
-        print("Failed to log to W&B:", e)
-        pass
-
-
 class AutoEncoder(nn.Module):
     def __init__(self, d_hidden, l1_coeff, d_in, dtype=torch.float32, seed=47):
         super().__init__()
@@ -105,7 +97,7 @@ def main(model_name: str, layer: int, act_name: str, expansion_factor: int, cfg:
             batch = []
             for prompt_type in prompt_data:
                 for j in range(num_samples_per_batch):
-                    prompt = prompt_type[i+j].cuda()
+                    prompt = prompt_type[i+j].to(device)
                     _, cache = model.run_with_cache(
                         prompt, names_filter=f"blocks.{layer}.{act_name}"
                         )
@@ -202,7 +194,7 @@ def main(model_name: str, layer: int, act_name: str, expansion_factor: int, cfg:
                     print(
                         f"\n(Batch {i}) Loss: {loss_dict['loss']:.2f}, L2 loss: {loss_dict['l2_loss']:.2f}, L1 loss: {loss_dict['l1_loss']:.2f}, Avg directions: {loss_dict['avg_directions']:.2f}, Dead directions: {num_dead_directions}"
                     )
-                log(loss_dict)
+                wandb.log(loss_dict)
                 encoder_optim.zero_grad()
                 del loss, x_reconstruct, mid_acts, l2_loss, l1_loss
     
