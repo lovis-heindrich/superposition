@@ -143,8 +143,7 @@ def main(model_name: str, layer: int, act_name: str, expansion_factor: int, cfg:
 
             # Losses per batch item
             l2_loss = (x_reconstruct - eval_batch).pow(2).sum(-1)
-            l1_loss = encoder.l1_coeff * (mid_acts.abs().sum(-1))
-            loss = (l2_loss + l1_loss).pow(2)
+            loss = l2_loss.pow(2)
 
             # Scale losses and sample
             loss_probs = loss / loss.sum()
@@ -155,7 +154,7 @@ def main(model_name: str, layer: int, act_name: str, expansion_factor: int, cfg:
 
             # Encoder
             active_directions = torch.argwhere(~dead_directions).flatten()
-            active_direction_norms = F.normalize(encoder.W_enc[:, active_directions], dim=0) # d_mlp d_active_dir
+            active_direction_norms = np.linalg.norm(encoder.W_enc[:, active_directions], axis=0) # d_mlp d_active_dir
             mean_active_norm = active_direction_norms.mean() * 0.2
             newly_normalized_inputs = neuron_inputs * mean_active_norm
 
