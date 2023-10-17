@@ -11,6 +11,7 @@ import argparse
 from pathlib import Path
 from itertools import islice
 from torch import Tensor
+from jaxtyping import Int, Float, Bool
 
 
 def log(data):
@@ -135,11 +136,11 @@ def main(model_name: str, layer: int, act_name: str, expansion_factor: int, cfg:
     Path(model_name).mkdir(exist_ok=True)
 
     @torch.no_grad()
-    def resample_dead_directions(encoder, eval_batch, dead_directions, num_dead_directions):
+    def resample_dead_directions(encoder: AutoEncoder, eval_batch: Float[Tensor, "batch d_mlp"], dead_directions: Bool[Tensor, "d_enc"], num_dead_directions: int):
         if num_dead_directions > 0:
             eval_batch = eval_batch.to(device)
             dead_direction_indices = torch.argwhere(dead_directions).flatten()
-            _, x_reconstruct, mid_acts, _, _ = encoder(eval_batch)
+            _, x_reconstruct, _, _, _ = encoder(eval_batch)
 
             # Losses per batch item
             l2_loss = (x_reconstruct - eval_batch).pow(2).sum(-1)
@@ -147,14 +148,14 @@ def main(model_name: str, layer: int, act_name: str, expansion_factor: int, cfg:
 
             # Scale losses and sample
             loss_probs = loss / loss.sum()
-            indices = torch.multinomial(loss_probs, num_dead_directions, replacement=True).cpu()
+            indices = torch.multinomial(loss_probs, num_dead_directions, replacement=False).cpu()
             neuron_inputs = eval_batch[indices]
             neuron_inputs = F.normalize(neuron_inputs, dim=-1) # batch d_mlp
             encoder.W_dec[dead_direction_indices, :] = neuron_inputs.clone()
 
             # Encoder
             active_directions = torch.argwhere(~dead_directions).flatten()
-            active_direction_norms = np.linalg.norm(encoder.W_enc[:, active_directions], axis=0) # d_mlp d_active_dir
+            active_direction_norms = encoder.W_enc[:, active_directions].norm(p=2, dim=0) # d_mlp d_active_dir
             mean_active_norm = active_direction_norms.mean() * 0.2
             newly_normalized_inputs = neuron_inputs * mean_active_norm
 
@@ -216,12 +217,12 @@ def get_config():
     cfg = {
         "model": "pythia-70m",
         "layer": 5,
-        "act": "mlp.hook_post",
+        "act": "hook_mlp_out",
         "expansion_factor": 2,
         "epochs": 2,
         "seed": 47,
         "lr": 1e-4,
-        "l1_coeff": 3e-4,
+        "l1_coeff": 5e-4,
         "wd": 1e-2,
         "beta1": 0.9,
         "beta2": 0.99,
