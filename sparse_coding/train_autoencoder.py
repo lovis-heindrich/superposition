@@ -218,7 +218,7 @@ def get_config():
         "model": "pythia-70m",
         "layer": 5,
         "act": "hook_mlp_out",
-        "expansion_factor": 2,
+        "expansion_factor": 4,
         "epochs": 2,
         "seed": 47,
         "lr": 1e-4,
