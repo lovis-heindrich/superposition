@@ -12,6 +12,7 @@ from pathlib import Path
 from itertools import islice
 from torch import Tensor
 from jaxtyping import Int, Float, Bool
+import json
 
 
 def log(data):
@@ -133,7 +134,11 @@ def main(model_name: str, layer: int, act_name: str, expansion_factor: int, cfg:
     num_batches = min([len(language_data) for language_data in prompt_data]) // num_samples_per_batch
 
     wandb.init(project="pythia_autoencoder", config=cfg)
+    wandb_name = wandb.run.name
+    save_name = f"{wandb_name.split('-')[-1]}_"+"_".join(wandb_name.split('-')[:-1])
     Path(model_name).mkdir(exist_ok=True)
+    with open(f"{model_name}/{save_name}.json", "w") as f:
+        json.dump(cfg, f)
 
     @torch.no_grad()
     def resample_dead_directions(encoder: AutoEncoder, eval_batch: Float[Tensor, "batch d_mlp"], dead_directions: Bool[Tensor, "d_enc"], num_dead_directions: int):
@@ -197,7 +202,7 @@ def main(model_name: str, layer: int, act_name: str, expansion_factor: int, cfg:
                     print(f"\nResampled {num_dead_directions} dead directions")
 
                 if (batch_index+1) % 5000 == 0:
-                    torch.save(encoder.state_dict(), f"{model_name}/{act_name}_l{layer}_{batch_index}.pt")
+                    torch.save(encoder.state_dict(), f"{model_name}/{save_name}.pt")
                     dead_directions = torch.ones(size=(autoencoder_dim,)).bool().to(device)
                     print(
                         f"\n(Batch {i}) Loss: {loss_dict['loss']:.2f}, L2 loss: {loss_dict['l2_loss']:.2f}, L1 loss: {loss_dict['l1_loss']:.2f}, Avg directions: {loss_dict['avg_directions']:.2f}, Dead directions: {num_dead_directions}"
@@ -206,7 +211,7 @@ def main(model_name: str, layer: int, act_name: str, expansion_factor: int, cfg:
                 encoder_optim.zero_grad()
                 del loss, x_reconstruct, mid_acts, l2_loss, l1_loss
     
-    torch.save(encoder.state_dict(), f"{model_name}/{act_name}_l{layer}.pt")
+    torch.save(encoder.state_dict(), f"{model_name}/{save_name}.pt")
 
 
 def get_config():
@@ -218,11 +223,11 @@ def get_config():
         "model": "pythia-70m",
         "layer": 5,
         "act": "hook_mlp_out",
-        "expansion_factor": 4,
+        "expansion_factor": 8,
         "epochs": 2,
         "seed": 47,
         "lr": 1e-4,
-        "l1_coeff": 5e-4,
+        "l1_coeff": 8e-4,
         "wd": 1e-2,
         "beta1": 0.9,
         "beta2": 0.99,
