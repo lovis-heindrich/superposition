@@ -206,7 +206,7 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
                 }
 
                 pbar.update(1)
-                if (batch_index + 1) in [2500, 10000, 20000, 30000]:
+                if (batch_index + 1) in [10000, 20000, 30000, 40000]:
                     resample_dead_directions(
                         encoder, eval_batch, dead_directions, num_dead_directions
                     )
@@ -216,7 +216,7 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
                     torch.save(encoder.state_dict(), f"{model_name}/{save_name}.pt")
                     dead_directions = torch.ones(size=(autoencoder_dim,)).bool().to(device)
                     print(
-                        f"\n(Batch {i}) Loss: {loss_dict['loss']:.2f}, L2 loss: {loss_dict['l2_loss']:.2f}, L1 loss: {loss_dict['l1_loss']:.2f}, Avg directions: {loss_dict['avg_directions']:.2f}, Dead directions: {num_dead_directions}"
+                        f"\n(Batch {batch_index}) Loss: {loss_dict['loss']:.2f}, L2 loss: {loss_dict['l2_loss']:.2f}, L1 loss: {loss_dict['l1_loss']:.2f}, Avg directions: {loss_dict['avg_directions']:.2f}, Dead directions: {num_dead_directions}"
                     )
                 wandb.log(loss_dict)
                 encoder_optim.zero_grad()
