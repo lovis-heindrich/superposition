@@ -18,9 +18,9 @@ datasets = {lang: [] for lang in wikipedia_languages}
 def add_to_dataset(text: str, language: str, min_chars=500):
     '''Get lines of sufficient length and add to the global datasets dictionary'''
     # data = preprocess_data(text)
-    for line in data:
-        if len(line) > min_chars:
-            datasets[language].append(line)
+    for line in tqdm(data):
+        if len(line['text']) > min_chars:
+            datasets[language].append(line['text'])
     
 if __name__ == "__main__":
     for language in wikipedia_languages:
