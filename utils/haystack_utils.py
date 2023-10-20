@@ -1433,7 +1433,7 @@ def get_random_selection(tensor, n):
         indices = torch.randint(0, len(tensor), (n,))
         return tensor[indices]
 
-def generate_random_prompts(end_string, model, random_tokens, n=50, length=12):
+def generate_random_prompts(end_string, model, random_tokens: Int[Tensor, "tokens"], n=50, length=12):
     # Generate a batch of random prompts ending with a specific ngram
     end_tokens = model.to_tokens(end_string).flatten()[1:]
     prompts = []
