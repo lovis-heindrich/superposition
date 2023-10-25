@@ -94,6 +94,7 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
 
     @torch.no_grad()
     def get_batched_mlp_activations(prompt_data: list[Tensor], num_samples_per_batch=2):
+        # Number of batches for language with least data
         iters = min([len(language_data) for language_data in prompt_data])
         for i in range(0, iters, num_samples_per_batch):
             batch = []
@@ -233,7 +234,7 @@ def get_config():
     cfg = {
         "model": "pythia-70m",
         "layer": 5,
-        "act": "hook_mlp_out",
+        "act": "mlp.hook_post",
         "expansion_factor": 8,
         "epochs": 2,
         "seed": 47,
