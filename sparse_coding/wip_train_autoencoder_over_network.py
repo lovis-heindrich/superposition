@@ -20,7 +20,7 @@ import wandb
 from jaxtyping import Int, Float, Bool
 # from fabric import Connection
 sys.path.append("../")  # Add the parent directory to the system path
-# from utils.haystack_utils import load_txt_data
+from utils.haystack_utils import load_txt_data
 
 
 class AutoEncoder(nn.Module):
@@ -66,7 +66,7 @@ def start_background_data_download() -> None:
     os.mkdir('data/europarl', exist_ok=True)
     os.mkdir('data/wikipedia', exist_ok=True)
 
-    api_key = utils.load_txt_data('api_key.txt')
+    api_key = load_txt_data('api_key.txt')
     subprocess.run(["wget", "https://raw.githubusercontent.com/vast-ai/vast-python/master/vast.py"]) 
     subprocess.run(["chmod", "+x", "vast.py"])
     subprocess.run(["./vast.py", "set", "api-key", api_key]) 
@@ -211,6 +211,8 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
     while len(all_data_filenames) < cfg['n_data_files']:
         prompt_data, all_data_filenames = get_unseen_data(all_data_filenames)
         if not prompt_data:
+            print("Can't find expected data files, sleeping for 60 seconds")
+            print(f"{len(all_data_filenames)} found so far: ", all_data_filenames)
             time.sleep(60)
             continue
 
