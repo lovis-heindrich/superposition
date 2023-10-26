@@ -27,6 +27,8 @@ datasets: dict[str, list[str]] = {lang: [] for lang in wikipedia_languages}
 
 
 def add_to_dataset(data: Dataset, language: str, n_batches: int, batch_size: int, min_chars=500):
+    save_filename = f"data/wikipedia/{language}_samples.json"
+
     n_lines = batch_size * n_batches
     lines_count = 0
     """Get lines of sufficient length and add to the global datasets dictionary"""
@@ -43,18 +45,17 @@ def add_to_dataset(data: Dataset, language: str, n_batches: int, batch_size: int
                 f"Memory overusage detected at {psutil.virtual_memory().percent}% and {i} lines, saving..."
             )
             with open(
-                f"data/wikipedia/{language}_samples.json", "w", encoding="utf-8"
+                save_filename, "w", encoding="utf-8"
             ) as f:
                 json.dump(datasets[language], f)
             print(f"\n{language}: {len(datasets[language])}")
             return
 
-    print(
-        f"No memory over-usage generating {sys.getsizeof(datasets)} bytes of data, saving..."
-    )
-    with open(f"data/wikipedia/{language}_samples.json", "w", encoding="utf-8") as f:
+    with open(save_filename, "w", encoding="utf-8") as f:
         json.dump(datasets[language], f)
-    print(f"\n{language}: {len(datasets[language])}")
+    print(
+        f"Saved {len(datasets[language])} lines of {language} data, {os.path.getsize(save_filename)} bytes"
+    )
 
 
 def chunked(iterable: list[str], n: int):
