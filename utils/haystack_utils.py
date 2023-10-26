@@ -25,6 +25,8 @@ import utils.hook_utils as hook_utils
 
 DEVICE = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 
+def get_device():
+    return DEVICE
 
 def DLA(prompts: List[str], model: HookedTransformer) -> tuple[Float[Tensor, "component"], list[str]]:
     logit_attributions = []
