@@ -42,11 +42,16 @@ if __name__ == "__main__":
     german_data = haystack_utils.load_json_data("data/europarl/de_samples.json")
     
 
-    seq_len = 500
+    seq_len = 127
     german_tensor = batch_prompts(german_data, model, seq_len)
+    batched_bos = torch.zeros(german_tensor.shape[0], 1, dtype=torch.long)
+    batched_bos[:] = model.tokenizer.bos_token_id
+    german_tensor = torch.cat([batched_bos, german_tensor], dim=1)
+    german_tensor = german_tensor[torch.randperm(german_tensor.shape[0])]
+    german_tensor = german_tensor.to(torch.int32)
     torch.save(german_tensor, "data/europarl/de_batched.pt")
     del german_tensor, german_data
 
-    english_data = haystack_utils.load_json_data("data/europarl/en_samples.json")
-    english_tensor = batch_prompts(english_data, model, seq_len)
-    torch.save(english_tensor, "data/europarl/en_batched.pt")
+    # english_data = haystack_utils.load_json_data("data/europarl/en_samples.json")
+    # english_tensor = batch_prompts(english_data, model, seq_len)
+    # torch.save(english_tensor, "data/europarl/en_batched.pt")
