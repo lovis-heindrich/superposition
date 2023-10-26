@@ -51,6 +51,7 @@ class AutoEncoder(nn.Module):
             -1, keepdim=True
         ) * W_dec_normed
         self.W_dec.grad -= W_dec_grad_proj
+        self.W_dec.data = W_dec_normed
 
 
 def main(model_name: str, layer: int, act_name: str, cfg: dict):
