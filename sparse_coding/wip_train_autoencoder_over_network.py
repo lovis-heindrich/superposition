@@ -7,6 +7,7 @@ import argparse
 from pathlib import Path
 from itertools import islice
 import subprocess
+import time
 
 import torch
 from torch import Tensor
@@ -17,9 +18,10 @@ from transformer_lens import HookedTransformer
 import numpy as np
 import wandb
 from jaxtyping import Int, Float, Bool
-from fabric import Connection
+# from fabric import Connection
 sys.path.append("../")  # Add the parent directory to the system path
-from utils.haystack_utils import load_txt_data
+# from utils.haystack_utils import load_txt_data
+
 
 class AutoEncoder(nn.Module):
     def __init__(
@@ -207,9 +209,9 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
 
     all_data_filenames = []
     while len(all_data_filenames) < cfg['n_data_files']:
-        sleep(60)
         prompt_data, all_data_filenames = get_unseen_data(all_data_filenames)
         if not prompt_data:
+            time.sleep(60)
             continue
 
         num_samples_per_batch = 2
@@ -227,7 +229,7 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
                 list(islice(batched_mlp_acts, num_eval_batches)), dim=0
             )
             for i, batch in enumerate(batched_mlp_acts):
-                batch_index = ((num_batches - num_eval_batches) * epoch) + i
+                batch_index = num_eval_batches + i
                 loss, x_reconstruct, mid_acts, l2_loss, l1_loss = encoder(
                     batch.to(device)
                 )
