@@ -3,14 +3,6 @@ from tqdm.auto import tqdm
 from transformer_lens import HookedTransformer
 from tqdm.auto import tqdm
 import plotly.io as pio
-import numpy as np
-import random
-import torch.nn as nn
-import torch.nn.functional as F
-import wandb
-import plotly.express as px
-import pandas as pd
-import torch.nn.init as init
 import einops
 
 pio.renderers.default = "notebook_connected"
@@ -38,8 +30,13 @@ if __name__ == "__main__":
     center_writing_weights=True,
     fold_ln=True,
     device=device)
+    
+    dataset = "wikipedia"
+    language = "de"
+    input_path = f"data/{dataset}/{language}_samples.json"
+    output_path = f"data/{dataset}/{language}_batched.pt"
 
-    german_data = haystack_utils.load_json_data("data/europarl/de_samples.json")
+    german_data = haystack_utils.load_json_data(input_path)
     
 
     seq_len = 127
@@ -49,7 +46,7 @@ if __name__ == "__main__":
     german_tensor = torch.cat([batched_bos, german_tensor], dim=1)
     german_tensor = german_tensor[torch.randperm(german_tensor.shape[0])]
     german_tensor = german_tensor.to(torch.int32)
-    torch.save(german_tensor, "data/europarl/de_batched.pt")
+    torch.save(german_tensor, output_path)
     del german_tensor, german_data
 
     # english_data = haystack_utils.load_json_data("data/europarl/en_samples.json")
