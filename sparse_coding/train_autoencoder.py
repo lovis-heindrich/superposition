@@ -185,10 +185,13 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
         num_dead_directions: int,
     ):
         if num_dead_directions > 0:
-            eval_batch = eval_batch.to(device)
             dead_direction_indices = torch.argwhere(dead_directions).flatten()
-            _, x_reconstruct, _, _, _ = encoder(eval_batch)
-
+            batch_reconstruct = []
+            for i in range(0, cfg["num_eval_batches"]*cfg["batch_size"], cfg["batch_size"]):
+                _, x_reconstruct, _, _, _ = encoder(eval_batch[i:i+cfg["batch_size"]])
+                batch_reconstruct.append(x_reconstruct)
+            x_reconstruct = torch.cat(batch_reconstruct, dim=0)
+            
             # Losses per batch item
             l2_loss = (x_reconstruct - eval_batch).pow(2).sum(-1)
             loss = l2_loss.pow(2)
@@ -213,17 +216,16 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
             encoder.W_enc[:, dead_direction_indices] = newly_normalized_inputs.T.clone().to(encoder.W_enc.dtype)
             encoder.b_enc[dead_direction_indices] = 0
 
-    with tqdm(total=num_batches * cfg["epochs"], position=0, leave=True) as pbar:
+    with tqdm(total=(num_batches - cfg["num_eval_batches"]) * cfg["epochs"], position=0, leave=True) as pbar:
         dead_directions = torch.ones(size=(autoencoder_dim,)).bool().to(device)
         for epoch in range(cfg["epochs"]):
             buffer = Buffer(cfg, model, prompt_data)
-            num_eval_batches = 20
             eval_batch = torch.cat(
-                list(islice(buffer, num_eval_batches)), dim=0
+                list(islice(buffer, cfg["num_eval_batches"])), dim=0
             )
             print(f"Eval batch shape: {eval_batch.shape}")
             for i, batch in enumerate(buffer):
-                batch_index = ((num_batches - num_eval_batches) * epoch) + i
+                batch_index = ((num_batches - cfg["num_eval_batches"]) * epoch) + i
                 loss, x_reconstruct, mid_acts, l2_loss, l1_loss = encoder(
                     batch.to(device)
                 )
@@ -292,16 +294,18 @@ def get_config():
         "wd": 1e-2,
         "beta1": 0.9,
         "beta2": 0.99,
-        "batch_size": 512, # Tokens
-        "buffer_mult": 256,
+        "batch_size": 1024, # Batch shape is batch_size, d_mlp
+        "buffer_mult": 128, # Buffer size is batch_size*buffer_mult, d_mlp
         "seq_len": 128,
-        "use_wandb": True
+        "use_wandb": True,
+        "num_eval_tokens": 100000, # Tokens used to resample dead directions
     }
 
-    # Buffer batches needs to be multiple of model batch size
     cfg["model_batch_size"] = cfg["batch_size"] // cfg["seq_len"] * 16
     cfg["buffer_size"] = cfg["batch_size"] * cfg["buffer_mult"]
     cfg["buffer_batches"] = cfg["buffer_size"] // cfg["seq_len"] #(cfg["model_batch_size"] * cfg["seq_len"])
+    cfg["num_eval_batches"] = cfg["num_eval_tokens"] // cfg["batch_size"]
+    assert cfg["buffer_batches"] % cfg["model_batch_size"] == 0, "Buffer batches must be multiple of model batch size"
 
     for key, value in cfg.items():
         if type(value) == bool:
