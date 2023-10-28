@@ -8,6 +8,7 @@ from transformer_lens import HookedTransformer
 import torch
 from collections import Counter
 import logging
+from tqdm import tqdm
 
 import sys
 sys.path.append('../')  # Add the parent directory to the system path
@@ -25,6 +26,21 @@ class AutoEncoderConfig:
     def encoder_hook_point(self) ->str:
         return f'blocks.{self.layer}.{self.act_name}'
 
+def batch_prompts(data: list[str], model: HookedTransformer, seq_len: int):
+    tensors = []
+    for prompt in tqdm(data):
+        tokens = model.to_tokens(prompt).cpu()
+        tensors.append(tokens)
+
+    batched_tensor = torch.cat(tensors, dim=1)
+    batched_tensor = einops.rearrange(batched_tensor[:, :(batched_tensor.shape[1]-batched_tensor.shape[1]%seq_len)], "batch (x seq_len) -> (batch x) seq_len", seq_len=seq_len)
+
+    batched_bos = torch.zeros(batched_tensor.shape[0], 1, dtype=torch.long)
+    batched_bos[:] = model.tokenizer.bos_token_id
+    batched_tensor = torch.cat([batched_bos, batched_tensor], dim=1)
+    batched_tensor = batched_tensor[torch.randperm(batched_tensor.shape[0])]
+    batched_tensor = batched_tensor.to(torch.int32)
+    return batched_tensor
 
 def custom_forward(enc: AutoEncoder, x: Float[Tensor, "batch d_in"], neuron: int, activation: float):
     x_cent = x - enc.b_dec

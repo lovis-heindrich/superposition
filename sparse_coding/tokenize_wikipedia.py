@@ -19,6 +19,7 @@ import ijson
 
 sys.path.append("../")  # Add the parent directory to the system path
 from utils.haystack_utils import get_device
+from utils.autoencoder_utils import batch_prompts
 
 
 # languages = ["bg", "cs", "da", "de", "el", "es", "en", "et", "fi", "fr", "ga", "hr", "hu", "it", "lt", "lv", "mt", "nl", "pl", "pt", "ro", "sk", "sl", "sv"]
@@ -57,7 +58,6 @@ def add_to_dataset(data: Dataset, language: str, n_batches: int, batch_size: int
         f"Saved {len(datasets[language])} lines of {language} data, {os.path.getsize(save_filename)} bytes"
     )
 
-
 def chunked(iterable: list[str], n: int):
     it = iter(iterable)
     while True:
@@ -67,25 +67,8 @@ def chunked(iterable: list[str], n: int):
         yield chunk
 
 
-def process_batch(data: list[str], model: HookedTransformer, seq_len: int):
-    tensors = []
-    for prompt in tqdm(data):
-        tokens = model.to_tokens(prompt).cpu()
-        tensors.append(tokens)
-
-    batched_tensor = torch.cat(tensors, dim=1)
-    batched_tensor = einops.rearrange(
-        batched_tensor[
-            :, : (batched_tensor.shape[1] - batched_tensor.shape[1] % seq_len)
-        ],
-        "batch (x seq_len) -> (batch x) seq_len",
-        seq_len=seq_len,
-    )
-    return batched_tensor
-
-
 def tokenize_dataset(language: str, n_batches: int, batch_size: int):
-    seq_len = 500
+    seq_len = 127
     filename = f"data/wikipedia/{language}_samples.json"
     model = HookedTransformer.from_pretrained(
         "EleutherAI/pythia-70m",
@@ -100,7 +83,7 @@ def tokenize_dataset(language: str, n_batches: int, batch_size: int):
         for i, batch in enumerate(chunked(items, batch_size)):
             if i == n_batches:
                 break
-            tensor = process_batch(batch, model, seq_len)
+            tensor = batch_prompts(batch, model, seq_len)#process_batch(batch, model, seq_len)
             torch.save(tensor, f"data/wikipedia/{language}_batched_{i}.pt")
             del tensor
 
