@@ -12,6 +12,8 @@ europarl/
 *.tgz
 *.pt
 wmt_europarl.pkl
+*.json
+*.arrow
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
