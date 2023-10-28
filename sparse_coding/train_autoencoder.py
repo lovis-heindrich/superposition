@@ -256,6 +256,8 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
                     "l1_loss": l1_loss.item(),
                     "avg_directions": active_directions,
                     "dead_directions": num_dead_directions,
+                    "bias_mean": encoder.b_enc.mean().item(),
+                    "bias_std": encoder.b_enc.std().item(),
                 }
 
                 pbar.update(1)
