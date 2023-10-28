@@ -38,8 +38,8 @@ def add_to_dataset(data: Dataset, language: str, n_batches: int, batch_size: int
             datasets[language].append(line["text"])
             lines_count += 1
 
-        if lines_count == n_lines:
-            break
+        # if lines_count == n_lines:
+        #     break
 
         if psutil.virtual_memory().percent > 90:
             print(
@@ -81,8 +81,8 @@ def tokenize_dataset(language: str, n_batches: int, batch_size: int):
     with open(filename, "rb") as f:
         items = ijson.items(f, "item")
         for i, batch in enumerate(chunked(items, batch_size)):
-            if i == n_batches:
-                break
+            # if i == n_batches:
+            #     break
             tensor = batch_prompts(batch, model, seq_len)#process_batch(batch, model, seq_len)
             torch.save(tensor, f"data/wikipedia/{language}_batched_{i}.pt")
             del tensor
