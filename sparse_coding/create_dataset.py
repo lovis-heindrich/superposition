@@ -35,10 +35,6 @@ concatenated_dataset = concatenate_datasets(shard_datasets)
 concatenated_dataset.push_to_hub("lovish/german_wiki_tokenized", private=True)
 
 # %%
-len(concatenated_dataset)
-# %%
-len(concatenated_dataset[0]["tokens"])
-# %%
 from datasets import load_dataset
 data = load_dataset("lovish/german_wiki_tokenized", split="train")
 data.set_format(type="torch", columns=["tokens"])
