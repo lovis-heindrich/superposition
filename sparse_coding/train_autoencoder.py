@@ -86,12 +86,15 @@ class Buffer():
             for _ in range(0, num_batches, self.cfg["model_batch_size"]):
                 tokens = self.all_tokens[self.token_pointer:self.token_pointer+self.cfg["model_batch_size"]]
                 tokens = tokens.to(torch.long)
-                _, cache = self.model.run_with_cache(tokens, names_filter=self.hook_name)
+                with torch.no_grad():
+                    _, cache = self.model.run_with_cache(tokens, names_filter=self.hook_name)
                 mlp_acts = cache[self.hook_name].reshape(-1, self.cfg["d_mlp"])
                 # print(tokens.shape, mlp_acts.shape, self.pointer, self.token_pointer, self.buffer[self.pointer: self.pointer+mlp_acts.shape[0]].shape)
-                self.buffer[self.pointer: self.pointer+mlp_acts.shape[0]] = mlp_acts
-                self.pointer += mlp_acts.shape[0]
-                self.token_pointer += self.cfg["model_batch_size"]
+                if len(self.buffer) - self.pointer > 0:
+                    truncated_mlp_acts = mlp_acts[:len(self.buffer) - self.pointer]
+                    self.buffer[self.pointer: self.pointer+mlp_acts.shape[0]] = truncated_mlp_acts
+                    self.pointer += truncated_mlp_acts.shape[0]
+                    self.token_pointer += self.cfg["model_batch_size"]
 
         self.pointer = 0
         self.buffer = self.buffer[torch.randperm(self.buffer.shape[0]).cuda()]
@@ -215,6 +218,13 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
 
             encoder.W_enc[:, dead_direction_indices] = newly_normalized_inputs.T.clone().to(encoder.W_enc.dtype)
             encoder.b_enc[dead_direction_indices] = 0
+
+            encoder_optim.state_dict()['state'][0]['exp_avg'][:, dead_direction_indices] = 0
+            encoder_optim.state_dict()['state'][0]['exp_avg_sq'][:, dead_direction_indices] = 0
+            encoder_optim.state_dict()['state'][1]['exp_avg'][dead_direction_indices, :] = 0
+            encoder_optim.state_dict()['state'][1]['exp_avg_sq'][dead_direction_indices, :] = 0
+            encoder_optim.state_dict()['state'][2]['exp_avg'][dead_direction_indices] = 0
+            encoder_optim.state_dict()['state'][2]['exp_avg_sq'][dead_direction_indices] = 0
 
     with tqdm(total=(num_batches - cfg["num_eval_batches"]) * cfg["epochs"], position=0, leave=True) as pbar:
         dead_directions = torch.ones(size=(autoencoder_dim,)).bool().to(device)
