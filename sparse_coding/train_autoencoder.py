@@ -206,7 +206,7 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
             batch_reconstruct = []
             for i in range(0, cfg["num_eval_batches"]*cfg["batch_size"], cfg["batch_size"]):
                 _, x_reconstruct, _, _, _ = encoder(eval_batch[i:i+cfg["batch_size"]])
-                batch_reconstruct.append(x_reconstruct)
+                batch_reconstruct.append(x_reconstruct.cpu())
             x_reconstruct = torch.cat(batch_reconstruct, dim=0)
             
             # Losses per batch item
@@ -220,7 +220,7 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
             ).cpu()
             neuron_inputs = eval_batch[indices]
             neuron_inputs = F.normalize(neuron_inputs, dim=-1)  # batch d_mlp
-            encoder.W_dec[dead_direction_indices, :] = neuron_inputs.clone().to(encoder.W_dec.dtype)
+            encoder.W_dec[dead_direction_indices, :] = neuron_inputs.clone().to(encoder.W_dec.dtype).to(device)
 
             # Encoder
             active_directions = torch.argwhere(~dead_directions).flatten()
@@ -230,7 +230,7 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
             mean_active_norm = active_direction_norms.mean() * 0.2
             newly_normalized_inputs = neuron_inputs * mean_active_norm
 
-            encoder.W_enc[:, dead_direction_indices] = newly_normalized_inputs.T.clone().to(encoder.W_enc.dtype)
+            encoder.W_enc[:, dead_direction_indices] = newly_normalized_inputs.T.clone().to(encoder.W_enc.dtype).to(device)
             encoder.b_enc[dead_direction_indices] = 0
 
             encoder_optim.state_dict()['state'][0]['exp_avg'][:, dead_direction_indices] = 0
@@ -242,6 +242,7 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
 
     with tqdm(total=(num_training_batches) * cfg["epochs"], position=0, leave=True) as pbar:
         dead_directions = torch.ones(size=(autoencoder_dim,)).bool().to(device)
+        long_term_dead_directions = torch.ones(size=(autoencoder_dim,)).bool().to(device)
         for epoch in range(cfg["epochs"]):
             buffer = Buffer(cfg, model, prompt_data)
             eval_batch = torch.cat(
@@ -262,7 +263,9 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
                     (mid_acts != 0).sum(dim=-1).mean(dtype=torch.float32).item()
                 )
                 dead_directions = ((mid_acts != 0).sum(dim=0) == 0) & dead_directions
+                long_term_dead_directions = ((mid_acts != 0).sum(dim=0) == 0) & dead_directions
                 num_dead_directions = dead_directions.sum().item()
+                num_long_term_dead_directions = long_term_dead_directions.sum().item()
 
                 loss_dict = {
                     "batch": batch_index,
@@ -271,6 +274,7 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
                     "l1_loss": l1_loss.item(),
                     "avg_directions": active_directions,
                     "dead_directions": num_dead_directions,
+                    "long term dead directions": num_long_term_dead_directions,
                     "bias_mean": encoder.b_enc.mean().item(),
                     "bias_std": encoder.b_enc.std().item(),
                 }
@@ -278,6 +282,7 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
                 pbar.update(1)
                 reset_steps = [25000, 50000, 75000, 100000]
                 count_dead_direction_steps = [step - 12500 for step in reset_steps]
+                dead_directions_reset_interval = 50000
 
                 if (batch_index + 1) in reset_steps:
                     resample_dead_directions(
@@ -290,8 +295,14 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
                     dead_directions = (
                         torch.ones(size=(autoencoder_dim,)).bool().to(device)
                     )
+                    long_term_dead_directions = torch.ones(size=(autoencoder_dim,)).bool().to(device)
 
-                if (batch_index + 1) % 5000 == 0:
+                if ((batch_index + 1) > max(reset_steps)) and ((batch_index + 1) % dead_directions_reset_interval == 0):
+                    dead_directions = (
+                        torch.ones(size=(autoencoder_dim,)).bool().to(device)
+                    )
+
+                if (batch_index + 1) % 10000 == 0:
                     torch.save(encoder.state_dict(), f"{model_name}/{save_name}.pt")
                     print(
                         f"\n(Batch {batch_index}) Loss: {loss_dict['loss']:.2f}, L2 loss: {loss_dict['l2_loss']:.2f}, L1 loss: {loss_dict['l1_loss']:.2f}, Avg directions: {loss_dict['avg_directions']:.2f}, Dead directions: {num_dead_directions}"
@@ -325,7 +336,7 @@ def get_config():
         "buffer_mult": 128, # Buffer size is batch_size*buffer_mult, d_mlp
         "seq_len": 128,
         "use_wandb": False,
-        "num_eval_tokens": 100000, # Tokens used to resample dead directions
+        "num_eval_tokens": 800000, # Tokens used to resample dead directions
         "num_training_tokens": 2e9
     }
 
