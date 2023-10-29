@@ -17,6 +17,15 @@ from jaxtyping import Int, Float, Bool
 from datasets import load_dataset
 
 
+device = (
+    "cuda"
+    if torch.cuda.is_available()
+    else "mps"
+    if torch.backends.mps.is_available()
+    else "cpu"
+)
+
+
 class AutoEncoder(nn.Module):
     def __init__(
         self, d_hidden: int, l1_coeff: float, d_in: int, dtype=torch.float32, seed=47
@@ -143,7 +152,6 @@ def get_german_prompt_data() -> Int[Tensor, "batch seq_len"]:
     #     f"{folder_path}wikipedia/{f}" for f in os.listdir(f"{folder_path}wikipedia") if f.endswith(".pt")
     # ]
     # return torch.cat([torch.load(filename) for filename in filenames], dim=0)
-
     return torch.cat([europarl_data["tokens"], wiki_data["tokens"]])
 
 
@@ -192,13 +200,13 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
 
     prompt_data = get_german_prompt_data()
     num_tokens = torch.numel(prompt_data)
-    num_eval_tokens = (cfg["num_eval_batches"]*cfg["batch_size"])
+    num_eval_tokens = (cfg["num_eval_batches"] * cfg["batch_size"])
 
     if num_tokens + num_eval_tokens < cfg["num_training_tokens"]:
         print(f"Only {num_tokens} tokens available, using all of them")
     
     num_total_tokens = min(num_tokens, cfg["num_training_tokens"] + num_eval_tokens)
-    num_training_tokens = num_total_tokens - num_eval_tokens
+    num_training_tokens = int(num_total_tokens - num_eval_tokens)
     num_training_batches = num_training_tokens // cfg["batch_size"]
     print(f"Total tokens: {num_tokens, num_eval_tokens, num_training_tokens}, total batches: {num_training_batches}")
 
@@ -223,8 +231,8 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
             dead_direction_indices = torch.argwhere(dead_directions).flatten()
             batch_reconstruct = []
             for i in range(0, cfg["num_eval_batches"]*cfg["batch_size"], cfg["batch_size"]):
-                _, x_reconstruct, _, _, _ = encoder(eval_batch[i:i+cfg["batch_size"]])
-                batch_reconstruct.append(x_reconstruct.cpu())
+                _, x_reconstruct, _, _, _ = encoder(eval_batch[i:i+cfg["batch_size"]].to(device))
+                batch_reconstruct.append(x_reconstruct)
             x_reconstruct = torch.cat(batch_reconstruct, dim=0)
             
             # Losses per batch item
@@ -235,7 +243,7 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
             loss_probs = loss / loss.sum()
             indices = torch.multinomial(
                 loss_probs, num_dead_directions, replacement=False
-            ).cpu()
+            )
             neuron_inputs = eval_batch[indices]
             neuron_inputs = F.normalize(neuron_inputs, dim=-1)  # batch d_mlp
             encoder.W_dec[dead_direction_indices, :] = neuron_inputs.clone().to(encoder.W_dec.dtype).to(device)
