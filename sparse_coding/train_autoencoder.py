@@ -15,6 +15,7 @@ import numpy as np
 import wandb
 from jaxtyping import Int, Float, Bool
 from datasets import load_dataset
+import datasets
 
 
 device = (
@@ -135,24 +136,31 @@ def get_german_prompt_data() -> Int[Tensor, "batch seq_len"]:
     os.makedirs(f"{folder_path}wikipedia", exist_ok=True)
     os.makedirs(f"{folder_path}europarl", exist_ok=True)
 
-    europarl_data = load_dataset("MechInterpResearch/german_europarl_tokenized", split="train")
-    europarl_data.save_to_disk("/data/europarl/data.hf")
-    europarl_data.set_format(type="torch", columns=["tokens"])
-    all_tokens = europarl_data["tokens"]
-    print(all_tokens.shape)
+    # europarl_data = load_dataset("MechInterpResearch/german_europarl_tokenized", split="train")
+    # europarl_data.save_to_disk("/data/europarl/data.hf")
 
-    wiki_data = load_dataset("MechInterpResearch/german_wiki_tokenized", split="train")
-    wiki_data.save_to_disk("/data/wikipedia/data.hf")
+    # wiki_data = load_dataset("MechInterpResearch/german_wiki_tokenized", split="train")
+    # wiki_data.save_to_disk("/data/wikipedia/data.hf")
+
+    europarl_data = datasets.load_from_disk("/workspace/german_europarl_tokenized.hf")
+    wiki_data = datasets.load_from_disk("/workspace/german_wiki_tokenized.hf")
+
+    europarl_data.set_format(type="torch", columns=["tokens"])
+    europarl_tokens = europarl_data["tokens"]
     wiki_data.set_format(type="torch", columns=["tokens"])
-    # all_tokens = wiki_data["tokens"]
-    # all_tokens.shape
+    wiki_tokens = wiki_data["tokens"]
+
+    all_tokens = torch.cat([europarl_tokens, wiki_tokens], dim=0)
+    all_tokens = all_tokens[torch.randperm(all_tokens.shape[0])]
+    print(f"Total tokens: {all_tokens.shape}")
+    return all_tokens
 
     # os.makedirs(f"{folder_path}wikipedia", exist_ok=True)
     # filenames = [f"{folder_path}europarl/de_batched.pt"] + [
     #     f"{folder_path}wikipedia/{f}" for f in os.listdir(f"{folder_path}wikipedia") if f.endswith(".pt")
     # ]
     # return torch.cat([torch.load(filename) for filename in filenames], dim=0)
-    return torch.cat([europarl_data["tokens"], wiki_data["tokens"]])
+    #return torch.cat([europarl_data["tokens"], wiki_data["tokens"]])
 
 
 def main(model_name: str, layer: int, act_name: str, cfg: dict):
@@ -358,10 +366,10 @@ def get_config():
         "wd": 1e-2,
         "beta1": 0.9,
         "beta2": 0.99,
-        "batch_size": 1024, # Batch shape is batch_size, d_mlp
+        "batch_size": 4096, # Batch shape is batch_size, d_mlp
         "buffer_mult": 128, # Buffer size is batch_size*buffer_mult, d_mlp
         "seq_len": 128,
-        "use_wandb": False,
+        "use_wandb": True,
         "num_eval_tokens": 800000, # Tokens used to resample dead directions
         "num_training_tokens": 2e9
     }
