@@ -1,5 +1,6 @@
 import os
 import sys
+sys.path.append(os.getcwd())   # Add the root directory to the system path to make sibling packages accessible
 import glob
 import json
 import random
@@ -19,7 +20,7 @@ import numpy as np
 import wandb
 from jaxtyping import Int, Float, Bool
 # from fabric import Connection
-sys.path.append("../")  # Add the parent directory to the system path
+
 from utils.haystack_utils import load_txt_data
 
 
@@ -63,24 +64,24 @@ class AutoEncoder(nn.Module):
 
 def start_background_data_download() -> None:
     # port=58712, username="luciaquirke", host="192.168.20.7", password=
-    os.mkdir('data/europarl', exist_ok=True)
-    os.mkdir('data/wikipedia', exist_ok=True)
+    os.mkdir('sparse_coding/data/europarl', exist_ok=True)
+    os.mkdir('sparse_coding/data/wikipedia', exist_ok=True)
 
     api_key = load_txt_data('api_key.txt')
     subprocess.run(["wget", "https://raw.githubusercontent.com/vast-ai/vast-python/master/vast.py"]) 
     subprocess.run(["chmod", "+x", "vast.py"])
     subprocess.run(["./vast.py", "set", "api-key", api_key]) 
 
-    subprocess.run(["./vast.py", "copy", "root/superposition/sparse_coding/data/europarl", "data/europarl"])
-    subprocess.run(["./vast.py", "copy", "root/superposition/sparse_coding/data/wikipedia", "data/wikipedia"]) 
+    subprocess.run(["./vast.py", "copy", "root/superposition/sparse_coding/data/europarl", "sparse_coding/data/europarl"])
+    subprocess.run(["./vast.py", "copy", "root/superposition/sparse_coding/data/wikipedia", "sparse_coding/data/wikipedia"]) 
 
     # with Connection(host=host, user=username, port=port, connect_kwargs={"password": password}) as c:
     #     c.forward_remote(1111, 'localhost', 22)
-    #     c.get('/Users/luciaquirke/code/superposition/sparse_coding/data/europarl', '/data/europarl/')
+    #     c.get('/Users/luciaquirke/code/superposition/sparse_coding/data/europarl', '/sparse_coding/data/europarl/')
         
     # with Connection(host=host, user=username, port=port, connect_kwargs={"password": password}) as c:
     #     c.forward_remote(2222, 'localhost', 22)
-    #     c.get('/Users/luciaquirke/code/superposition/sparse_coding/data/wikipedia', '/data/wikipedia/')
+    #     c.get('/Users/luciaquirke/code/superposition/sparse_coding/data/wikipedia', '/sparse_coding/data/wikipedia/')
         
 
 def get_unseen_data(seen_filenames: list[str] = []) -> tuple[list[torch.Tensor], int]:
@@ -91,7 +92,7 @@ def get_unseen_data(seen_filenames: list[str] = []) -> tuple[list[torch.Tensor],
             result += glob.glob(f"{dir_name}/*.pt")
         return result
 
-    filenames = get_pt_files(["data/wikipedia", "data/europarl"])
+    filenames = get_pt_files(["sparse_coding/data/wikipedia", "sparse_coding/data/europarl"])
     unseen_filenames = [filename for filename in filenames if filename not in seen_filenames]
 
     return [torch.load(filename) for filename in unseen_filenames], filenames

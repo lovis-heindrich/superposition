@@ -1,3 +1,7 @@
+import os
+import sys
+sys.path.append(os.getcwd())  # Add the parent directory to the system path
+
 import torch.nn.functional as F
 from jaxtyping import Int, Float
 from torch import Tensor
@@ -10,9 +14,6 @@ from collections import Counter
 import logging
 from tqdm import tqdm
 
-import sys
-
-sys.path.append("../")  # Add the parent directory to the system path
 import utils.haystack_utils as haystack_utils
 from sparse_coding.train_autoencoder import AutoEncoder
 

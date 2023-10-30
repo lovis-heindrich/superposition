@@ -28,7 +28,7 @@ datasets: dict[str, list[str]] = {lang: [] for lang in wikipedia_languages}
 
 
 def add_to_dataset(data: Dataset, language: str, n_batches: int, batch_size: int, min_chars=500):
-    save_filename = f"data/wikipedia/{language}_samples.json"
+    save_filename = f"sparse_coding/data/wikipedia/{language}_samples.json"
 
     n_lines = batch_size * n_batches
     lines_count = 0
@@ -69,7 +69,7 @@ def chunked(iterable: list[str], n: int):
 
 def tokenize_dataset(language: str, n_batches: int, batch_size: int):
     seq_len = 127
-    filename = f"data/wikipedia/{language}_samples.json"
+    filename = f"sparse_coding/data/wikipedia/{language}_samples.json"
     model = HookedTransformer.from_pretrained(
         "EleutherAI/pythia-70m",
         center_unembed=True,
@@ -83,8 +83,8 @@ def tokenize_dataset(language: str, n_batches: int, batch_size: int):
         for i, batch in enumerate(chunked(items, batch_size)):
             # if i == n_batches:
             #     break
-            tensor = batch_prompts(batch, model, seq_len)#process_batch(batch, model, seq_len)
-            torch.save(tensor, f"data/wikipedia/{language}_batched_{i}.pt")
+            tensor = batch_prompts(batch, model, seq_len)
+            torch.save(tensor, f"sparse_coding/data/wikipedia/{language}_batched_{i}.pt")
             del tensor
 
 
@@ -106,7 +106,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    os.makedirs("data/wikipedia", exist_ok=True)
+    os.makedirs("sparse_coding/data/wikipedia", exist_ok=True)
     for language in wikipedia_languages:
         data: Dataset = load_dataset("wikipedia", f"20220301.{language}", split="train")
         add_to_dataset(data, language, args.n_batches, args.batch_size)

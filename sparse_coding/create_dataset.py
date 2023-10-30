@@ -1,3 +1,4 @@
+# Convert from .pt files to HuggingFace dataset
 # %%
 import torch
 from tqdm.auto import tqdm
@@ -11,13 +12,13 @@ torch.set_grad_enabled(False)
 # %%
 
 # Directory to store shards
-local_shard_dir = "data/hf_shards"
+local_shard_dir = "sparse_coding/data/hf_shards"
 os.makedirs(local_shard_dir, exist_ok=True)
 
 # %%
 # Read PyTorch files and convert to Hugging Face dataset
 for i in tqdm(range(46)):
-    data_chunk = torch.load(f"data/wikipedia/de_batched_{i}.pt").tolist()
+    data_chunk = torch.load(f"sparse_coding/data/wikipedia/de_batched_{i}.pt").tolist()
     ds_chunk = Dataset.from_dict({"tokens": data_chunk})
     # Save this chunk as a shard
     shard_path = f"{local_shard_dir}/shard_{i}"
@@ -41,6 +42,6 @@ all_tokens.shape
 # %%
 
 # Europarl
-data = torch.load(f"data/europarl/de_batched.pt").tolist()
+data = torch.load(f"sparse_coding/data/europarl/de_batched.pt").tolist()
 ds = Dataset.from_dict({"tokens": data})
 ds.push_to_hub("lovish/german_europarl_tokenized", private=True)

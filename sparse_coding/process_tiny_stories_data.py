@@ -7,7 +7,7 @@ from datasets import Dataset, load_from_disk, concatenate_datasets, load_dataset
 from transformer_lens import HookedTransformer
 import sys 
 
-sys.path.append("../")  # Add the parent directory to the system path
+sys.path.append(os.getcwd())  # Add the parent directory to the system path
 from utils.haystack_utils import get_device
 from utils.autoencoder_utils import batch_prompts
 
@@ -36,7 +36,7 @@ print(len(prompts))
 tokens = batch_prompts(prompts, model, seq_len=127)
 print(tokens.shape)
 # %%
-torch.save(tokens, "data/tinystories/batched.pt")
+torch.save(tokens, "sparse_coding/data/tinystories/batched.pt")
 
 # %%
 ds = Dataset.from_dict({"tokens": tokens})
