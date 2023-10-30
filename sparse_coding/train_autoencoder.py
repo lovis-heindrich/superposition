@@ -330,11 +330,15 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
 
 
 def get_config():
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
-
+    # Default config values
     cfg = {
+        "cfg_file": None,
+        "use_wandb": True,
+        "num_eval_tokens": 800000, # Tokens used to resample dead directions
+        "num_training_tokens": 2e9,
+        "batch_size": 4096, # Batch shape is batch_size, d_mlp
+        "buffer_mult": 128, # Buffer size is batch_size*buffer_mult, d_mlp
+        "seq_len": 128,
         "model": "pythia-70m",
         "layer": 5,
         "act": "mlp.hook_post",
@@ -346,20 +350,12 @@ def get_config():
         "wd": 1e-2,
         "beta1": 0.9,
         "beta2": 0.99,
-        "batch_size": 4096, # Batch shape is batch_size, d_mlp
-        "buffer_mult": 128, # Buffer size is batch_size*buffer_mult, d_mlp
-        "seq_len": 128,
-        "use_wandb": True,
-        "num_eval_tokens": 800000, # Tokens used to resample dead directions
-        "num_training_tokens": 2e9
     }
 
-    cfg["model_batch_size"] = cfg["batch_size"] // cfg["seq_len"] * 16
-    cfg["buffer_size"] = cfg["batch_size"] * cfg["buffer_mult"]
-    cfg["buffer_batches"] = cfg["buffer_size"] // cfg["seq_len"] #(cfg["model_batch_size"] * cfg["seq_len"])
-    cfg["num_eval_batches"] = cfg["num_eval_tokens"] // cfg["batch_size"]
-    assert cfg["buffer_batches"] % cfg["model_batch_size"] == 0, "Buffer batches must be multiple of model batch size"
-
+    # Accept alternative config values from command line
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
     for key, value in cfg.items():
         if type(value) == bool:
             # argparse for Booleans is broken rip. Now you put in a flag to change the default --{flag} to set True, --{flag} to set False
@@ -372,6 +368,19 @@ def get_config():
     args = parser.parse_args()
     parsed_args = vars(args)
     cfg.update(parsed_args)
+
+    # Accept alternative config values from file specified in command line
+    if cfg["cfg_file"] is not None:
+        with open(cfg["cfg_file"], "r") as f:
+            cfg.update(json.load(f))
+
+    # Derive config values
+    cfg["model_batch_size"] = cfg["batch_size"] // cfg["seq_len"] * 16
+    cfg["buffer_size"] = cfg["batch_size"] * cfg["buffer_mult"]
+    cfg["buffer_batches"] = cfg["buffer_size"] // cfg["seq_len"] #(cfg["model_batch_size"] * cfg["seq_len"])
+    cfg["num_eval_batches"] = cfg["num_eval_tokens"] // cfg["batch_size"]
+    assert cfg["buffer_batches"] % cfg["model_batch_size"] == 0, "Buffer batches must be multiple of model batch size"
+
     return cfg
 
 
