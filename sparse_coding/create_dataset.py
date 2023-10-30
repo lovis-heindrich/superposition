@@ -2,7 +2,6 @@
 import torch
 from tqdm.auto import tqdm
 import os
-from datasets import Dataset
 from datasets import Dataset, load_from_disk, concatenate_datasets, load_dataset
 
 device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
@@ -35,7 +34,6 @@ concatenated_dataset = concatenate_datasets(shard_datasets)
 concatenated_dataset.push_to_hub("lovish/german_wiki_tokenized", private=True)
 
 # %%
-from datasets import load_dataset
 data = load_dataset("lovish/german_wiki_tokenized", split="train")
 data.set_format(type="torch", columns=["tokens"])
 all_tokens = data["tokens"]

@@ -152,7 +152,8 @@ def get_german_prompt_data() -> Int[Tensor, "batch seq_len"]:
     #     f"{folder_path}wikipedia/{f}" for f in os.listdir(f"{folder_path}wikipedia") if f.endswith(".pt")
     # ]
     # return torch.cat([torch.load(filename) for filename in filenames], dim=0)
-    return torch.cat([europarl_data["tokens"], wiki_data["tokens"]])
+    tokens = torch.cat([europarl_data["tokens"], wiki_data["tokens"]])
+    return tokens[torch.randperm(tokens.shape[0])]
 
 
 def main(model_name: str, layer: int, act_name: str, cfg: dict):
@@ -218,7 +219,7 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
         save_name = "local"
     Path(model_name).mkdir(exist_ok=True)
     with open(f"{model_name}/{save_name}.json", "w") as f:
-        json.dump(cfg, f)
+        json.dump(cfg, f, indent=4)
 
     @torch.no_grad()
     def resample_dead_directions(
@@ -354,11 +355,11 @@ def get_config():
         "epochs": 1,
         "seed": 47,
         "lr": 1e-4,
-        "l1_coeff": 1e-3,
+        "l1_coeff": 1e-4,
         "wd": 1e-2,
         "beta1": 0.9,
         "beta2": 0.99,
-        "batch_size": 1024, # Batch shape is batch_size, d_mlp
+        "batch_size": 4096, # Batch shape is batch_size, d_mlp
         "buffer_mult": 128, # Buffer size is batch_size*buffer_mult, d_mlp
         "seq_len": 128,
         "use_wandb": False,

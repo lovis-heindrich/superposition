@@ -169,7 +169,7 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
     save_name = f"{wandb_name.split('-')[-1]}_" + "_".join(wandb_name.split("-")[:-1])
     Path(model_name).mkdir(exist_ok=True)
     with open(f"{model_name}/{save_name}.json", "w") as f:
-        json.dump(cfg, f)
+        json.dump(cfg, f, indent=4)
 
     @torch.no_grad()
     def resample_dead_directions(
