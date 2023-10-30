@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import random
 import argparse
@@ -17,14 +18,8 @@ from jaxtyping import Int, Float, Bool
 from datasets import load_dataset
 import datasets
 
-
-device = (
-    "cuda"
-    if torch.cuda.is_available()
-    else "mps"
-    if torch.backends.mps.is_available()
-    else "cpu"
-)
+sys.path.append("../")  # Add the parent directory to the system path
+from utils.autoencoder_utils import get_device
 
 
 class AutoEncoder(nn.Module):
@@ -70,8 +65,8 @@ class Buffer():
     """
     This defines a data buffer, to store a bunch of MLP acts that can be used to train the autoencoder. It'll automatically run the model to generate more when it gets halfway empty. 
     """
-    def __init__(self, cfg, model: HookedTransformer, all_tokens: Int[Tensor, "batch seq_len"]):
-        self.buffer = torch.zeros((cfg["buffer_size"], cfg["d_mlp"]), dtype=torch.bfloat16, requires_grad=False).cuda()
+    def __init__(self, cfg, model: HookedTransformer, all_tokens: Int[Tensor, "batch seq_len"], device=get_device()):
+        self.buffer = torch.zeros((cfg["buffer_size"], cfg["d_mlp"]), dtype=torch.bfloat16, requires_grad=False).to(device)
         print(f"\nBuffer size: {self.buffer.shape}, batch_shape: {(cfg['batch_size'], cfg['d_mlp'])}")
         self.cfg = cfg
         self.token_pointer = 0
@@ -89,8 +84,6 @@ class Buffer():
         else:
             num_batches = self.cfg["buffer_batches"]//2
 
-        
-        
         # If all data is used this might result in some data being reused in the very last buffer used in training
         available_batches = self.all_tokens.shape[0] - self.token_pointer - 1
         num_batches = min(num_batches, available_batches)
@@ -114,7 +107,7 @@ class Buffer():
                     self.token_pointer += self.cfg["model_batch_size"]
 
         self.pointer = 0
-        self.buffer = self.buffer[torch.randperm(self.buffer.shape[0]).cuda()]
+        self.buffer = self.buffer[torch.randperm(self.buffer.shape[0]).to(device)]
 
     @torch.no_grad()
     def __next__(self):
@@ -155,22 +148,9 @@ def get_german_prompt_data() -> Int[Tensor, "batch seq_len"]:
     print(f"Total tokens: {all_tokens.shape}")
     return all_tokens
 
-    # os.makedirs(f"{folder_path}wikipedia", exist_ok=True)
-    # filenames = [f"{folder_path}europarl/de_batched.pt"] + [
-    #     f"{folder_path}wikipedia/{f}" for f in os.listdir(f"{folder_path}wikipedia") if f.endswith(".pt")
-    # ]
-    # return torch.cat([torch.load(filename) for filename in filenames], dim=0)
-    #return torch.cat([europarl_data["tokens"], wiki_data["tokens"]])
-
 
 def main(model_name: str, layer: int, act_name: str, cfg: dict):
-    device = (
-        "cuda"
-        if torch.cuda.is_available()
-        else "mps"
-        if torch.backends.mps.is_available()
-        else "cpu"
-    )
+    device = get_device()
     model = HookedTransformer.from_pretrained(
         model_name,
         center_unembed=True,
