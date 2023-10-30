@@ -157,7 +157,6 @@ def get_german_prompt_data(data_paths: list[str]) -> Int[Tensor, "batch seq_len"
 
 
 def main(model_name: str, layer: int, act_name: str, cfg: dict):
-    data_paths = ["/workspace/german_europarl_tokenized.hf", "/workspace/german_wiki_tokenized.hf"]
     device = get_device()
     model = HookedTransformer.from_pretrained(
         model_name,
@@ -194,7 +193,7 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
         weight_decay=cfg["wd"],
     )
     
-    prompt_data = get_german_prompt_data(data_paths)
+    prompt_data = get_german_prompt_data(cfg["data_paths"])
     num_tokens = torch.numel(prompt_data)
     num_eval_tokens = (cfg["num_eval_batches"] * cfg["batch_size"])
 
