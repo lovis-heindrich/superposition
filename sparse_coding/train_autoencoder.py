@@ -216,8 +216,10 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
         wandb.init(project=f'{cfg["model"]}-{cfg["layer"]}-autoencoder', config=cfg)
         wandb_name = wandb.run.name
         save_name = f"{wandb_name.split('-')[-1]}_" + "_".join(wandb_name.split("-")[:-1])
+        cfg["wandb_name"] = wandb_name
     else:
         save_name = "local"
+    cfg["save_name"] = save_name
     os.makedirs(model_name, exist_ok=True)
     #Path(model_name).mkdir(exist_ok=True)
     with open(f"{model_name}/{save_name}.json", "w") as f:
