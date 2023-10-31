@@ -349,14 +349,14 @@ def get_config():
     # Default config values
     cfg = {
         "cfg_file": None,
-        "data_paths": ["/workspace/tinystories/data.hf"],
+        "data_paths": ["data/tinystories/data.hf"],
         "use_wandb": True,
         "num_eval_tokens": 100000, # Tokens used to resample dead directions
         "num_training_tokens": 20e6,
         "batch_size": 4096, # Batch shape is batch_size, d_mlp
-        "buffer_mult": 128, # Buffer size is batch_size*buffer_mult, d_mlp
+        "buffer_mult": 96, # Buffer size is batch_size*buffer_mult, d_mlp
         "seq_len": 128,
-        "model": "tiny-stories-2L-33M",
+        "model": "tiny-stories-1L-21M",
         "layer": 0,
         "act": "mlp.hook_post",
         "expansion_factor": 4,
@@ -402,7 +402,7 @@ def get_config():
 
 if __name__ == "__main__":
     cfg = get_config()
-    for l1_coeff in [0.00015]:
+    for l1_coeff in [0.00005, 0.0004]:
         torch.cuda.empty_cache()
         cfg["l1_coeff"] = l1_coeff
         main(cfg["model"], cfg["layer"], cfg["act"], cfg)
