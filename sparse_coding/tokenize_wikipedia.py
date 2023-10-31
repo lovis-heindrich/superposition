@@ -1,15 +1,10 @@
-import tarfile
-import re
 import json
 import os
-import time
 import sys
 from itertools import islice
-from typing import Iterable
 import argparse
 
 import torch
-import einops
 from datasets import load_dataset, Dataset
 from transformer_lens import HookedTransformer
 from tqdm import tqdm
