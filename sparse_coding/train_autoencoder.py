@@ -213,7 +213,7 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
     print(f"Total tokens: {num_tokens, num_eval_tokens, num_training_tokens}, total batches: {num_training_batches}")
 
     if cfg["use_wandb"]:
-        wandb.init(project="tinystories_autoencoder", config=cfg)
+        wandb.init(project=f'{cfg["model"]}-{cfg["layer"]}-autoencoder', config=cfg)
         wandb_name = wandb.run.name
         save_name = f"{wandb_name.split('-')[-1]}_" + "_".join(wandb_name.split("-")[:-1])
     else:
@@ -274,7 +274,7 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
     buffer = Buffer(cfg, model, prompt_data)
     eval_batch = torch.cat(
         list(islice(buffer, cfg["num_eval_batches"])), dim=0
-    )
+    ).cpu()
     print(f"Eval batch shape: {eval_batch.shape}")
     for batch_index in tqdm(range(num_training_batches)):
         batch = next(buffer)
@@ -339,6 +339,8 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
         encoder_optim.zero_grad()
         del loss, x_reconstruct, mid_acts, l2_loss, l1_loss
     torch.save(encoder.state_dict(), f"{model_name}/{save_name}.pt")
+    if cfg["use_wandb"]:
+        wandb.finish()
 
 
 def get_config():
@@ -347,15 +349,15 @@ def get_config():
         "cfg_file": None,
         "data_paths": ["/workspace/tinystories/data.hf"],
         "use_wandb": True,
-        "num_eval_tokens": 800000, # Tokens used to resample dead directions
-        "num_training_tokens": 10e6,
+        "num_eval_tokens": 100000, # Tokens used to resample dead directions
+        "num_training_tokens": 20e6,
         "batch_size": 4096, # Batch shape is batch_size, d_mlp
         "buffer_mult": 128, # Buffer size is batch_size*buffer_mult, d_mlp
         "seq_len": 128,
-        "model": "tiny-stories-1M",
-        "layer": 4,
+        "model": "tiny-stories-2L-33M",
+        "layer": 0,
         "act": "mlp.hook_post",
-        "expansion_factor": 8,
+        "expansion_factor": 4,
         "seed": 47,
         "lr": 1e-4,
         "l1_coeff": 1e-4,
@@ -398,4 +400,7 @@ def get_config():
 
 if __name__ == "__main__":
     cfg = get_config()
-    main(cfg["model"], cfg["layer"], cfg["act"], cfg)
+    for l1_coeff in [0.00015]:
+        torch.cuda.empty_cache()
+        cfg["l1_coeff"] = l1_coeff
+        main(cfg["model"], cfg["layer"], cfg["act"], cfg)
