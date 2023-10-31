@@ -1,6 +1,6 @@
 import os
 import sys
-sys.path.append(os.getcwd())   # Add the root directory to the system path to make sibling packages accessible
+sys.path.append('../')   # Add the root directory to the system path to make sibling packages accessible
 import glob
 import json
 import random

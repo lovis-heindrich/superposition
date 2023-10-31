@@ -1,6 +1,6 @@
 import os
 import sys
-sys.path.append(os.getcwd())  # Add the parent directory to the system path
+sys.path.append('../')  # Add the parent directory to the system path
 
 import torch
 from utils.haystack_utils import get_device

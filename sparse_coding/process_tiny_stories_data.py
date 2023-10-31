@@ -7,7 +7,7 @@ from datasets import Dataset, load_from_disk, concatenate_datasets, load_dataset
 from transformer_lens import HookedTransformer
 import sys 
 
-sys.path.append(os.getcwd())  # Add the parent directory to the system path
+sys.path.append('../')  # Add the parent directory to the system path
 from utils.haystack_utils import get_device
 from utils.autoencoder_utils import batch_prompts
 
