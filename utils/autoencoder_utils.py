@@ -73,7 +73,7 @@ def evaluate_autoencoder_reconstruction(autoencoder: AutoEncoder, encoded_hook_n
 
     original_losses = []
     reconstruct_losses = []
-    for prompt in tqdm(data[:200]):
+    for prompt in tqdm(data):
         original_loss = model(prompt, return_type="loss")
         with model.hooks(hooks):
             reconstruct_loss = model(prompt, return_type="loss")
