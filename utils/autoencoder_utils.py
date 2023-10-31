@@ -13,6 +13,7 @@ import torch
 from collections import Counter
 import logging
 from tqdm import tqdm
+import numpy as np
 
 import utils.haystack_utils as haystack_utils
 from sparse_coding.train_autoencoder import AutoEncoder
@@ -62,6 +63,25 @@ def batch_prompts(data: list[str], model: HookedTransformer, seq_len: int):
     batched_tensor = batched_tensor.to(torch.int32)
     return batched_tensor
 
+def evaluate_autoencoder_reconstruction(autoencoder: AutoEncoder, encoded_hook_name: str, data: list[str], model: HookedTransformer):
+    def encode_activations_hook(value, hook):
+        value = value.squeeze(0)
+        _, x_reconstruct, _, _, _ = autoencoder(value)
+        return x_reconstruct.unsqueeze(0)
+
+    hooks = [(encoded_hook_name, encode_activations_hook)]
+
+    original_losses = []
+    reconstruct_losses = []
+    for prompt in tqdm(data[:200]):
+        original_loss = model(prompt, return_type="loss")
+        with model.hooks(hooks):
+            reconstruct_loss = model(prompt, return_type="loss")
+        original_losses.append(original_loss.item())
+        reconstruct_losses.append(reconstruct_loss.item())
+
+    logging.info(f"Average loss increase after encoding: {(np.mean(reconstruct_losses) - np.mean(original_losses)):.4f}")
+    return np.mean(original_losses), np.mean(reconstruct_losses)
 
 def custom_forward(
     enc: AutoEncoder, x: Float[Tensor, "batch d_in"], neuron: int, activation: float
