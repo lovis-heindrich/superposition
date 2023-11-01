@@ -35,9 +35,13 @@ class ICAEncoder(LearnedDict):
         assert dataset.shape[1] == self.activation_size
         print(f"Fitting ICA on {dataset.shape[0]} activations")
         # Scale the data
-        dataset_rescaled = self.scaler.fit_transform(dataset.cpu().numpy().astype(np.float64))
+        dataset_rescaled = self.scaler.fit_transform(
+            dataset.cpu().numpy().astype(np.float64)
+        )
         ica_start = datetime.now()
-        output = self.ica.fit_transform(dataset_rescaled)  # 1GB of activations takes about 15m
+        output = self.ica.fit_transform(
+            dataset_rescaled
+        )  # 1GB of activations takes about 15m
         print(f"ICA fit in {datetime.now() - ica_start}")
         return output
 

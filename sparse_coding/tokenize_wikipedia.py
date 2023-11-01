@@ -22,7 +22,9 @@ wikipedia_languages = ["de"]
 datasets: dict[str, list[str]] = {lang: [] for lang in wikipedia_languages}
 
 
-def add_to_dataset(data: Dataset, language: str, n_batches: int, batch_size: int, min_chars=500):
+def add_to_dataset(
+    data: Dataset, language: str, n_batches: int, batch_size: int, min_chars=500
+):
     save_filename = f"sparse_coding/data/wikipedia/{language}_samples.json"
 
     n_lines = batch_size * n_batches
@@ -40,9 +42,7 @@ def add_to_dataset(data: Dataset, language: str, n_batches: int, batch_size: int
             print(
                 f"Memory overusage detected at {psutil.virtual_memory().percent}% and {i} lines, saving..."
             )
-            with open(
-                save_filename, "w", encoding="utf-8"
-            ) as f:
+            with open(save_filename, "w", encoding="utf-8") as f:
                 json.dump(datasets[language], f)
             print(f"\n{language}: {len(datasets[language])}")
             return
@@ -52,6 +52,7 @@ def add_to_dataset(data: Dataset, language: str, n_batches: int, batch_size: int
     print(
         f"Saved {len(datasets[language])} lines of {language} data, {os.path.getsize(save_filename)} bytes"
     )
+
 
 def chunked(iterable: list[str], n: int):
     it = iter(iterable)
@@ -79,7 +80,9 @@ def tokenize_dataset(language: str, n_batches: int, batch_size: int):
             # if i == n_batches:
             #     break
             tensor = batch_prompts(batch, model, seq_len)
-            torch.save(tensor, f"sparse_coding/data/wikipedia/{language}_batched_{i}.pt")
+            torch.save(
+                tensor, f"sparse_coding/data/wikipedia/{language}_batched_{i}.pt"
+            )
             del tensor
 
 
@@ -106,21 +109,3 @@ if __name__ == "__main__":
         data: Dataset = load_dataset("wikipedia", f"20220301.{language}", split="train")
         add_to_dataset(data, language, args.n_batches, args.batch_size)
         tokenize_dataset(language, args.n_batches, args.batch_size)
-
-
-# N = 600  # Estimated average string length
-# GB = 1024 * 1024 * 1024  # Bytes in a GB
-
-# # Estimate the number of strings
-# num_strings = (8 * GB) // N
-# num_tokens = num_strings * N // 2
-# # Memory needed for token indices
-# mem_for_tokens = num_tokens * 4  # in bytes
-# mem_for_tokens_gb = mem_for_tokens / GB  # in GB
-
-# # Memory needed for activations
-# mem_for_activations = num_tokens * 2048 * 4  # in bytes
-# mem_for_activations_gb = mem_for_activations / GB  # in GB
-
-# print(f"Estimated memory for tokens: {mem_for_tokens_gb} GB")
-# print(f"Estimated memory for activations: {mem_for_activations_gb} GB")

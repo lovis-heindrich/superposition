@@ -1,6 +1,7 @@
 import os
 import sys
-sys.path.append('../')
+
+sys.path.append("../")
 import json
 import random
 import argparse
@@ -20,7 +21,6 @@ from datasets import load_dataset
 import datasets
 
 
-
 def get_device():
     return (
         "cuda"
@@ -29,7 +29,7 @@ def get_device():
         if torch.backends.mps.is_available()
         else "cpu"
     )
-    
+
 
 class AutoEncoder(nn.Module):
     def __init__(
@@ -70,13 +70,26 @@ class AutoEncoder(nn.Module):
         self.W_dec.data = W_dec_normed
 
 
-class Buffer():
+class Buffer:
     """
-    This defines a data buffer, to store a bunch of MLP acts that can be used to train the autoencoder. It'll automatically run the model to generate more when it gets halfway empty. 
+    This defines a data buffer, to store a bunch of MLP acts that can be used to train the autoencoder. It'll automatically run the model to generate more when it gets halfway empty.
     """
-    def __init__(self, cfg, model: HookedTransformer, all_tokens: Int[Tensor, "batch seq_len"], device=get_device()):
-        self.buffer = torch.zeros((cfg["buffer_size"], cfg["d_mlp"]), dtype=torch.bfloat16, requires_grad=False).to(device)
-        print(f"\nBuffer size: {self.buffer.shape}, batch_shape: {(cfg['batch_size'], cfg['d_mlp'])}")
+
+    def __init__(
+        self,
+        cfg,
+        model: HookedTransformer,
+        all_tokens: Int[Tensor, "batch seq_len"],
+        device=get_device(),
+    ):
+        self.buffer = torch.zeros(
+            (cfg["buffer_size"], cfg["d_mlp"]),
+            dtype=torch.bfloat16,
+            requires_grad=False,
+        ).to(device)
+        print(
+            f"\nBuffer size: {self.buffer.shape}, batch_shape: {(cfg['batch_size'], cfg['d_mlp'])}"
+        )
         self.cfg = cfg
         self.token_pointer = 0
         self.first = True
@@ -86,14 +99,14 @@ class Buffer():
         self.device = device
         self.epoch = 0
         self.refresh()
-    
+
     @torch.no_grad()
     def refresh(self):
         if self.first:
             num_batches = self.cfg["buffer_batches"]
             self.first = False
         else:
-            num_batches = self.cfg["buffer_batches"]//2
+            num_batches = self.cfg["buffer_batches"] // 2
 
         # If all data is used this might result in some data being reused in the very last buffer used in training
         # available_batches = self.all_tokens.shape[0] - self.token_pointer - 1
@@ -101,23 +114,33 @@ class Buffer():
 
         # if num_batches <= 0:
         #     return
-        
+
         self.pointer = 0
         with torch.autocast("cuda", torch.bfloat16):
             for _ in range(0, num_batches, self.cfg["model_batch_size"]):
-                if self.token_pointer + self.cfg["model_batch_size"] > self.all_tokens.shape[0]:
+                if (
+                    self.token_pointer + self.cfg["model_batch_size"]
+                    > self.all_tokens.shape[0]
+                ):
                     self.token_pointer = 0
                     self.epoch += 1
                     print("Resetting token pointer")
-                tokens = self.all_tokens[self.token_pointer:self.token_pointer+self.cfg["model_batch_size"]]
+                tokens = self.all_tokens[
+                    self.token_pointer : self.token_pointer
+                    + self.cfg["model_batch_size"]
+                ]
                 tokens = tokens.to(torch.long)
                 with torch.no_grad():
-                    _, cache = self.model.run_with_cache(tokens, names_filter=self.hook_name)
+                    _, cache = self.model.run_with_cache(
+                        tokens, names_filter=self.hook_name
+                    )
                 mlp_acts = cache[self.hook_name].reshape(-1, self.cfg["d_mlp"])
                 # print(tokens.shape, mlp_acts.shape, self.pointer, self.token_pointer, self.buffer[self.pointer: self.pointer+mlp_acts.shape[0]].shape)
                 if len(self.buffer) - self.pointer > 0:
-                    truncated_mlp_acts = mlp_acts[:len(self.buffer) - self.pointer]
-                    self.buffer[self.pointer: self.pointer+mlp_acts.shape[0]] = truncated_mlp_acts
+                    truncated_mlp_acts = mlp_acts[: len(self.buffer) - self.pointer]
+                    self.buffer[
+                        self.pointer : self.pointer + mlp_acts.shape[0]
+                    ] = truncated_mlp_acts
                     self.pointer += truncated_mlp_acts.shape[0]
                     self.token_pointer += self.cfg["model_batch_size"]
 
@@ -126,21 +149,22 @@ class Buffer():
 
     @torch.no_grad()
     def __next__(self):
-        if (self.pointer+self.cfg["batch_size"]) > self.buffer.shape[0]:
+        if (self.pointer + self.cfg["batch_size"]) > self.buffer.shape[0]:
             raise StopIteration
-        out = self.buffer[self.pointer:self.pointer+self.cfg["batch_size"]]
+        out = self.buffer[self.pointer : self.pointer + self.cfg["batch_size"]]
         self.pointer += self.cfg["batch_size"]
-        if self.pointer > self.buffer.shape[0]//2 - self.cfg["batch_size"]:
-            #print("Refreshing the buffer!")
+        if self.pointer > self.buffer.shape[0] // 2 - self.cfg["batch_size"]:
+            # print("Refreshing the buffer!")
             self.refresh()
         return out
-    
+
     def __iter__(self):
-       return self
+        return self
+
 
 def get_german_prompt_data(data_paths: list[str]) -> Int[Tensor, "batch seq_len"]:
     """Token index tensors generated by the model being expanded"""
-    folder_path = "data/" # "sparse_coding/"
+    folder_path = "data/"  # "sparse_coding/"
     os.makedirs(f"{folder_path}wikipedia", exist_ok=True)
     os.makedirs(f"{folder_path}europarl", exist_ok=True)
 
@@ -199,29 +223,35 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
         betas=(cfg["beta1"], cfg["beta2"]),
         weight_decay=cfg["wd"],
     )
-    
+
     prompt_data = get_german_prompt_data(cfg["data_paths"])
     num_tokens = torch.numel(prompt_data)
-    num_eval_tokens = (cfg["num_eval_batches"] * cfg["batch_size"])
+    num_eval_tokens = cfg["num_eval_batches"] * cfg["batch_size"]
 
     if num_tokens < (num_eval_tokens + cfg["buffer_size"]):
-        raise ValueError(f"Not enough tokens for training: {num_tokens} < {num_eval_tokens} + {cfg['buffer_size']}")
-    
+        raise ValueError(
+            f"Not enough tokens for training: {num_tokens} < {num_eval_tokens} + {cfg['buffer_size']}"
+        )
+
     num_total_tokens = cfg["num_training_tokens"] + num_eval_tokens
     num_training_tokens = int(num_total_tokens - num_eval_tokens)
     num_training_batches = num_training_tokens // cfg["batch_size"]
-    print(f"Total tokens: {num_tokens, num_eval_tokens, num_training_tokens}, total batches: {num_training_batches}")
+    print(
+        f"Total tokens: {num_tokens, num_eval_tokens, num_training_tokens}, total batches: {num_training_batches}"
+    )
 
     if cfg["use_wandb"]:
         wandb.init(project=f'{cfg["model"]}-{cfg["layer"]}-autoencoder', config=cfg)
         wandb_name = wandb.run.name
-        save_name = f"{wandb_name.split('-')[-1]}_" + "_".join(wandb_name.split("-")[:-1])
+        save_name = f"{wandb_name.split('-')[-1]}_" + "_".join(
+            wandb_name.split("-")[:-1]
+        )
         cfg["wandb_name"] = wandb_name
     else:
         save_name = "local"
     cfg["save_name"] = save_name
     os.makedirs(model_name, exist_ok=True)
-    #Path(model_name).mkdir(exist_ok=True)
+    # Path(model_name).mkdir(exist_ok=True)
     with open(f"{model_name}/{save_name}.json", "w") as f:
         json.dump(cfg, f, indent=4)
 
@@ -235,11 +265,15 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
         if num_dead_directions > 0:
             dead_direction_indices = torch.argwhere(dead_directions).flatten()
             batch_reconstruct = []
-            for i in range(0, cfg["num_eval_batches"]*cfg["batch_size"], cfg["batch_size"]):
-                _, x_reconstruct, _, _, _ = encoder(eval_batch[i:i+cfg["batch_size"]].to(device))
+            for i in range(
+                0, cfg["num_eval_batches"] * cfg["batch_size"], cfg["batch_size"]
+            ):
+                _, x_reconstruct, _, _, _ = encoder(
+                    eval_batch[i : i + cfg["batch_size"]].to(device)
+                )
                 batch_reconstruct.append(x_reconstruct)
             x_reconstruct = torch.cat(batch_reconstruct, dim=0)
-            
+
             # Losses per batch item
             l2_loss = (x_reconstruct - eval_batch).pow(2).sum(-1)
             loss = l2_loss.pow(2)
@@ -251,7 +285,9 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
             )
             neuron_inputs = eval_batch[indices]
             neuron_inputs = F.normalize(neuron_inputs, dim=-1)  # batch d_mlp
-            encoder.W_dec[dead_direction_indices, :] = neuron_inputs.clone().to(encoder.W_dec.dtype).to(device)
+            encoder.W_dec[dead_direction_indices, :] = (
+                neuron_inputs.clone().to(encoder.W_dec.dtype).to(device)
+            )
 
             # Encoder
             active_directions = torch.argwhere(~dead_directions).flatten()
@@ -261,35 +297,43 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
             mean_active_norm = active_direction_norms.mean() * 0.2
             newly_normalized_inputs = neuron_inputs * mean_active_norm
 
-            encoder.W_enc[:, dead_direction_indices] = newly_normalized_inputs.T.clone().to(encoder.W_enc.dtype).to(device)
+            encoder.W_enc[:, dead_direction_indices] = (
+                newly_normalized_inputs.T.clone().to(encoder.W_enc.dtype).to(device)
+            )
             encoder.b_enc[dead_direction_indices] = 0
 
-            encoder_optim.state_dict()['state'][0]['exp_avg'][:, dead_direction_indices] = 0
-            encoder_optim.state_dict()['state'][0]['exp_avg_sq'][:, dead_direction_indices] = 0
-            encoder_optim.state_dict()['state'][1]['exp_avg'][dead_direction_indices, :] = 0
-            encoder_optim.state_dict()['state'][1]['exp_avg_sq'][dead_direction_indices, :] = 0
-            encoder_optim.state_dict()['state'][2]['exp_avg'][dead_direction_indices] = 0
-            encoder_optim.state_dict()['state'][2]['exp_avg_sq'][dead_direction_indices] = 0
+            encoder_optim.state_dict()["state"][0]["exp_avg"][
+                :, dead_direction_indices
+            ] = 0
+            encoder_optim.state_dict()["state"][0]["exp_avg_sq"][
+                :, dead_direction_indices
+            ] = 0
+            encoder_optim.state_dict()["state"][1]["exp_avg"][
+                dead_direction_indices, :
+            ] = 0
+            encoder_optim.state_dict()["state"][1]["exp_avg_sq"][
+                dead_direction_indices, :
+            ] = 0
+            encoder_optim.state_dict()["state"][2]["exp_avg"][
+                dead_direction_indices
+            ] = 0
+            encoder_optim.state_dict()["state"][2]["exp_avg_sq"][
+                dead_direction_indices
+            ] = 0
 
     dead_directions = torch.ones(size=(autoencoder_dim,)).bool().to(device)
     long_term_dead_directions = torch.ones(size=(autoencoder_dim,)).bool().to(device)
     buffer = Buffer(cfg, model, prompt_data)
-    eval_batch = torch.cat(
-        list(islice(buffer, cfg["num_eval_batches"])), dim=0
-    ).cpu()
+    eval_batch = torch.cat(list(islice(buffer, cfg["num_eval_batches"])), dim=0).cpu()
     print(f"Eval batch shape: {eval_batch.shape}")
     for batch_index in tqdm(range(num_training_batches)):
         batch = next(buffer)
-        loss, x_reconstruct, mid_acts, l2_loss, l1_loss = encoder(
-            batch.to(device)
-        )
+        loss, x_reconstruct, mid_acts, l2_loss, l1_loss = encoder(batch.to(device))
         loss.backward()
         encoder.remove_parallel_component_of_grads()
         encoder_optim.step()
 
-        active_directions = (
-            (mid_acts != 0).sum(dim=-1).mean(dtype=torch.float32).item()
-        )
+        active_directions = (mid_acts != 0).sum(dim=-1).mean(dtype=torch.float32).item()
         dead_directions = ((mid_acts != 0).sum(dim=0) == 0) & dead_directions
         long_term_dead_directions = ((mid_acts != 0).sum(dim=0) == 0) & dead_directions
         num_dead_directions = dead_directions.sum().item()
@@ -305,7 +349,7 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
             "long term dead directions": num_long_term_dead_directions,
             "bias_mean": encoder.b_enc.mean().item(),
             "bias_std": encoder.b_enc.std().item(),
-            "epoch": buffer.epoch
+            "epoch": buffer.epoch,
         }
 
         reset_steps = [25000, 50000, 75000, 100000]
@@ -317,25 +361,25 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
                 encoder, eval_batch, dead_directions, num_dead_directions
             )
             print(f"\nResampled {num_dead_directions} dead directions")
-        
+
         if (batch_index + 1) in count_dead_direction_steps + reset_steps:
             print("Resetting dead direction counter")
-            dead_directions = (
+            dead_directions = torch.ones(size=(autoencoder_dim,)).bool().to(device)
+            long_term_dead_directions = (
                 torch.ones(size=(autoencoder_dim,)).bool().to(device)
             )
-            long_term_dead_directions = torch.ones(size=(autoencoder_dim,)).bool().to(device)
 
-        if ((batch_index + 1) > max(reset_steps)) and ((batch_index + 1) % dead_directions_reset_interval == 0):
-            dead_directions = (
-                torch.ones(size=(autoencoder_dim,)).bool().to(device)
-            )
+        if ((batch_index + 1) > max(reset_steps)) and (
+            (batch_index + 1) % dead_directions_reset_interval == 0
+        ):
+            dead_directions = torch.ones(size=(autoencoder_dim,)).bool().to(device)
 
         if (batch_index + 1) % 10000 == 0:
             torch.save(encoder.state_dict(), f"{model_name}/{save_name}.pt")
             print(
                 f"\n(Batch {batch_index}) Loss: {loss_dict['loss']:.2f}, L2 loss: {loss_dict['l2_loss']:.2f}, L1 loss: {loss_dict['l1_loss']:.2f}, Avg directions: {loss_dict['avg_directions']:.2f}, Dead directions: {num_dead_directions}"
             )
-        
+
         if cfg["use_wandb"]:
             wandb.log(loss_dict)
         encoder_optim.zero_grad()
@@ -351,10 +395,10 @@ def get_config():
         "cfg_file": None,
         "data_paths": ["data/tinystories/data.hf"],
         "use_wandb": True,
-        "num_eval_tokens": 100000, # Tokens used to resample dead directions
+        "num_eval_tokens": 100000,  # Tokens used to resample dead directions
         "num_training_tokens": 20e6,
-        "batch_size": 4096, # Batch shape is batch_size, d_mlp
-        "buffer_mult": 96, # Buffer size is batch_size*buffer_mult, d_mlp
+        "batch_size": 4096,  # Batch shape is batch_size, d_mlp
+        "buffer_mult": 96,  # Buffer size is batch_size*buffer_mult, d_mlp
         "seq_len": 128,
         "model": "tiny-stories-1L-21M",
         "layer": 0,
@@ -393,9 +437,13 @@ def get_config():
     # Derive config values
     cfg["model_batch_size"] = cfg["batch_size"] // cfg["seq_len"] * 16
     cfg["buffer_size"] = cfg["batch_size"] * cfg["buffer_mult"]
-    cfg["buffer_batches"] = cfg["buffer_size"] // cfg["seq_len"] #(cfg["model_batch_size"] * cfg["seq_len"])
+    cfg["buffer_batches"] = (
+        cfg["buffer_size"] // cfg["seq_len"]
+    )  # (cfg["model_batch_size"] * cfg["seq_len"])
     cfg["num_eval_batches"] = cfg["num_eval_tokens"] // cfg["batch_size"]
-    assert cfg["buffer_batches"] % cfg["model_batch_size"] == 0, "Buffer batches must be multiple of model batch size"
+    assert (
+        cfg["buffer_batches"] % cfg["model_batch_size"] == 0
+    ), "Buffer batches must be multiple of model batch size"
 
     return cfg
 

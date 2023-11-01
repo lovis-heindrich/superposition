@@ -39,7 +39,9 @@ def construct_stacked_leaf(
     all_requires_grad = all(t.requires_grad for t in tensors)
     none_requires_grad = all(not t.requires_grad for t in tensors)
     if not all_requires_grad and not none_requires_grad:
-        raise RuntimeError(f"Expected tensors from each model to have the same .requires_grad")
+        raise RuntimeError(
+            f"Expected tensors from each model to have the same .requires_grad"
+        )
     result = torch.stack(tensors).to(device=device)
     if all_requires_grad:
         result = result.detach().requires_grad_()
@@ -100,7 +102,9 @@ class FunctionalEnsemble:
         if self.no_stacking:
 
             def calc_grads_(params, buffers, batch):
-                return torch.func.grad(self.sig.loss, has_aux=True)(params, buffers, batch)
+                return torch.func.grad(self.sig.loss, has_aux=True)(
+                    params, buffers, batch
+                )
 
             def calc_grads(params, buffers, batch):
                 grads, auxs = [], []
@@ -117,7 +121,9 @@ class FunctionalEnsemble:
         else:
 
             def calc_grads(params, buffers, batch):
-                return torch.func.grad(self.sig.loss, has_aux=True)(params, buffers, batch)
+                return torch.func.grad(self.sig.loss, has_aux=True)(
+                    params, buffers, batch
+                )
 
             self.calc_grads = torch.vmap(calc_grads)
         self.update = torch.vmap(self.optimizer.update)

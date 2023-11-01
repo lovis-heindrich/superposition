@@ -50,7 +50,9 @@ class DirectCoefOptimizer:
         optim_state = optimizer.init(c)
 
         for _ in range(N_ITERS_OPT):
-            grads, _ = torch.func.grad(DirectCoefOptimizer.objective, has_aux=True)(c, normed_dict, batch, buffers["l1_alpha"])
+            grads, _ = torch.func.grad(DirectCoefOptimizer.objective, has_aux=True)(
+                c, normed_dict, batch, buffers["l1_alpha"]
+            )
             updates, optim_state = optimizer.update(grads, optim_state)
             c += updates
             c = F.relu(c)
@@ -63,7 +65,9 @@ class DirectCoefOptimizer:
         normed_dict = params["decoder"] / torch.clamp(decoder_norms, 1e-8)[:, None]
 
         with torch.no_grad():
-            c = DirectCoefOptimizer.basis_pursuit(params, buffers, batch, normed_dict=normed_dict)
+            c = DirectCoefOptimizer.basis_pursuit(
+                params, buffers, batch, normed_dict=normed_dict
+            )
 
         x_hat = torch.einsum("ij,bi->bj", normed_dict, c)
         l_reconstruction = (x_hat - batch).pow(2).mean()
