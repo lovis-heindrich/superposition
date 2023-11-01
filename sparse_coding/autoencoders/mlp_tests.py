@@ -76,11 +76,15 @@ class FunctionalPositiveTiedSAE:
         params = {}
         buffers = {}
 
-        params["encoder"] = torch.empty((n_dict_components, activation_size), device=device, dtype=dtype)
+        params["encoder"] = torch.empty(
+            (n_dict_components, activation_size), device=device, dtype=dtype
+        )
         nn.init.xavier_uniform_(params["encoder"])
         params["encoder"] = abs(params["encoder"])
 
-        params["encoder_bias"] = torch.empty((n_dict_components,), device=device, dtype=dtype)
+        params["encoder_bias"] = torch.empty(
+            (n_dict_components,), device=device, dtype=dtype
+        )
         # init at -1 each
         nn.init.constant_(params["encoder_bias"], -1)
 

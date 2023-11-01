@@ -5,7 +5,13 @@ from tqdm.auto import tqdm
 import os
 from datasets import Dataset, load_from_disk, concatenate_datasets, load_dataset
 
-device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+device = (
+    "cuda"
+    if torch.cuda.is_available()
+    else "mps"
+    if torch.backends.mps.is_available()
+    else "cpu"
+)
 torch.autograd.set_grad_enabled(False)
 torch.set_grad_enabled(False)
 
@@ -27,7 +33,7 @@ for i in tqdm(range(46)):
 # %%
 # Load all shards as a DatasetDict
 shard_paths = [f"{local_shard_dir}/shard_{i}" for i in range(46)]
-#dataset_dict = DatasetDict({f"shard_{i}": load_dataset(shard_path) for i, shard_path in enumerate(shard_paths)})
+# dataset_dict = DatasetDict({f"shard_{i}": load_dataset(shard_path) for i, shard_path in enumerate(shard_paths)})
 shard_datasets = [load_from_disk(shard_path) for shard_path in shard_paths]
 concatenated_dataset = concatenate_datasets(shard_datasets)
 

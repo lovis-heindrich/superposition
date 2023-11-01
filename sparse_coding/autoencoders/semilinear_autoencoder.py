@@ -15,7 +15,9 @@ class FFLayer:
     @staticmethod
     def init(input_size, output_size, device=None, dtype=None):
         params = {}
-        params["weight"] = torch.empty((output_size, input_size), device=device, dtype=dtype)
+        params["weight"] = torch.empty(
+            (output_size, input_size), device=device, dtype=dtype
+        )
         nn.init.xavier_uniform_(params["weight"])
 
         params["bias"] = torch.empty((output_size,), device=device, dtype=dtype)
@@ -49,7 +51,9 @@ class SemiLinearSAE:
             FFLayer.init(hidden_size, n_dict_components, device=device, dtype=dtype),
         ]
 
-        params["decoder"] = torch.empty((n_dict_components, activation_size), device=device, dtype=dtype)
+        params["decoder"] = torch.empty(
+            (n_dict_components, activation_size), device=device, dtype=dtype
+        )
         nn.init.xavier_uniform_(params["decoder"])
 
         buffers["l1_alpha"] = torch.tensor(l1_alpha, device=device, dtype=dtype)

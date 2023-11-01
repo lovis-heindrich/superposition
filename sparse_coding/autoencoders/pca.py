@@ -18,11 +18,15 @@ class BatchedPCA:
         # activations: (batch_size, n_dims)
         batch_size = activations.shape[0]
         corrected = activations - self.mean.unsqueeze(0)
-        new_mean = self.mean + torch.mean(corrected, dim=0) * batch_size / (self.n_samples + batch_size)
-        cov_update = torch.einsum("bi,bj->bij", corrected, activations - new_mean.unsqueeze(0)).mean(dim=0)
-        self.cov = self.cov * (self.n_samples / (self.n_samples + batch_size)) + cov_update * batch_size / (
+        new_mean = self.mean + torch.mean(corrected, dim=0) * batch_size / (
             self.n_samples + batch_size
         )
+        cov_update = torch.einsum(
+            "bi,bj->bij", corrected, activations - new_mean.unsqueeze(0)
+        ).mean(dim=0)
+        self.cov = self.cov * (
+            self.n_samples / (self.n_samples + batch_size)
+        ) + cov_update * batch_size / (self.n_samples + batch_size)
         self.mean = new_mean
         self.n_samples += batch_size
 
@@ -67,7 +71,9 @@ class PCAEncoder(LearnedDict):
         topk_idxs = torch.topk(scores.abs(), self.sparsity, dim=-1).indices
 
         code = torch.zeros_like(scores)
-        code.scatter_(dim=-1, index=topk_idxs, src=scores.gather(dim=-1, index=topk_idxs))
+        code.scatter_(
+            dim=-1, index=topk_idxs, src=scores.gather(dim=-1, index=topk_idxs)
+        )
 
         return code
 

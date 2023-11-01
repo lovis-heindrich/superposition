@@ -43,7 +43,10 @@ class FunctionalLISTADenoisingSAE:
         torch.nn.init.orthogonal_(params["decoder"])
 
         # params["encoder_embedding"] = params["decoder"].clone().T
-        params["encoder_layers"] = [LISTALayer.init(d_activation, n_features, dtype=dtype) for _ in range(n_hidden_layers)]
+        params["encoder_layers"] = [
+            LISTALayer.init(d_activation, n_features, dtype=dtype)
+            for _ in range(n_hidden_layers)
+        ]
         # params["encoder_bias"] = torch.randn(n_features, dtype=dtype) * 0.02
 
         buffers = {}
@@ -117,7 +120,9 @@ class LISTADenoisingSAE(LearnedDict):
 
     def get_learned_dict(self):
         decoder_norms = torch.norm(self.params["decoder"], 2, dim=-1)
-        learned_dict = self.params["decoder"] / torch.clamp(decoder_norms, 1e-8)[:, None]
+        learned_dict = (
+            self.params["decoder"] / torch.clamp(decoder_norms, 1e-8)[:, None]
+        )
         return learned_dict
 
 
@@ -142,7 +147,8 @@ class FunctionalResidualDenoisingSAE:
         torch.nn.init.orthogonal_(params["decoder"])
 
         params["encoder_layers"] = [
-            ResidualDenoisingLayer.init(d_activation, n_features, dtype=dtype) for _ in range(n_hidden_layers)
+            ResidualDenoisingLayer.init(d_activation, n_features, dtype=dtype)
+            for _ in range(n_hidden_layers)
         ]
         params["encoder_bias"] = torch.randn(n_features, dtype=dtype) * 0.02
 
@@ -196,5 +202,7 @@ class ResidualDenoisingSAE(LearnedDict):
 
     def get_learned_dict(self):
         decoder_norms = torch.norm(self.params["decoder"], 2, dim=-1)
-        learned_dict = self.params["decoder"] / torch.clamp(decoder_norms, 1e-8)[:, None]
+        learned_dict = (
+            self.params["decoder"] / torch.clamp(decoder_norms, 1e-8)[:, None]
+        )
         return learned_dict

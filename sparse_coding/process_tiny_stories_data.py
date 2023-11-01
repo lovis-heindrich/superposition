@@ -5,30 +5,38 @@ import os
 from datasets import Dataset
 from datasets import Dataset, load_from_disk, concatenate_datasets, load_dataset
 from transformer_lens import HookedTransformer
-import sys 
+import sys
 
-sys.path.append('../')  # Add the parent directory to the system path
+sys.path.append("../")  # Add the parent directory to the system path
 from utils.haystack_utils import get_device
 from utils.autoencoder_utils import batch_prompts
 
-device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+device = (
+    "cuda"
+    if torch.cuda.is_available()
+    else "mps"
+    if torch.backends.mps.is_available()
+    else "cpu"
+)
 torch.autograd.set_grad_enabled(False)
 torch.set_grad_enabled(False)
 
 
 # %%
 
-model = HookedTransformer.from_pretrained("tiny-stories-33M",
+model = HookedTransformer.from_pretrained(
+    "tiny-stories-33M",
     center_unembed=True,
     center_writing_weights=True,
     fold_ln=True,
-    device="cuda")
+    device="cuda",
+)
 
-dataset = load_dataset('roneneldan/TinyStories', split='train')
+dataset = load_dataset("roneneldan/TinyStories", split="train")
 # %%
 prompts = []
 for i in tqdm(range(len(dataset))):
-    prompts.append(dataset[i]['text'])
+    prompts.append(dataset[i]["text"])
 
 print(len(prompts))
 # %%

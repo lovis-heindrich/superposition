@@ -5,8 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchopt
 
-from autoencoders.learned_dict import (LearnedDict, ReverseSAE, TiedSAE,
-                                       UntiedSAE)
+from autoencoders.learned_dict import LearnedDict, ReverseSAE, TiedSAE, UntiedSAE
 
 
 class FunctionalSAE:
@@ -22,13 +21,19 @@ class FunctionalSAE:
         params = {}
         buffers = {}
 
-        params["encoder"] = torch.empty((n_dict_components, activation_size), device=device, dtype=dtype)
+        params["encoder"] = torch.empty(
+            (n_dict_components, activation_size), device=device, dtype=dtype
+        )
         nn.init.xavier_uniform_(params["encoder"])
 
-        params["encoder_bias"] = torch.empty((n_dict_components,), device=device, dtype=dtype)
+        params["encoder_bias"] = torch.empty(
+            (n_dict_components,), device=device, dtype=dtype
+        )
         nn.init.zeros_(params["encoder_bias"])
 
-        params["decoder"] = torch.empty((n_dict_components, activation_size), device=device, dtype=dtype)
+        params["decoder"] = torch.empty(
+            (n_dict_components, activation_size), device=device, dtype=dtype
+        )
         nn.init.xavier_uniform_(params["decoder"])
 
         buffers["l1_alpha"] = torch.tensor(l1_alpha, device=device, dtype=dtype)
@@ -90,10 +95,14 @@ class FunctionalTiedSAE:
         params = {}
         buffers = {}
 
-        params["encoder"] = torch.empty((n_dict_components, activation_size), device=device, dtype=dtype)
+        params["encoder"] = torch.empty(
+            (n_dict_components, activation_size), device=device, dtype=dtype
+        )
         nn.init.xavier_uniform_(params["encoder"])
 
-        params["encoder_bias"] = torch.empty((n_dict_components,), device=device, dtype=dtype)
+        params["encoder_bias"] = torch.empty(
+            (n_dict_components,), device=device, dtype=dtype
+        )
         nn.init.zeros_(params["encoder_bias"])
 
         buffers["l1_alpha"] = torch.tensor(l1_alpha, device=device, dtype=dtype)
@@ -140,11 +149,17 @@ class FunctionalThresholdingSAE:
         params = {}
         buffers = {}
 
-        params["encoder"] = torch.empty((n_dict_components, activation_size), device=device, dtype=dtype)
+        params["encoder"] = torch.empty(
+            (n_dict_components, activation_size), device=device, dtype=dtype
+        )
         nn.init.xavier_uniform_(params["encoder"])
 
-        params["activation_scale"] = torch.empty((n_dict_components,), device=device, dtype=dtype)
-        params["activation_gain"] = torch.empty((n_dict_components,), device=device, dtype=dtype)
+        params["activation_scale"] = torch.empty(
+            (n_dict_components,), device=device, dtype=dtype
+        )
+        params["activation_gain"] = torch.empty(
+            (n_dict_components,), device=device, dtype=dtype
+        )
         nn.init.ones_(params["activation_scale"])
         nn.init.zeros_(params["activation_gain"])
 
@@ -201,7 +216,9 @@ class ThresholdingSAE(LearnedDict):
         return self.params["encoder"] / torch.clamp(dict_norms, 1e-8)[:, None]
 
     def encode(self, batch):
-        c = FunctionalThresholdingSAE.encode(self.params, batch, self.get_learned_dict())
+        c = FunctionalThresholdingSAE.encode(
+            self.params, batch, self.get_learned_dict()
+        )
         return c
 
     def to_device(self, device):
@@ -223,16 +240,24 @@ class FunctionalMaskedTiedSAE:
         params = {}
         buffers = {}
 
-        params["encoder"] = torch.empty((n_components_stack, activation_size), device=device, dtype=dtype)
+        params["encoder"] = torch.empty(
+            (n_components_stack, activation_size), device=device, dtype=dtype
+        )
         nn.init.xavier_uniform_(params["encoder"])
 
-        params["encoder_bias"] = torch.empty((n_components_stack,), device=device, dtype=dtype)
+        params["encoder_bias"] = torch.empty(
+            (n_components_stack,), device=device, dtype=dtype
+        )
         nn.init.zeros_(params["encoder_bias"])
 
         buffers["l1_alpha"] = torch.tensor(l1_alpha, device=device, dtype=dtype)
         buffers["bias_decay"] = torch.tensor(bias_decay, device=device, dtype=dtype)
-        buffers["dict_size"] = torch.tensor(n_dict_components, device=device, dtype=torch.long)
-        buffers["coef_mask"] = torch.ones(n_components_stack, device=device, dtype=torch.bool)
+        buffers["dict_size"] = torch.tensor(
+            n_dict_components, device=device, dtype=torch.long
+        )
+        buffers["coef_mask"] = torch.ones(
+            n_components_stack, device=device, dtype=torch.bool
+        )
         buffers["coef_mask"][:n_dict_components] = False
 
         return params, buffers
@@ -291,19 +316,29 @@ class FunctionalMaskedSAE:
         params = {}
         buffers = {}
 
-        params["encoder"] = torch.empty((n_components_stack, activation_size), device=device, dtype=dtype)
+        params["encoder"] = torch.empty(
+            (n_components_stack, activation_size), device=device, dtype=dtype
+        )
         nn.init.xavier_uniform_(params["encoder"])
 
-        params["encoder_bias"] = torch.empty((n_components_stack,), device=device, dtype=dtype)
+        params["encoder_bias"] = torch.empty(
+            (n_components_stack,), device=device, dtype=dtype
+        )
         nn.init.zeros_(params["encoder_bias"])
 
-        params["decoder"] = torch.empty((n_components_stack, activation_size), device=device, dtype=dtype)
+        params["decoder"] = torch.empty(
+            (n_components_stack, activation_size), device=device, dtype=dtype
+        )
         nn.init.xavier_uniform_(params["decoder"])
 
         buffers["l1_alpha"] = torch.tensor(l1_alpha, device=device, dtype=dtype)
         buffers["bias_decay"] = torch.tensor(bias_decay, device=device, dtype=dtype)
-        buffers["dict_size"] = torch.tensor(n_dict_components, device=device, dtype=torch.long)
-        buffers["coef_mask"] = torch.ones(n_components_stack, device=device, dtype=torch.bool)
+        buffers["dict_size"] = torch.tensor(
+            n_dict_components, device=device, dtype=torch.long
+        )
+        buffers["coef_mask"] = torch.ones(
+            n_components_stack, device=device, dtype=torch.bool
+        )
         buffers["coef_mask"][:n_dict_components] = False
 
         return params, buffers
@@ -360,10 +395,14 @@ class FunctionalReverseSAE:
         params = {}
         buffers = {}
 
-        params["encoder"] = torch.empty((n_dict_components, activation_size), device=device, dtype=dtype)
+        params["encoder"] = torch.empty(
+            (n_dict_components, activation_size), device=device, dtype=dtype
+        )
         nn.init.xavier_uniform_(params["encoder"])
 
-        params["encoder_bias"] = torch.empty((n_dict_components,), device=device, dtype=dtype)
+        params["encoder_bias"] = torch.empty(
+            (n_dict_components,), device=device, dtype=dtype
+        )
         nn.init.zeros_(params["encoder_bias"])
 
         buffers["l1_alpha"] = torch.tensor(l1_alpha, device=device, dtype=dtype)
@@ -384,7 +423,9 @@ class FunctionalReverseSAE:
         c = c + params["encoder_bias"]
         c = torch.clamp(c, min=0.0)
         feat_is_on = c > 0.0
-        c[feat_is_on] = c[feat_is_on] - params["encoder_bias"].repeat(batch.shape[0], 1)[feat_is_on]
+        c[feat_is_on] = (
+            c[feat_is_on] - params["encoder_bias"].repeat(batch.shape[0], 1)[feat_is_on]
+        )
 
         x_hat = torch.einsum("nd,bn->bd", learned_dict, c)
 

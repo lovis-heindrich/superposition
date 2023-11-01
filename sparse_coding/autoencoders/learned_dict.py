@@ -19,19 +19,25 @@ class LearnedDict(ABC):
         pass
 
     @abstractmethod
-    def encode(self, batch: TensorType["_batch_size", "_activation_size"]) -> TensorType["_batch_size", "_n_dict_components"]:
+    def encode(
+        self, batch: TensorType["_batch_size", "_activation_size"]
+    ) -> TensorType["_batch_size", "_n_dict_components"]:
         pass
 
     @abstractmethod
     def to_device(self, device):
         pass
 
-    def decode(self, code: TensorType["_batch_size", "_n_dict_components"]) -> TensorType["_batch_size", "_activation_size"]:
+    def decode(
+        self, code: TensorType["_batch_size", "_n_dict_components"]
+    ) -> TensorType["_batch_size", "_activation_size"]:
         learned_dict = self.get_learned_dict()
         x_hat = torch.einsum("nd,bn->bd", learned_dict, code)
         return x_hat
 
-    def predict(self, batch: TensorType["_batch_size", "_activation_size"]) -> TensorType["_batch_size", "_activation_size"]:
+    def predict(
+        self, batch: TensorType["_batch_size", "_activation_size"]
+    ) -> TensorType["_batch_size", "_activation_size"]:
         c = self.encode(batch)
         x_hat = self.decode(c)
         return x_hat
@@ -186,7 +192,9 @@ class ReverseSAE(LearnedDict):
             encoder = self.encoder
 
         feat_is_on = c > 0.0
-        c[feat_is_on] = c[feat_is_on] - self.encoder_bias.repeat(c.shape[0], 1)[feat_is_on]
+        c[feat_is_on] = (
+            c[feat_is_on] - self.encoder_bias.repeat(c.shape[0], 1)[feat_is_on]
+        )
         x_hat = torch.einsum("dn,bn->bd", encoder, c)
         return x_hat
 
@@ -204,7 +212,10 @@ class AddedNoise(LearnedDict):
         self.device = device
 
     def encode(self, batch):
-        noise = torch.randn(batch.shape[0], self.activation_size, device=batch.device) * self.noise_mag
+        noise = (
+            torch.randn(batch.shape[0], self.activation_size, device=batch.device)
+            * self.noise_mag
+        )
         return batch + noise
 
 
