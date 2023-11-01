@@ -63,6 +63,31 @@ def batch_prompts(data: list[str], model: HookedTransformer, seq_len: int):
     batched_tensor = batched_tensor.to(torch.int32)
     return batched_tensor
 
+def get_encoder_feature_frequencies(data: list[str], model: HookedTransformer, encoder: AutoEncoder, cfg: AutoEncoderConfig):
+    num_feature_activations = torch.zeros(encoder.d_hidden).to(get_device())
+    mean_active = []
+    total_tokens = 0
+    for prompt in tqdm(data):
+        tokens = model.to_tokens(prompt)
+        _, cache = model.run_with_cache(
+            tokens, names_filter=f"blocks.{cfg.layer}.{cfg.act_name}"
+            )
+        acts = cache[f"blocks.{cfg.layer}.{cfg.act_name}"].squeeze(0)
+        _, _, mid_acts, _, _ = encoder(acts)
+        num_feature_activations = num_feature_activations + (mid_acts>0).sum(dim=0)
+        active_features = (mid_acts > 0).sum(dim=1).float().mean(dim=0).item()
+        mean_active.append(active_features)
+        total_tokens += torch.numel(tokens)
+
+    active_features = (num_feature_activations > 0).sum().item()
+    feature_frequencies = num_feature_activations / total_tokens
+    print(f"Number of active features over {total_tokens} tokens: {active_features}")
+    print(f"Number of average active features per token: {np.mean(mean_active):.2f}")
+    # fig = px.histogram(feature_frequencies.cpu().numpy(), histnorm='probability', log_y=True, title="Histogram of feature frequencies", nbins=40)
+    # fig.update_layout(xaxis_title="Feature frequency", yaxis_title="Probability", showlegend=False, width=600)
+    return feature_frequencies
+
+@torch.no_grad()
 def evaluate_autoencoder_reconstruction(autoencoder: AutoEncoder, encoded_hook_name: str, data: list[str], model: HookedTransformer):
     def encode_activations_hook(value, hook):
         value = value.squeeze(0)
