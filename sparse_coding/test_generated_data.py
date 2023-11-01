@@ -1,10 +1,8 @@
 import os
 import sys
-
 sys.path.append("../")  # Add the parent directory to the system path
 
 import torch
-from utils.haystack_utils import get_device
 
 
 def test_wikipedia_data():

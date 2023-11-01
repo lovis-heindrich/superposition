@@ -1,13 +1,9 @@
-import os
 import sys
 
 sys.path.append("../")  # Add the parent directory to the system path
 import torch
-from tqdm.auto import tqdm
 from transformer_lens import HookedTransformer
-from tqdm.auto import tqdm
 import plotly.io as pio
-import einops
 
 
 pio.renderers.default = "notebook_connected"
