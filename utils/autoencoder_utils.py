@@ -93,20 +93,28 @@ def evaluate_autoencoder_reconstruction(autoencoder: AutoEncoder, encoded_hook_n
         value = value.squeeze(0)
         _, x_reconstruct, _, _, _ = autoencoder(value)
         return x_reconstruct.unsqueeze(0)
+    reconstruct_hooks = [(encoded_hook_name, encode_activations_hook)]
 
-    hooks = [(encoded_hook_name, encode_activations_hook)]
+    def zero_ablate_hook(value, hook):
+        value[:] = 0
+        return value
+    zero_ablate_hooks = [(encoded_hook_name, zero_ablate_hook)]
 
     original_losses = []
     reconstruct_losses = []
+    zero_ablation_losses = []
     for prompt in tqdm(data):
         original_loss = model(prompt, return_type="loss")
-        with model.hooks(hooks):
+        with model.hooks(reconstruct_hooks):
             reconstruct_loss = model(prompt, return_type="loss")
+        with model.hooks(zero_ablate_hooks):
+            zero_ablate_loss = model(prompt, return_type="loss")
         original_losses.append(original_loss.item())
         reconstruct_losses.append(reconstruct_loss.item())
+        zero_ablation_losses.append(zero_ablate_loss.item())
 
     logging.info(f"Average loss increase after encoding: {(np.mean(reconstruct_losses) - np.mean(original_losses)):.4f}")
-    return np.mean(original_losses), np.mean(reconstruct_losses)
+    return np.mean(original_losses), np.mean(reconstruct_losses), np.mean(zero_ablation_losses)
 
 def custom_forward(
     enc: AutoEncoder, x: Float[Tensor, "batch d_in"], neuron: int, activation: float

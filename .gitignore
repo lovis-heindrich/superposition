@@ -12,6 +12,7 @@ europarl/
 *.tgz
 *.pt
 wmt_europarl.pkl
+*.parquet
 *.json
 *.arrow
 # Byte-compiled / optimized / DLL files
