@@ -359,6 +359,8 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
         num_long_term_dead_directions = long_term_dead_directions.sum().item()
         b_mean, b_variance, b_skew, b_kurt = get_moments(encoder.b_enc)
         feature_cosine_sim_mean, feature_cosine_sim_variance, _, _  = get_cosine_sim_moments(encoder.W_enc, encoder.W_dec)
+        W_dec_norm = encoder.W_dec.norm()
+        W_enc_norm = encoder.W_enc.norm()
 
         loss_dict = {
             "batch": batch_index,
@@ -374,7 +376,9 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
             "bias_skew": b_skew,
             "bias_kurtosis": b_kurt,
             "feature_cosine_sim_mean": feature_cosine_sim_mean,
-            "feature_cosine_sim_variance": feature_cosine_sim_variance
+            "feature_cosine_sim_variance": feature_cosine_sim_variance,
+            "W_enc_norm": W_enc_norm,
+            "W_dec_norm": W_dec_norm
         }
 
         reset_steps = [25000, 50000, 75000, 100000]
