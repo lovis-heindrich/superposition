@@ -179,11 +179,18 @@ def get_german_prompt_data(data_paths: list[str]) -> Int[Tensor, "batch seq_len"
         data = datasets.load_from_disk(path)
         data.set_format(type="torch", columns=["tokens"])
         all_tokens.append(data["tokens"])
-    all_tokens = torch.cat(all_tokens, dim=0)
-    all_tokens = all_tokens[torch.randperm(all_tokens.shape[0])]
+    combined_tokens = torch.cat(all_tokens, dim=0)
+    combined_tokens = all_tokens[torch.randperm(combined_tokens.shape[0])]
+    return combined_tokens
 
-    # print(f"Total tokens: {all_tokens.shape}")
-    return all_tokens
+
+def get_moments(data: torch.Tensor) -> tuple[float, float, float, float]:    
+    mean = torch.mean(data)
+    variance = torch.mean((data - mean) ** 2)
+    std_dev = torch.sqrt(variance)
+    skew = torch.mean(((data - mean) / std_dev) ** 3)
+    kurt = torch.mean(((data - mean) / std_dev) ** 4) - 3
+    return mean.item(), variance.item(), skew.item(), kurt.item()
 
 
 def main(model_name: str, layer: int, act_name: str, cfg: dict):
@@ -338,6 +345,7 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
         long_term_dead_directions = ((mid_acts != 0).sum(dim=0) == 0) & dead_directions
         num_dead_directions = dead_directions.sum().item()
         num_long_term_dead_directions = long_term_dead_directions.sum().item()
+        b_mean, b_variance, b_skew, b_kurt = get_moments(encoder.b_enc)
 
         loss_dict = {
             "batch": batch_index,
@@ -347,9 +355,12 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
             "avg_directions": active_directions,
             "dead_directions": num_dead_directions,
             "long term dead directions": num_long_term_dead_directions,
-            "bias_mean": encoder.b_enc.mean().item(),
-            "bias_std": encoder.b_enc.std().item(),
             "epoch": buffer.epoch,
+            "bias_mean": b_mean,
+            "bias_std": b_variance ** .5,
+            "bias_skew": b_skew,
+            "bias_kurtosis": b_kurt,
+            "weight_norm": encoder.W_dec.norm().item()    
         }
 
         reset_steps = [25000, 50000, 75000, 100000]
