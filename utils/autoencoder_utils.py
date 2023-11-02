@@ -16,7 +16,7 @@ from tqdm import tqdm
 import numpy as np
 
 import utils.haystack_utils as haystack_utils
-from sparse_coding.train_autoencoder import AutoEncoder
+from sparse_coding.autoencoder import AutoEncoder
 
 
 def get_device():
@@ -88,7 +88,7 @@ def get_encoder_feature_frequencies(data: list[str], model: HookedTransformer, e
     return feature_frequencies
 
 @torch.no_grad()
-def evaluate_autoencoder_reconstruction(autoencoder: AutoEncoder, encoded_hook_name: str, data: list[str], model: HookedTransformer):
+def evaluate_autoencoder_reconstruction(autoencoder: AutoEncoder, encoded_hook_name: str, data: list[str], model: HookedTransformer, reconstruction_loss_only: bool = False, show_tqdm=True):
     def encode_activations_hook(value, hook):
         value = value.squeeze(0)
         _, x_reconstruct, _, _, _ = autoencoder(value)
@@ -99,20 +99,23 @@ def evaluate_autoencoder_reconstruction(autoencoder: AutoEncoder, encoded_hook_n
         value[:] = 0
         return value
     zero_ablate_hooks = [(encoded_hook_name, zero_ablate_hook)]
-
+    
     original_losses = []
     reconstruct_losses = []
     zero_ablation_losses = []
-    for prompt in tqdm(data):
-        original_loss = model(prompt, return_type="loss")
+    for prompt in tqdm(data, disable=(not show_tqdm)):
         with model.hooks(reconstruct_hooks):
             reconstruct_loss = model(prompt, return_type="loss")
-        with model.hooks(zero_ablate_hooks):
-            zero_ablate_loss = model(prompt, return_type="loss")
-        original_losses.append(original_loss.item())
         reconstruct_losses.append(reconstruct_loss.item())
-        zero_ablation_losses.append(zero_ablate_loss.item())
+        if not reconstruction_loss_only:
+            original_loss = model(prompt, return_type="loss")
+            with model.hooks(zero_ablate_hooks):
+                zero_ablate_loss = model(prompt, return_type="loss")
+            original_losses.append(original_loss.item())
+            zero_ablation_losses.append(zero_ablate_loss.item())
 
+    if reconstruction_loss_only:
+        return np.mean(reconstruct_losses)
     logging.info(f"Average loss increase after encoding: {(np.mean(reconstruct_losses) - np.mean(original_losses)):.4f}")
     return np.mean(original_losses), np.mean(reconstruct_losses), np.mean(zero_ablation_losses)
 
