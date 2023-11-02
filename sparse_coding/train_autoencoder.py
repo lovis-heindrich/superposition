@@ -362,24 +362,33 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
         W_dec_norm = encoder.W_dec.norm()
         W_enc_norm = encoder.W_enc.norm()
 
-        loss_dict = {
-            "batch": batch_index,
-            "loss": loss.item(),
-            "l2_loss": l2_loss.item(),
-            "l1_loss": l1_loss.item(),
-            "avg_directions": active_directions,
-            "dead_directions": num_dead_directions,
-            "long term dead directions": num_long_term_dead_directions,
-            "epoch": buffer.epoch,
-            "bias_mean": b_mean,
-            "bias_std": b_variance ** .5,
-            "bias_skew": b_skew,
-            "bias_kurtosis": b_kurt,
-            "feature_cosine_sim_mean": feature_cosine_sim_mean,
-            "feature_cosine_sim_variance": feature_cosine_sim_variance,
-            "W_enc_norm": W_enc_norm,
-            "W_dec_norm": W_dec_norm
-        }
+        if batch_index + 1 % 50:
+            loss_dict = {
+                "batch": batch_index,
+                "loss": loss.item(),
+                "l2_loss": l2_loss.item(),
+                "l1_loss": l1_loss.item(),
+                "avg_directions": active_directions,
+                "dead_directions": num_dead_directions,
+                "long term dead directions": num_long_term_dead_directions,
+                "epoch": buffer.epoch,
+                "bias_mean": b_mean,
+                "bias_std": b_variance ** .5,
+                "bias_skew": b_skew,
+                "bias_kurtosis": b_kurt,
+                "feature_cosine_sim_mean": feature_cosine_sim_mean,
+                "feature_cosine_sim_variance": feature_cosine_sim_variance,
+                "W_enc_norm": W_enc_norm,
+                "W_dec_norm": W_dec_norm
+            }
+            if cfg["use_wandb"]:
+                wandb.log(loss_dict)
+
+            if (batch_index + 1) % 10000 == 0:
+                torch.save(encoder.state_dict(), f"{model_name}/{save_name}.pt")
+                print(
+                    f"\n(Batch {batch_index}) Loss: {loss_dict['loss']:.2f}, L2 loss: {loss_dict['l2_loss']:.2f}, L1 loss: {loss_dict['l1_loss']:.2f}, Avg directions: {loss_dict['avg_directions']:.2f}, Dead directions: {num_dead_directions}"
+                )
 
         reset_steps = [25000, 50000, 75000, 100000]
         count_dead_direction_steps = [step - 12500 for step in reset_steps]
@@ -403,14 +412,6 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
         ):
             dead_directions = torch.ones(size=(autoencoder_dim,)).bool().to(device)
 
-        if (batch_index + 1) % 10000 == 0:
-            torch.save(encoder.state_dict(), f"{model_name}/{save_name}.pt")
-            print(
-                f"\n(Batch {batch_index}) Loss: {loss_dict['loss']:.2f}, L2 loss: {loss_dict['l2_loss']:.2f}, L1 loss: {loss_dict['l1_loss']:.2f}, Avg directions: {loss_dict['avg_directions']:.2f}, Dead directions: {num_dead_directions}"
-            )
-
-        if cfg["use_wandb"]:
-            wandb.log(loss_dict)
         encoder_optim.zero_grad()
         del loss, x_reconstruct, mid_acts, l2_loss, l1_loss
     torch.save(encoder.state_dict(), f"{model_name}/{save_name}.pt")
