@@ -187,9 +187,21 @@ def get_german_prompt_data(data_paths: list[str]) -> Int[Tensor, "batch seq_len"
 def get_moments(data: torch.Tensor) -> tuple[float, float, float, float]:    
     mean = torch.mean(data)
     variance = torch.mean((data - mean) ** 2)
-    std_dev = torch.sqrt(variance)
-    skew = torch.mean(((data - mean) / std_dev) ** 3)
-    kurt = torch.mean(((data - mean) / std_dev) ** 4) - 3
+    std = torch.sqrt(variance)
+    skew = torch.mean(((data - mean) / std) ** 3)
+    kurt = torch.mean(((data - mean) / std) ** 4) - 3
+    return mean.item(), variance.item(), skew.item(), kurt.item()
+
+
+def get_cosine_sim_moments(W_enc: torch.Tensor, W_dec: torch.Tensor):
+    """Cosine similarity between corresponding features of the encoder and decoder weights"""
+    cosine_sim = torch.nn.CosineSimilarity(dim=1)
+    sims = cosine_sim(W_enc, W_dec.T)
+    mean = torch.mean(sims)
+    variance = torch.mean((sims - mean) ** 2)
+    std = torch.sqrt(variance)
+    skew = torch.mean(((sims - mean) / std) ** 3)
+    kurt = torch.mean(((sims - mean) / std) ** 4) - 3
     return mean.item(), variance.item(), skew.item(), kurt.item()
 
 
@@ -346,6 +358,7 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
         num_dead_directions = dead_directions.sum().item()
         num_long_term_dead_directions = long_term_dead_directions.sum().item()
         b_mean, b_variance, b_skew, b_kurt = get_moments(encoder.b_enc)
+        feature_cosine_sim_mean, feature_cosine_sim_variance, _, _  = get_cosine_sim_moments(encoder.W_enc, encoder.W_dec)
 
         loss_dict = {
             "batch": batch_index,
@@ -360,7 +373,8 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
             "bias_std": b_variance ** .5,
             "bias_skew": b_skew,
             "bias_kurtosis": b_kurt,
-            "weight_norm": encoder.W_dec.norm().item()    
+            "feature_cosine_sim_mean": feature_cosine_sim_mean,
+            "feature_cosine_sim_variance": feature_cosine_sim_variance
         }
 
         reset_steps = [25000, 50000, 75000, 100000]
