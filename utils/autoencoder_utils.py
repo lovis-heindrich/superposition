@@ -119,6 +119,31 @@ def evaluate_autoencoder_reconstruction(autoencoder: AutoEncoder, encoded_hook_n
     logging.info(f"Average loss increase after encoding: {(np.mean(reconstruct_losses) - np.mean(original_losses)):.4f}")
     return np.mean(original_losses), np.mean(reconstruct_losses), np.mean(zero_ablation_losses)
 
+@torch.no_grad()
+def batched_reconstruction_loss(encoder: AutoEncoder, encoded_hook_name: str, data: list[str], model: HookedTransformer, batch_size: int):
+    """ For some reason slower than non batched? """
+    def encode_activations_hook(value, hook):
+        current_batch_size = value.shape[0]
+        value = einops.rearrange(value, "b s d -> (b s) d")
+        _, x_reconstruct, _, _, _ = encoder(value)
+        x_reconstruct = einops.rearrange(x_reconstruct, "(b s) d -> b s d", b=current_batch_size)
+        return x_reconstruct
+    reconstruct_hooks = [(encoded_hook_name, encode_activations_hook)]
+
+    losses = []
+    eos_token = model.tokenizer.eos_token_id
+    # Generator
+    batches = (data[i:i + batch_size] for i in range(0, len(data), batch_size))
+    for batch in batches:
+        with model.hooks(reconstruct_hooks):
+            tokens = model.to_tokens(batch)
+            reconstruct_loss = model(tokens, return_type="loss", loss_per_token=True)
+            reconstruct_loss = reconstruct_loss.flatten()
+            flattened_tokens = tokens[:, 1:].flatten()
+            non_eos_mask = flattened_tokens != eos_token
+            losses.append(reconstruct_loss[non_eos_mask].mean().item())
+    return np.mean(losses)
+
 def custom_forward(
     enc: AutoEncoder, x: Float[Tensor, "batch d_in"], neuron: int, activation: float
 ):
