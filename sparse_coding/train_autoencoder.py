@@ -180,7 +180,7 @@ def get_german_prompt_data(data_paths: list[str]) -> Int[Tensor, "batch seq_len"
         data.set_format(type="torch", columns=["tokens"])
         all_tokens.append(data["tokens"])
     combined_tokens = torch.cat(all_tokens, dim=0)
-    combined_tokens = all_tokens[torch.randperm(combined_tokens.shape[0])]
+    combined_tokens = combined_tokens[torch.randperm(combined_tokens.shape[0])]
     return combined_tokens
 
 
