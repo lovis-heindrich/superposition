@@ -162,7 +162,7 @@ def get_entropy(activations: Float[Tensor, "batch d_enc"]) -> float:
     return torch.mean(entropy).item()
 
 
-def main(model_name: str, layer: int, act_name: str, cfg: dict):
+def main(model_name: str, layer: int, act_name: str, cfg: dict, prompt_data: Int[Tensor, "n_examples, seq_len"], eval_prompts: list[str]):
     device = get_device()
     model = HookedTransformer.from_pretrained(
         model_name,
@@ -200,8 +200,6 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
         weight_decay=cfg["wd"],
     )
 
-    prompt_data = load_tinystories_tokens(cfg["data_path"])
-    eval_prompts = load_tinystories_validation_prompts(cfg["data_path"])[:cfg["num_eval_prompts"]]
     num_tokens = torch.numel(prompt_data)
     num_eval_tokens = cfg["num_eval_batches"] * cfg["batch_size"]
 
@@ -311,13 +309,11 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
     save_interval = 10000
 
     for batch_index in tqdm(range(num_training_batches)):
-        start = time.time()
         batch = next(buffer)
         loss, x_reconstruct, mid_acts, l2_loss, l1_loss = encoder(batch.to(device))
         loss.backward()
         encoder.remove_parallel_component_of_grads()
         encoder_optim.step()
-        learning_step_time = time.time() - start
         
         dead_directions = ((mid_acts != 0).sum(dim=0) == 0) & dead_directions
         
@@ -450,7 +446,9 @@ def get_config():
 if __name__ == "__main__":
     torch.cuda.empty_cache()
     cfg = get_config()
+    prompt_data = load_tinystories_tokens(cfg["data_path"])
+    eval_prompts = load_tinystories_validation_prompts(cfg["data_path"])[:cfg["num_eval_prompts"]]
     for l1_coeff in [0.0001]:
         torch.cuda.empty_cache()
         cfg["l1_coeff"] = l1_coeff
-        main(cfg["model"], cfg["layer"], cfg["act"], cfg)
+        main(cfg["model"], cfg["layer"], cfg["act"], cfg, prompt_data, eval_prompts)
