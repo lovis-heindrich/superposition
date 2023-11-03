@@ -8,6 +8,7 @@ import argparse
 from itertools import islice
 
 import torch
+import einops
 from torch import Tensor
 import torch.nn as nn
 import torch.nn.functional as F
@@ -129,6 +130,20 @@ def get_moments(data: torch.Tensor) -> tuple[float, float, float, float]:
     kurt = torch.mean(((data - mean) / std) ** 4) - 3
     return mean.item(), variance.item(), skew.item(), kurt.item()
 
+
+def decoder_unembed_kurtosis(model: HookedTransformer, layer: int, W_dec: torch.Tensor) -> torch.Tensor:
+    cosine_sim = torch.nn.CosineSimilarity(dim=1)
+    W_out = model.W_out[layer] # d_mlp d_model
+    # W_dec d_hidden d_mlp
+    resid_dirs = (W_dec @ W_out).norm(dim=-1)
+    unembed = model.unembed.norm(dim=0)
+    cosine_sims = einops.einsum(resid_dirs, unembed, 'd_hidden d_model, d_model d_vocab -> d_hidden d_vocab')
+    
+    mean = cosine_sims.mean(dim=-1)
+    std = cosine_sims.std(dim=-1)
+    kurt = torch.mean(((sims - mean) / std) ** 4) - 3
+    return kurt
+    
 
 def get_cosine_sim_moments(W_enc: torch.Tensor, W_dec: torch.Tensor):
     """Cosine similarity between corresponding features of the encoder and decoder weights"""
@@ -297,7 +312,6 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
     save_interval = 10000
 
     for batch_index in tqdm(range(num_training_batches)):
-
         start = time.time()
         batch = next(buffer)
         loss, x_reconstruct, mid_acts, l2_loss, l1_loss = encoder(batch.to(device))
@@ -315,6 +329,8 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
             "l1_loss": l1_loss.item(),
             "epoch": buffer.epoch
         }
+
+        # print(decoder_unembed_kurtosis(model, cfg["layer"], encoder.W_dec))
 
         if (batch_index + 1) % eval_interval == 0:
             reconstruction_loss = evaluate_autoencoder_reconstruction(encoder, f'blocks.{cfg["layer"]}.{cfg["act"]}', eval_prompts, model, reconstruction_loss_only=True, show_tqdm=False)
