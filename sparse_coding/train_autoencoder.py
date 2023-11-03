@@ -131,19 +131,18 @@ def get_moments(data: torch.Tensor) -> tuple[float, float, float, float]:
     return mean.item(), variance.item(), skew.item(), kurt.item()
 
 
-def decoder_unembed_kurtosis(model: HookedTransformer, layer: int, W_dec: torch.Tensor) -> torch.Tensor:
-    cosine_sim = torch.nn.CosineSimilarity(dim=1)
-    W_out = model.W_out[layer] # d_mlp d_model
-    # W_dec d_hidden d_mlp
-    resid_dirs = (W_dec @ W_out).norm(dim=-1)
-    unembed = model.unembed.norm(dim=0)
+def decoder_unembed_cosine_sim_mean_kurtosis(model: HookedTransformer, layer: int, W_dec: torch.Tensor) -> torch.Tensor:
+    '''Return mean kurtosis over all decoder features' cosine sims with the unembed (higher is better)'''
+    W_out = model.W_out[layer]
+    resid_dirs = torch.nn.functional.normalize(W_dec @ W_out, dim=-1)
+    unembed = torch.nn.functional.normalize(model.unembed.W_U, dim=0)
     cosine_sims = einops.einsum(resid_dirs, unembed, 'd_hidden d_model, d_model d_vocab -> d_hidden d_vocab')
     
-    mean = cosine_sims.mean(dim=-1)
-    std = cosine_sims.std(dim=-1)
-    kurt = torch.mean(((sims - mean) / std) ** 4) - 3
-    return kurt
-    
+    mean = einops.repeat(cosine_sims.mean(dim=-1), f'd_hidden -> d_hidden {cosine_sims.shape[1]}')
+    std = einops.repeat(cosine_sims.std(dim=-1), f'd_hidden -> d_hidden {cosine_sims.shape[1]}')
+    kurt = torch.mean((cosine_sims - mean / std) ** 4) - 3
+
+    return kurt.mean()
 
 def get_cosine_sim_moments(W_enc: torch.Tensor, W_dec: torch.Tensor):
     """Cosine similarity between corresponding features of the encoder and decoder weights"""
@@ -330,8 +329,6 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
             "epoch": buffer.epoch
         }
 
-        # print(decoder_unembed_kurtosis(model, cfg["layer"], encoder.W_dec))
-
         if (batch_index + 1) % eval_interval == 0:
             reconstruction_loss = evaluate_autoencoder_reconstruction(encoder, f'blocks.{cfg["layer"]}.{cfg["act"]}', eval_prompts, model, reconstruction_loss_only=True, show_tqdm=False)
             b_mean, b_variance, b_skew, b_kurt = get_moments(encoder.b_enc)
@@ -341,6 +338,7 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
             entropy = get_entropy(mid_acts)
             active_directions = (mid_acts != 0).sum(dim=-1).mean(dtype=torch.float32).item()
             num_dead_directions = dead_directions.sum().item()
+            mean_feature_unembed_cosine_sim_kurtosis = decoder_unembed_cosine_sim_mean_kurtosis(model, cfg["layer"], encoder.W_dec)
 
             eval_dict = {
                 "reconstruction_loss": reconstruction_loss,
@@ -350,6 +348,7 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
                 "bias_kurtosis": b_kurt,
                 "feature_cosine_sim_mean": feature_cosine_sim_mean,
                 "feature_cosine_sim_variance": feature_cosine_sim_variance,
+                "mean_feature_unembed_cosine_sim_kurtosis": mean_feature_unembed_cosine_sim_kurtosis,
                 "W_enc_norm": W_enc_norm,
                 "W_dec_norm": W_dec_norm,
                 "entropy": entropy,
@@ -362,7 +361,7 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict):
             )
 
         if (batch_index + 1) % save_interval == 0:
-            torch.save(encoder.state_dict(), f"{model_name}/{save_name}.pt")
+            torch.save(encoder.state_dict(), f"{model_name}/{save_name}_{batch_index}.pt")
 
         if (batch_index + 1) in reset_steps:
             resample_dead_directions(
@@ -395,7 +394,7 @@ def get_config():
         "data_path": "data/tinystories",
         "use_wandb": True,
         "num_eval_tokens": 800000,  # Tokens used to resample dead directions
-        "num_training_tokens": 1e6,
+        "num_training_tokens": 1e8,
         "batch_size": 4096,  # Batch shape is batch_size, d_mlp
         "buffer_mult": 128,  # Buffer size is batch_size*buffer_mult, d_mlp
         "seq_len": 128,
