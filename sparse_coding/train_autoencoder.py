@@ -162,7 +162,7 @@ def get_entropy(activations: Float[Tensor, "batch d_enc"]) -> float:
     return torch.mean(entropy).item()
 
 
-def main(model_name: str, layer: int, act_name: str, cfg: dict, prompt_data: Int[Tensor, "n_examples, seq_len"], eval_prompts: list[str]):
+def main(model_name: str, layer: int, act_name: str, cfg: dict, prompt_data: Int[Tensor, "n_examples seq_len"], eval_prompts: list[str]):
     device = get_device()
     model = HookedTransformer.from_pretrained(
         model_name,
@@ -357,7 +357,10 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict, prompt_data: Int
             )
 
         if (batch_index + 1) % save_interval == 0:
-            torch.save(encoder.state_dict(), f"{model_name}/{save_name}_{batch_index}.pt")
+            if cfg["save_checkpoint_models"]:
+                torch.save(encoder.state_dict(), f"{model_name}/{save_name}_{batch_index}.pt")
+            else:
+                torch.save(encoder.state_dict(), f"{model_name}/{save_name}.pt")
 
         if (batch_index + 1) in reset_steps:
             resample_dead_directions(
@@ -390,12 +393,12 @@ def get_config():
         "data_path": "data/tinystories",
         "use_wandb": True,
         "num_eval_tokens": 800000,  # Tokens used to resample dead directions
-        "num_training_tokens": 1e8,
+        "num_training_tokens": 5e8,
         "batch_size": 4096,  # Batch shape is batch_size, d_mlp
         "buffer_mult": 128,  # Buffer size is batch_size*buffer_mult, d_mlp
         "seq_len": 128,
         "model": "tiny-stories-2L-33M",
-        "layer": 0,
+        "layer": 1,
         "act": "mlp.hook_post",
         "expansion_factor": 4,
         "seed": 47,
@@ -404,7 +407,8 @@ def get_config():
         "wd": 1e-2,
         "beta1": 0.9,
         "beta2": 0.99,
-        "num_eval_prompts": 200 # Used for periodic evaluation logs
+        "num_eval_prompts": 200, # Used for periodic evaluation logs
+        "save_checkpoint_models": False
     }
 
     # Accept alternative config values from command line
@@ -448,7 +452,8 @@ if __name__ == "__main__":
     cfg = get_config()
     prompt_data = load_tinystories_tokens(cfg["data_path"])
     eval_prompts = load_tinystories_validation_prompts(cfg["data_path"])[:cfg["num_eval_prompts"]]
-    for l1_coeff in [0.0001]:
-        torch.cuda.empty_cache()
-        cfg["l1_coeff"] = l1_coeff
-        main(cfg["model"], cfg["layer"], cfg["act"], cfg, prompt_data, eval_prompts)
+    # for l1_coeff in [0.0001]:
+    #     torch.cuda.empty_cache()
+    #     cfg["l1_coeff"] = l1_coeff
+    #     main(cfg["model"], cfg["layer"], cfg["act"], cfg, prompt_data, eval_prompts)
+    main(cfg["model"], cfg["layer"], cfg["act"], cfg, prompt_data, eval_prompts)
