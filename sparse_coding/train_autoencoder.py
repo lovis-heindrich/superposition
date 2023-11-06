@@ -190,7 +190,7 @@ def main(model_name: str, act_name: str, cfg: dict, prompt_data: Int[Tensor, "n_
 
     autoencoder_dim = d_in * cfg["expansion_factor"]
     encoder = AutoEncoder(
-        autoencoder_dim, reg_coeff=cfg["reg_coeff"], d_in=d_in, seed=SEED, reg=cfg["regularization"]
+        autoencoder_dim, reg_coeff=cfg["l1_coeff"], d_in=d_in, seed=SEED, reg="sqrt" if cfg["use_sqrt_reg"] else "l1"
     ).to(device)
     print(f"Input dim: {d_in}, autoencoder dim: {autoencoder_dim}")
     encoder_optim = torch.optim.AdamW(
@@ -403,13 +403,13 @@ def get_config():
         "expansion_factor": 4,
         "seed": 47,
         "lr": 1e-4,
-        "reg_coeff": 1e-4,
+        "l1_coeff": 1e-4, # Used for both square root and L1 regularization to maintain backwards compatibility
         "wd": 1e-2,
         "beta1": 0.9,
         "beta2": 0.99,
         "num_eval_prompts": 200, # Used for periodic evaluation logs
         "save_checkpoint_models": False,
-        "regularization": "sqrt" # l1, sqrt
+        "use_sqrt_reg": False,
     }
 
     # Accept alternative config values from command line
@@ -453,9 +453,9 @@ if __name__ == "__main__":
     cfg = get_config()
     prompt_data = load_tinystories_tokens(cfg["data_path"])
     eval_prompts = load_tinystories_validation_prompts(cfg["data_path"])[:cfg["num_eval_prompts"]]
-    # for reg_coeff in [0.0001]:
+    # for l1_coeff in [0.00001, 0.0001, 0.0005, 0.001, 0.01]:
     #     torch.cuda.empty_cache()
-    #     cfg["reg_coeff"] = reg_coeff
+    #     cfg["l1_coeff"] = l1_coeff
     #     main(cfg["model"], cfg["act"], cfg, prompt_data, eval_prompts)
     # for seed in [47, 48, 49, 50]:
     #     torch.cuda.empty_cache()
