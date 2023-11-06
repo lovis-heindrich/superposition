@@ -162,7 +162,7 @@ def get_entropy(activations: Float[Tensor, "batch d_enc"]) -> float:
     return torch.mean(entropy).item()
 
 
-def main(model_name: str, layer: int, act_name: str, cfg: dict, prompt_data: Int[Tensor, "n_examples, seq_len"], eval_prompts: list[str]):
+def main(model_name: str, act_name: str, cfg: dict, prompt_data: Int[Tensor, "n_examples seq_len"], eval_prompts: list[str]):
     device = get_device()
     model = HookedTransformer.from_pretrained(
         model_name,
@@ -190,7 +190,7 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict, prompt_data: Int
 
     autoencoder_dim = d_in * cfg["expansion_factor"]
     encoder = AutoEncoder(
-        autoencoder_dim, l1_coeff=cfg["l1_coeff"], d_in=d_in, seed=SEED
+        autoencoder_dim, reg_coeff=cfg["l1_coeff"], d_in=d_in, seed=SEED, reg="sqrt" if cfg["use_sqrt_reg"] else "l1"
     ).to(device)
     print(f"Input dim: {d_in}, autoencoder dim: {autoencoder_dim}")
     encoder_optim = torch.optim.AdamW(
@@ -357,7 +357,10 @@ def main(model_name: str, layer: int, act_name: str, cfg: dict, prompt_data: Int
             )
 
         if (batch_index + 1) % save_interval == 0:
-            torch.save(encoder.state_dict(), f"{model_name}/{save_name}_{batch_index}.pt")
+            if cfg["save_checkpoint_models"]:
+                torch.save(encoder.state_dict(), f"{model_name}/{save_name}_{batch_index}.pt")
+            else:
+                torch.save(encoder.state_dict(), f"{model_name}/{save_name}.pt")
 
         if (batch_index + 1) in reset_steps:
             resample_dead_directions(
@@ -390,7 +393,7 @@ def get_config():
         "data_path": "data/tinystories",
         "use_wandb": True,
         "num_eval_tokens": 800000,  # Tokens used to resample dead directions
-        "num_training_tokens": 1e8,
+        "num_training_tokens": 5e8,
         "batch_size": 4096,  # Batch shape is batch_size, d_mlp
         "buffer_mult": 128,  # Buffer size is batch_size*buffer_mult, d_mlp
         "seq_len": 128,
@@ -400,11 +403,13 @@ def get_config():
         "expansion_factor": 4,
         "seed": 47,
         "lr": 1e-4,
-        "l1_coeff": 1e-4,
+        "l1_coeff": 1e-4, # Used for both square root and L1 regularization to maintain backwards compatibility
         "wd": 1e-2,
         "beta1": 0.9,
         "beta2": 0.99,
-        "num_eval_prompts": 200 # Used for periodic evaluation logs
+        "num_eval_prompts": 200, # Used for periodic evaluation logs
+        "save_checkpoint_models": False,
+        "use_sqrt_reg": False,
     }
 
     # Accept alternative config values from command line
@@ -448,7 +453,12 @@ if __name__ == "__main__":
     cfg = get_config()
     prompt_data = load_tinystories_tokens(cfg["data_path"])
     eval_prompts = load_tinystories_validation_prompts(cfg["data_path"])[:cfg["num_eval_prompts"]]
-    for l1_coeff in [0.0001]:
-        torch.cuda.empty_cache()
-        cfg["l1_coeff"] = l1_coeff
-        main(cfg["model"], cfg["layer"], cfg["act"], cfg, prompt_data, eval_prompts)
+    # for l1_coeff in [0.00001, 0.0001, 0.0005, 0.001, 0.01]:
+    #     torch.cuda.empty_cache()
+    #     cfg["l1_coeff"] = l1_coeff
+    #     main(cfg["model"], cfg["act"], cfg, prompt_data, eval_prompts)
+    # for seed in [47, 48, 49, 50]:
+    #     torch.cuda.empty_cache()
+    #     cfg["seed"] = seed
+    #     main(cfg["model"], cfg["act"], cfg, prompt_data, eval_prompts)
+    main(cfg["model"], cfg["act"], cfg, prompt_data, eval_prompts)

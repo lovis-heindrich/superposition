@@ -1,11 +1,12 @@
 import torch
 from torch import nn
 from torch.nn import functional as F
+from typing import Literal
 
 
 class AutoEncoder(nn.Module):
     def __init__(
-        self, d_hidden: int, l1_coeff: float, d_in: int, dtype=torch.float32, seed=47
+        self, d_hidden: int, reg_coeff: float, d_in: int, dtype=torch.float32, seed=47, reg: Literal["l1", "sqrt"] = "l1"
     ):
         super().__init__()
         torch.manual_seed(seed)
@@ -21,16 +22,20 @@ class AutoEncoder(nn.Module):
         self.W_dec.data[:] = self.W_dec / self.W_dec.norm(dim=-1, keepdim=True)
 
         self.d_hidden = d_hidden
-        self.l1_coeff = l1_coeff
+        self.reg_coeff = reg_coeff
+        self.reg = reg
 
     def forward(self, x: torch.Tensor):
         x_cent = x - self.b_dec
         acts = F.relu(x_cent @ self.W_enc + self.b_enc)
         x_reconstruct = acts @ self.W_dec + self.b_dec
         l2_loss = (x_reconstruct - x).pow(2).sum(-1).mean(0)
-        l1_loss = self.l1_coeff * (acts.abs().sum())
-        loss = l2_loss + l1_loss
-        return loss, x_reconstruct, acts, l2_loss, l1_loss
+        if self.reg == "l1":
+            reg_loss = self.reg_coeff * (acts.abs().sum())
+        else:
+            reg_loss = self.reg_coeff * (acts.sqrt().sum())
+        loss = l2_loss + reg_loss
+        return loss, x_reconstruct, acts, l2_loss, reg_loss
 
     @torch.no_grad()
     def remove_parallel_component_of_grads(self):
