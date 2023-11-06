@@ -162,7 +162,7 @@ def get_entropy(activations: Float[Tensor, "batch d_enc"]) -> float:
     return torch.mean(entropy).item()
 
 
-def main(model_name: str, layer: int, act_name: str, cfg: dict, prompt_data: Int[Tensor, "n_examples seq_len"], eval_prompts: list[str]):
+def main(model_name: str, act_name: str, cfg: dict, prompt_data: Int[Tensor, "n_examples seq_len"], eval_prompts: list[str]):
     device = get_device()
     model = HookedTransformer.from_pretrained(
         model_name,
@@ -393,7 +393,7 @@ def get_config():
         "data_path": "data/tinystories",
         "use_wandb": True,
         "num_eval_tokens": 800000,  # Tokens used to resample dead directions
-        "num_training_tokens": 5e8,
+        "num_training_tokens": 2.5e8,
         "batch_size": 4096,  # Batch shape is batch_size, d_mlp
         "buffer_mult": 128,  # Buffer size is batch_size*buffer_mult, d_mlp
         "seq_len": 128,
@@ -455,5 +455,9 @@ if __name__ == "__main__":
     # for l1_coeff in [0.0001]:
     #     torch.cuda.empty_cache()
     #     cfg["l1_coeff"] = l1_coeff
-    #     main(cfg["model"], cfg["layer"], cfg["act"], cfg, prompt_data, eval_prompts)
-    main(cfg["model"], cfg["layer"], cfg["act"], cfg, prompt_data, eval_prompts)
+    #     main(cfg["model"], cfg["act"], cfg, prompt_data, eval_prompts)
+    # for seed in [47, 48, 49, 50]:
+    #     torch.cuda.empty_cache()
+    #     cfg["seed"] = seed
+    #     main(cfg["model"], cfg["act"], cfg, prompt_data, eval_prompts)
+    main(cfg["model"], cfg["act"], cfg, prompt_data, eval_prompts)
