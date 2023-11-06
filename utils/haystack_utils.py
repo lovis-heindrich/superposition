@@ -18,6 +18,7 @@ from pathlib import Path
 import json
 import pandas as pd
 from collections import defaultdict
+from functools import lru_cache 
 
 from utils.hook_utils import save_activation
 import utils.hook_utils as hook_utils
@@ -474,6 +475,7 @@ def print_strings_as_html(strings: list[str], color_values: list[float], max_val
     # Print the HTML in Jupyter Notebook
     display(HTML(html))
 
+@lru_cache() 
 def get_weird_tokens(model: HookedTransformer, w_e_threshold=0.4, w_u_threshold=15, plot_norms=False) -> Int[Tensor, "d_vocab"]:
     w_u_norm = model.W_U.norm(dim=0)
     w_e_norm = model.W_E.norm(dim=1)
@@ -495,6 +497,8 @@ def get_weird_tokens(model: HookedTransformer, w_e_threshold=0.4, w_u_threshold=
         fig.show()
     return all_ignore, not_ignore
 
+
+@lru_cache()
 def top_k_with_exclude(activations: Tensor, k: int, exclude: Tensor, largest=True) -> Tuple[Tensor, Tensor]:
     """Returns the top k activations and indices excluding the indices in exclude.
 
