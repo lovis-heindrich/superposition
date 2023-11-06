@@ -190,7 +190,7 @@ def main(model_name: str, act_name: str, cfg: dict, prompt_data: Int[Tensor, "n_
 
     autoencoder_dim = d_in * cfg["expansion_factor"]
     encoder = AutoEncoder(
-        autoencoder_dim, l1_coeff=cfg["l1_coeff"], d_in=d_in, seed=SEED
+        autoencoder_dim, reg_coeff=cfg["reg_coeff"], d_in=d_in, seed=SEED, reg=cfg["regularization"]
     ).to(device)
     print(f"Input dim: {d_in}, autoencoder dim: {autoencoder_dim}")
     encoder_optim = torch.optim.AdamW(
@@ -393,22 +393,23 @@ def get_config():
         "data_path": "data/tinystories",
         "use_wandb": True,
         "num_eval_tokens": 800000,  # Tokens used to resample dead directions
-        "num_training_tokens": 2.5e8,
+        "num_training_tokens": 5e8,
         "batch_size": 4096,  # Batch shape is batch_size, d_mlp
         "buffer_mult": 128,  # Buffer size is batch_size*buffer_mult, d_mlp
         "seq_len": 128,
         "model": "tiny-stories-2L-33M",
-        "layer": 1,
+        "layer": 0,
         "act": "mlp.hook_post",
         "expansion_factor": 4,
         "seed": 47,
         "lr": 1e-4,
-        "l1_coeff": 1e-4,
+        "reg_coeff": 1e-4,
         "wd": 1e-2,
         "beta1": 0.9,
         "beta2": 0.99,
         "num_eval_prompts": 200, # Used for periodic evaluation logs
-        "save_checkpoint_models": False
+        "save_checkpoint_models": False,
+        "regularization": "sqrt" # l1, sqrt
     }
 
     # Accept alternative config values from command line
@@ -452,9 +453,9 @@ if __name__ == "__main__":
     cfg = get_config()
     prompt_data = load_tinystories_tokens(cfg["data_path"])
     eval_prompts = load_tinystories_validation_prompts(cfg["data_path"])[:cfg["num_eval_prompts"]]
-    # for l1_coeff in [0.0001]:
+    # for reg_coeff in [0.0001]:
     #     torch.cuda.empty_cache()
-    #     cfg["l1_coeff"] = l1_coeff
+    #     cfg["reg_coeff"] = reg_coeff
     #     main(cfg["model"], cfg["act"], cfg, prompt_data, eval_prompts)
     # for seed in [47, 48, 49, 50]:
     #     torch.cuda.empty_cache()
