@@ -215,10 +215,10 @@ def main(encoder: AutoEncoder, model: HookedTransformer, cfg: dict, prompt_data:
                 0, cfg["num_eval_batches"] * cfg["batch_size"], cfg["batch_size"]
             ):
                 _, x_reconstruct, _, _, _ = encoder(
-                    eval_batch[i : i + cfg["batch_size"]].to(device)
+                    eval_batch[i : i + cfg["batch_size"]].to(get_device())
                 )
                 batch_reconstruct.append(x_reconstruct)
-            x_reconstruct = torch.cat(batch_reconstruct, dim=0)
+            x_reconstruct = torch.cat(batch_reconstruct, dim=0).cpu()
 
             # Losses per batch item
             l2_loss = (x_reconstruct - eval_batch).pow(2).sum(-1)
@@ -239,7 +239,7 @@ def main(encoder: AutoEncoder, model: HookedTransformer, cfg: dict, prompt_data:
             active_directions = torch.argwhere(~dead_directions).flatten()
             active_direction_norms = encoder.W_enc[:, active_directions].norm(
                 p=2, dim=0
-            )  # d_mlp d_active_dir
+            ).cpu()  # d_mlp d_active_dir
             mean_active_norm = active_direction_norms.mean() * 0.2
             newly_normalized_inputs = neuron_inputs * mean_active_norm
 
@@ -334,6 +334,7 @@ def main(encoder: AutoEncoder, model: HookedTransformer, cfg: dict, prompt_data:
                 torch.save(encoder.state_dict(), f"{cfg['model']}/{save_name}.pt")
 
         if (batch_index + 1) in reset_steps:
+            num_dead_directions = dead_directions.sum().item()
             resample_dead_directions(
                 encoder, eval_batch, dead_directions, num_dead_directions
             )
@@ -364,7 +365,7 @@ def get_config():
         "data_path": "data/tinystories",
         "use_wandb": True,
         "num_eval_tokens": 800000,  # Tokens used to resample dead directions
-        "num_training_tokens": 1e8,
+        "num_training_tokens": 5e8,
         "batch_size": 4096,  # Batch shape is batch_size, d_mlp
         "buffer_mult": 128,  # Buffer size is batch_size*buffer_mult, d_mlp
         "seq_len": 128,
@@ -381,7 +382,7 @@ def get_config():
         "num_eval_prompts": 200, # Used for periodic evaluation logs
         "save_checkpoint_models": False,
         "use_sqrt_reg": False,
-        "finetune_encoder": "2_upbeat_snowball"
+        "finetune_encoder": "7_whole_galaxy"
     }
 
     # Accept alternative config values from command line
