@@ -18,7 +18,7 @@ import numpy as np
 import wandb
 from jaxtyping import Int, Float, Bool
 from process_tiny_stories_data import load_tinystories_validation_prompts, load_tinystories_tokens
-from utils.autoencoder_utils import evaluate_autoencoder_reconstruction
+from utils.autoencoder_utils import evaluate_autoencoder_reconstruction, load_encoder
 from autoencoder import AutoEncoder
 import time
 
@@ -162,37 +162,8 @@ def get_entropy(activations: Float[Tensor, "batch d_enc"]) -> float:
     return torch.mean(entropy).item()
 
 
-def main(model_name: str, act_name: str, cfg: dict, prompt_data: Int[Tensor, "n_examples seq_len"], eval_prompts: list[str]):
-    device = get_device()
-    model = HookedTransformer.from_pretrained(
-        model_name,
-        center_unembed=True,
-        center_writing_weights=True,
-        fold_ln=True,
-        device=device,
-    )
+def main(encoder: AutoEncoder, model: HookedTransformer, cfg: dict, prompt_data: Int[Tensor, "n_examples seq_len"], eval_prompts: list[str]):
 
-    SEED = cfg["seed"]
-    GENERATOR = torch.manual_seed(SEED)
-    np.random.seed(SEED)
-    random.seed(SEED)
-    torch.set_grad_enabled(True)
-
-    d_model = model.cfg.d_model
-    d_mlp = model.cfg.d_mlp
-    cfg["d_mlp"] = d_mlp
-    if act_name == "mlp.hook_post" or act_name == "mlp.hook_pre":
-        d_in = d_mlp
-    elif act_name == "hook_mlp_out":
-        d_in = d_model
-    else:
-        raise ValueError(f"Unknown act_name: {act_name}")
-
-    autoencoder_dim = d_in * cfg["expansion_factor"]
-    encoder = AutoEncoder(
-        autoencoder_dim, reg_coeff=cfg["l1_coeff"], d_in=d_in, seed=SEED, reg="sqrt" if cfg["use_sqrt_reg"] else "l1"
-    ).to(device)
-    print(f"Input dim: {d_in}, autoencoder dim: {autoencoder_dim}")
     encoder_optim = torch.optim.AdamW(
         encoder.parameters(),
         lr=cfg["lr"],
@@ -225,9 +196,9 @@ def main(model_name: str, act_name: str, cfg: dict, prompt_data: Int[Tensor, "n_
     else:
         save_name = "local"
     cfg["save_name"] = save_name
-    os.makedirs(model_name, exist_ok=True)
-    # Path(model_name).mkdir(exist_ok=True)
-    with open(f"{model_name}/{save_name}.json", "w") as f:
+    os.makedirs(cfg['model'], exist_ok=True)
+    # Path(cfg['model']).mkdir(exist_ok=True)
+    with open(f"{cfg['model']}/{save_name}.json", "w") as f:
         json.dump(cfg, f, indent=4)
 
     @torch.no_grad()
@@ -297,7 +268,7 @@ def main(model_name: str, act_name: str, cfg: dict, prompt_data: Int[Tensor, "n_
             ] = 0
 
 
-    dead_directions = torch.ones(size=(autoencoder_dim,)).bool().to(device)
+    dead_directions = torch.ones(size=(encoder.d_hidden,)).bool().to(device)
     buffer = Buffer(cfg, model, prompt_data)
     eval_batch = torch.cat(list(islice(buffer, cfg["num_eval_batches"])), dim=0).cpu()
     print(f"Eval batch shape: {eval_batch.shape}")
@@ -358,9 +329,9 @@ def main(model_name: str, act_name: str, cfg: dict, prompt_data: Int[Tensor, "n_
 
         if (batch_index + 1) % save_interval == 0:
             if cfg["save_checkpoint_models"]:
-                torch.save(encoder.state_dict(), f"{model_name}/{save_name}_{batch_index}.pt")
+                torch.save(encoder.state_dict(), f"{cfg['model']}/{save_name}_{batch_index}.pt")
             else:
-                torch.save(encoder.state_dict(), f"{model_name}/{save_name}.pt")
+                torch.save(encoder.state_dict(), f"{cfg['model']}/{save_name}.pt")
 
         if (batch_index + 1) in reset_steps:
             resample_dead_directions(
@@ -370,18 +341,18 @@ def main(model_name: str, act_name: str, cfg: dict, prompt_data: Int[Tensor, "n_
 
         if (batch_index + 1) in count_dead_direction_steps + reset_steps:
             print("Resetting dead direction counter")
-            dead_directions = torch.ones(size=(autoencoder_dim,)).bool().to(device)
+            dead_directions = torch.ones(size=(encoder.d_hidden,)).bool().to(device)
 
         if ((batch_index + 1) > max(reset_steps)) and (
             (batch_index + 1) % dead_directions_reset_interval == 0
         ):
-            dead_directions = torch.ones(size=(autoencoder_dim,)).bool().to(device)
+            dead_directions = torch.ones(size=(encoder.d_hidden,)).bool().to(device)
 
         if cfg["use_wandb"]:
             wandb.log(loss_dict)
         encoder_optim.zero_grad()
         del loss, x_reconstruct, mid_acts, l2_loss, l1_loss
-    torch.save(encoder.state_dict(), f"{model_name}/{save_name}.pt")
+    torch.save(encoder.state_dict(), f"{cfg['model']}/{save_name}.pt")
     if cfg["use_wandb"]:
         wandb.finish()
 
@@ -393,23 +364,24 @@ def get_config():
         "data_path": "data/tinystories",
         "use_wandb": True,
         "num_eval_tokens": 800000,  # Tokens used to resample dead directions
-        "num_training_tokens": 5e8,
+        "num_training_tokens": 1e8,
         "batch_size": 4096,  # Batch shape is batch_size, d_mlp
         "buffer_mult": 128,  # Buffer size is batch_size*buffer_mult, d_mlp
         "seq_len": 128,
         "model": "tiny-stories-2L-33M",
-        "layer": 0,
+        "layer": 1,
         "act": "mlp.hook_post",
         "expansion_factor": 4,
         "seed": 47,
-        "lr": 1e-4,
-        "l1_coeff": 1e-4, # Used for both square root and L1 regularization to maintain backwards compatibility
+        "lr": 3e-5,
+        "l1_coeff": 3e-4, # Used for both square root and L1 regularization to maintain backwards compatibility
         "wd": 1e-2,
         "beta1": 0.9,
         "beta2": 0.99,
         "num_eval_prompts": 200, # Used for periodic evaluation logs
         "save_checkpoint_models": False,
         "use_sqrt_reg": False,
+        "finetune_encoder": "2_upbeat_snowball"
     }
 
     # Accept alternative config values from command line
@@ -453,6 +425,44 @@ if __name__ == "__main__":
     cfg = get_config()
     prompt_data = load_tinystories_tokens(cfg["data_path"])
     eval_prompts = load_tinystories_validation_prompts(cfg["data_path"])[:cfg["num_eval_prompts"]]
+
+    SEED = cfg["seed"]
+    GENERATOR = torch.manual_seed(SEED)
+    np.random.seed(SEED)
+    random.seed(SEED)
+    torch.set_grad_enabled(True)
+
+    device = get_device()
+    model = HookedTransformer.from_pretrained(
+        cfg["model"],
+        center_unembed=True,
+        center_writing_weights=True,
+        fold_ln=True,
+        device=device,
+    )
+
+    cfg["d_mlp"] = model.cfg.d_mlp
+
+    if cfg["finetune_encoder"] is not None:
+        encoder, encoder_cfg = load_encoder(cfg["finetune_encoder"], cfg["model"], model)
+        assert encoder_cfg.layer == cfg["layer"]
+        assert encoder_cfg.act_name == cfg["act"]
+        assert encoder_cfg.expansion_factor == cfg["expansion_factor"]
+        encoder.reg_coeff = cfg["l1_coeff"]
+    else:
+        if  cfg["act"] == "mlp.hook_post" or  cfg["act"] == "mlp.hook_pre":
+            d_in = cfg["d_mlp"]
+        elif  cfg["act"] == "hook_mlp_out":
+            d_in = model.cfg.d_model
+        else:
+            raise ValueError(f"Unknown  act_name: {cfg['act']}")
+
+        autoencoder_dim = d_in * cfg["expansion_factor"]
+        encoder = AutoEncoder(
+            autoencoder_dim, reg_coeff=cfg["l1_coeff"], d_in=d_in, seed=SEED, reg="sqrt" if cfg["use_sqrt_reg"] else "l1"
+        ).to(device)
+        print(f"Input dim: {d_in}, autoencoder dim: {autoencoder_dim}")
+
     # for l1_coeff in [0.00001, 0.0001, 0.0005, 0.001, 0.01]:
     #     torch.cuda.empty_cache()
     #     cfg["l1_coeff"] = l1_coeff
@@ -461,4 +471,4 @@ if __name__ == "__main__":
     #     torch.cuda.empty_cache()
     #     cfg["seed"] = seed
     #     main(cfg["model"], cfg["act"], cfg, prompt_data, eval_prompts)
-    main(cfg["model"], cfg["act"], cfg, prompt_data, eval_prompts)
+    main(encoder, model, cfg, prompt_data, eval_prompts)
