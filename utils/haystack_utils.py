@@ -475,7 +475,7 @@ def print_strings_as_html(strings: list[str], color_values: list[float], max_val
     # Print the HTML in Jupyter Notebook
     display(HTML(html))
 
-@lru_cache() 
+@lru_cache(maxsize=2) 
 def get_weird_tokens(model: HookedTransformer, w_e_threshold=0.4, w_u_threshold=15, plot_norms=False) -> Int[Tensor, "d_vocab"]:
     w_u_norm = model.W_U.norm(dim=0)
     w_e_norm = model.W_E.norm(dim=1)
@@ -521,6 +521,16 @@ def top_k_with_exclude(activations: Tensor, k: int, exclude: Tensor, largest=Tru
         activations[exclude] = float("inf")
     top_k_values, top_k_indices = torch.topk(activations, k=k, largest=largest)
     return top_k_values, top_k_indices
+
+@lru_cache(maxsize=2)
+def get_occurring_tokens(model: HookedTransformer, prompts: tuple[str]):
+    vocab = torch.zeros(model.cfg.d_vocab, dtype=int)
+    for prompt in prompts:
+        tokens = model.to_tokens(prompt).squeeze().cpu()
+        vocab.index_add_(0, tokens, torch.ones(len(tokens), dtype=int))
+
+    vocab[vocab != 0] = 1
+    return vocab
 
 
 def get_frozen_loss_difference_for_component(
