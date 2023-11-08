@@ -475,7 +475,7 @@ def print_strings_as_html(strings: list[str], color_values: list[float], max_val
     # Print the HTML in Jupyter Notebook
     display(HTML(html))
 
-@lru_cache() 
+@lru_cache(maxsize=2) 
 def get_weird_tokens(model: HookedTransformer, w_e_threshold=0.4, w_u_threshold=15, plot_norms=False) -> Int[Tensor, "d_vocab"]:
     w_u_norm = model.W_U.norm(dim=0)
     w_e_norm = model.W_E.norm(dim=1)

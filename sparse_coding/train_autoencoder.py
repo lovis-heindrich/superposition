@@ -382,7 +382,7 @@ def get_config():
         "num_eval_prompts": 200, # Used for periodic evaluation logs
         "save_checkpoint_models": False,
         "use_sqrt_reg": False,
-        "finetune_encoder": "7_whole_galaxy"
+        "finetune_encoder": ""
     }
 
     # Accept alternative config values from command line
