@@ -19,6 +19,7 @@ import wandb
 from jaxtyping import Int, Float, Bool
 from process_tiny_stories_data import load_tinystories_validation_prompts, load_tinystories_tokens
 from utils.autoencoder_utils import evaluate_autoencoder_reconstruction, load_encoder
+from utils.haystack_utils import get_occurring_tokens
 from autoencoder import AutoEncoder
 import time
 
@@ -137,6 +138,9 @@ def decoder_unembed_cosine_sim_mean_kurtosis(model: HookedTransformer, layer: in
     resid_dirs = torch.nn.functional.normalize(W_dec @ W_out, dim=-1)
     unembed = torch.nn.functional.normalize(model.unembed.W_U, dim=0)
     cosine_sims = einops.einsum(resid_dirs, unembed, 'd_hidden d_model, d_model d_vocab -> d_hidden d_vocab')
+    
+    vocab_occurs = get_occurring_tokens(model, tuple(load_tinystories_validation_prompts()))
+    cosine_sims = cosine_sims[:, vocab_occurs == 1]
     
     mean = einops.repeat(cosine_sims.mean(dim=-1), f'd_hidden -> d_hidden {cosine_sims.shape[1]}')
     std = einops.repeat(cosine_sims.std(dim=-1), f'd_hidden -> d_hidden {cosine_sims.shape[1]}')

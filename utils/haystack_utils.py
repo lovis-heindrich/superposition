@@ -522,6 +522,16 @@ def top_k_with_exclude(activations: Tensor, k: int, exclude: Tensor, largest=Tru
     top_k_values, top_k_indices = torch.topk(activations, k=k, largest=largest)
     return top_k_values, top_k_indices
 
+@lru_cache(maxsize=2)
+def get_occurring_tokens(model: HookedTransformer, prompts: tuple[str]):
+    vocab = torch.zeros(model.cfg.d_vocab, dtype=int)
+    for prompt in prompts:
+        tokens = model.to_tokens(prompt).squeeze().cpu()
+        vocab.index_add_(0, tokens, torch.ones(len(tokens), dtype=int))
+
+    vocab[vocab != 0] = 1
+    return vocab
+
 
 def get_frozen_loss_difference_for_component(
         prompts: List[str],
