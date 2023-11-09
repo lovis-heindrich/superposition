@@ -172,7 +172,7 @@ def main(encoder: AutoEncoder, model: HookedTransformer, cfg: dict, prompt_data:
         encoder.parameters(),
         lr=cfg["lr"],
         betas=(cfg["beta1"], cfg["beta2"]),
-        weight_decay=cfg["wd"],
+        weight_decay=0.0
     )
 
     num_tokens = torch.numel(prompt_data)
