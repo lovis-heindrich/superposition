@@ -392,19 +392,19 @@ DEFAULT_CONFIG = {
     "batch_size": 4096,  # Batch shape is batch_size, d_in
     "buffer_mult": 128,  # Buffer size is batch_size*buffer_mult, d_in
     "seq_len": 128,
-    "model": "tiny-stories-2L-33M",
-    "layer": 1,
+    "model": "tiny-stories-33M",
+    "layer": 0,
     "act": "mlp.hook_post",
-    "expansion_factor": 4,
+    "expansion_factor": 8,
     "seed": 47,
-    "lr": 3e-5,
-    "l1_coeff": 1.2e-6,  # Used for both square root and L1 regularization to maintain backwards compatibility
+    "lr": 1e-4,
+    "l1_coeff": 1e-4,  # Used for both square root and L1 regularization to maintain backwards compatibility
     "wd": 1e-2,
     "beta1": 0.9,
     "beta2": 0.99,
     "num_eval_prompts": 200,  # Used for periodic evaluation logs
     "save_checkpoint_models": False,
-    "use_sqrt_reg": True,
+    "use_sqrt_reg": False,
     "finetune_encoder": None,
 }
 
@@ -490,10 +490,8 @@ if __name__ == "__main__":
 
     cfg["d_in"] = act_name_to_d_in(model, cfg['act'])
 
-    encoder = get_autoencoder(cfg, device, SEED)
-
-    # for l1_coeff in [0.00001, 0.0001, 0.0005, 0.001, 0.01]:
-    #     torch.cuda.empty_cache()
-    #     cfg["l1_coeff"] = l1_coeff
-    #     main(cfg["model"], cfg["act"], cfg, prompt_data, eval_prompts)
-    main(encoder, model, cfg, prompt_data, eval_prompts, device)
+    for layer in [1, 2, 3]:
+        torch.cuda.empty_cache()
+        cfg["layer"] = layer
+        encoder = get_autoencoder(cfg, device, SEED)
+        main(encoder, model, cfg, prompt_data, eval_prompts, device)
