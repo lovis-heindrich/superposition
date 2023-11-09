@@ -14,6 +14,7 @@ from sparse_coding.train_autoencoder import DEFAULT_CONFIG
 def define_sweep(param: str, values: list[float | int | bool | str]):
     cfg = DEFAULT_CONFIG.copy()
     sweep_config = {
+        'program': 'wandb_sweep_train.py',
         'method': 'grid',
         'parameters': {
             key: {'values': [value]} for key, value in cfg.items()
@@ -35,7 +36,9 @@ if __name__ == "__main__":
         args.param is not None and args.values is not None
     ), "Must define sweep's varying parameter and values, e.g. --param seed --values ['3', '4']"
 
+    n_devices = torch.cuda.device_count() + (1 if torch.backends.mps.is_available() else 0)
+    print(f'{n_devices} CUDA or MPS devices')
     sweep_id = define_sweep(args.param, args.values)
-    for device_index in range(torch.cuda.device_count()):
-        cmd = f"CUDA_VISIBLE_DEVICES={device_index} wandb agent {sweep_id} --count 5 --entity wandb_sweep_train.py"
+    for device_index in range(n_devices):
+        cmd = f"CUDA_VISIBLE_DEVICES={device_index} wandb agent {sweep_id} --count 5 --entity lovis"
         subprocess.run(cmd, shell=True)

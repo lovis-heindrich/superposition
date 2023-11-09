@@ -6,7 +6,7 @@ import json
 from transformer_lens import HookedTransformer
 import torch
 import numpy as np
-from random import random
+import random
 import wandb
 
 from process_tiny_stories_data import (
@@ -43,7 +43,7 @@ def set_seed(cfg: AutoEncoderConfig) -> int:
 
 
 def train(cfg=None):
-    with wandb.init(cfg=cfg):
+    with wandb.init(config=cfg):
         # If called by wandb.agent this config will be set by Sweep Controller
         cfg = wandb.config
         cfg = add_derived_values(cfg)
@@ -66,8 +66,8 @@ def train(cfg=None):
         cfg["d_mlp"] = model.cfg.d_mlp
 
         encoder = get_autoencoder(cfg, device, seed)
-        
-        main(encoder, model, cfg, prompt_data, eval_prompts)
+
+        main(encoder, model, cfg.as_dict(), prompt_data, eval_prompts, device)
 
 
 if __name__ == "__main__":
