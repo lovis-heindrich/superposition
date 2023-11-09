@@ -34,7 +34,7 @@ class AutoEncoder(nn.Module):
             reg_loss = self.reg_coeff * acts.abs().sum()
         else:
             reg_loss_per_act = self.reg_coeff * acts.abs()
-            reg_loss_per_act[(acts > 0) & (acts < 1)] += 1e-5
+            #reg_loss_per_act[(acts > 0) & (acts < 1)] += 1e-5
             reg_loss_per_act[(acts > 0) & (acts < 1)] **= 0.5
             reg_loss = reg_loss_per_act.sum()
         loss = l2_loss + reg_loss
