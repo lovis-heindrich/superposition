@@ -31,9 +31,12 @@ class AutoEncoder(nn.Module):
         x_reconstruct = acts @ self.W_dec + self.b_dec
         l2_loss = (x_reconstruct - x).pow(2).sum(-1).mean(0)
         if self.reg == "l1":
-            reg_loss = self.reg_coeff * (acts.abs().sum())
+            reg_loss = self.reg_coeff * acts.abs().sum()
         else:
-            reg_loss = self.reg_coeff * (acts.sqrt().sum())
+            reg_loss_per_act = self.reg_coeff * acts.abs()
+            reg_loss_per_act[(acts > 0) & (acts < 1)] += 1e-5
+            reg_loss_per_act[(acts > 0) & (acts < 1)] **= 0.5
+            reg_loss = reg_loss_per_act.sum()
         loss = l2_loss + reg_loss
         return loss, x_reconstruct, acts, l2_loss, reg_loss
 
