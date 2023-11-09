@@ -25,6 +25,7 @@ from utils.autoencoder_utils import (
     evaluate_autoencoder_reconstruction,
     load_encoder,
     AutoEncoderConfig,
+    act_name_to_d_in
 )
 from utils.haystack_utils import get_occurring_tokens, get_device
 from autoencoder import AutoEncoder
@@ -462,15 +463,6 @@ def get_autoencoder(cfg: AutoEncoderConfig, device: str, seed: int):
         ).to(device)
         print(f"Input dim: {cfg['d_in']}, autoencoder dim: {autoencoder_dim}")
     return encoder
-
-
-def act_name_to_d_in(model: HookedTransformer, act_name: str):
-    if act_name == "mlp.hook_post" or act_name == "mlp.hook_pre":
-        return model.cfg.d_mlp
-    elif act_name == "hook_mlp_out":
-        return model.cfg.d_model
-    else:
-        raise ValueError("Act name not recognised: ", act_name)
 
 
 if __name__ == "__main__":
