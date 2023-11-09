@@ -17,20 +17,19 @@ from transformer_lens import HookedTransformer
 import numpy as np
 import wandb
 from jaxtyping import Int, Float, Bool
-from process_tiny_stories_data import load_tinystories_validation_prompts, load_tinystories_tokens
-from utils.autoencoder_utils import evaluate_autoencoder_reconstruction, load_encoder, AutoEncoderConfig
-from utils.haystack_utils import get_occurring_tokens
+from process_tiny_stories_data import (
+    load_tinystories_validation_prompts,
+    load_tinystories_tokens,
+)
+from utils.autoencoder_utils import (
+    evaluate_autoencoder_reconstruction,
+    load_encoder,
+    AutoEncoderConfig,
+)
+from utils.haystack_utils import get_occurring_tokens, get_device
 from autoencoder import AutoEncoder
 import time
 
-def get_device():
-    return (
-        "cuda"
-        if torch.cuda.is_available()
-        else "mps"
-        if torch.backends.mps.is_available()
-        else "cpu"
-    )
 
 class Buffer:
     """
@@ -42,7 +41,7 @@ class Buffer:
         cfg,
         model: HookedTransformer,
         all_tokens: Int[Tensor, "batch seq_len"],
-        device=get_device(),
+        device
     ):
         self.buffer = torch.zeros(
             (cfg["buffer_size"], cfg["d_mlp"]),
@@ -123,30 +122,38 @@ class Buffer:
     def __iter__(self):
         return self
 
-def get_moments(data: torch.Tensor) -> tuple[float, float, float, float]:    
+
+def get_moments(data: torch.Tensor) -> tuple[float, float, float, float]:
     mean = torch.mean(data)
     variance = torch.mean((data - mean) ** 2)
     std = torch.sqrt(variance)
     skew = torch.mean(((data - mean) / std) ** 3)
-    kurt = torch.mean(((data - mean) / std) ** 4) - 3
+    kurt = torch.mean(((data - mean) / std) ** 4) - 3  # excess kurtosis
     return mean.item(), variance.item(), skew.item(), kurt.item()
 
 
-def decoder_unembed_cosine_sim_mean_kurtosis(model: HookedTransformer, layer: int, W_dec: torch.Tensor) -> torch.Tensor:
-    '''Return mean kurtosis over all decoder features' cosine sims with the unembed (higher is better)'''
+def decoder_unembed_cosine_sim_mean_kurtosis(
+    model: HookedTransformer, layer: int, W_dec: torch.Tensor
+) -> torch.Tensor:
+    """Return mean kurtosis over all decoder features' cosine sims with the unembed (higher is better)"""
     W_out = model.W_out[layer]
     resid_dirs = torch.nn.functional.normalize(W_dec @ W_out, dim=-1)
     unembed = torch.nn.functional.normalize(model.unembed.W_U, dim=0)
-    cosine_sims = einops.einsum(resid_dirs, unembed, 'd_hidden d_model, d_model d_vocab -> d_hidden d_vocab')
-    
-    vocab_occurs = get_occurring_tokens(model, tuple(load_tinystories_validation_prompts()))
+    cosine_sims = einops.einsum(
+        resid_dirs, unembed, "d_hidden d_model, d_model d_vocab -> d_hidden d_vocab"
+    )
+
+    vocab_occurs = get_occurring_tokens(
+        model, tuple(load_tinystories_validation_prompts())
+    )
     cosine_sims = cosine_sims[:, vocab_occurs == 1]
-    
-    mean = einops.repeat(cosine_sims.mean(dim=-1), f'd_hidden -> d_hidden {cosine_sims.shape[1]}')
-    std = einops.repeat(cosine_sims.std(dim=-1), f'd_hidden -> d_hidden {cosine_sims.shape[1]}')
-    kurt = torch.mean((cosine_sims - mean / std) ** 4) - 3
+
+    mean = einops.repeat(cosine_sims.mean(dim=-1), f"d_hidden -> d_hidden {cosine_sims.shape[1]}")
+    std = einops.repeat(cosine_sims.std(dim=-1), f"d_hidden -> d_hidden {cosine_sims.shape[1]}")
+    kurt = torch.mean((cosine_sims - mean / std) ** 4) - 3  # excess kurtosis
 
     return kurt.mean()
+
 
 def get_cosine_sim_moments(W_enc: torch.Tensor, W_dec: torch.Tensor):
     """Cosine similarity between corresponding features of the encoder and decoder weights"""
@@ -159,6 +166,7 @@ def get_cosine_sim_moments(W_enc: torch.Tensor, W_dec: torch.Tensor):
     kurt = torch.mean(((sims - mean) / std) ** 4) - 3
     return mean.item(), variance.item(), skew.item(), kurt.item()
 
+
 def get_entropy(activations: Float[Tensor, "batch d_enc"]) -> float:
     """Entropy of the activations"""
     probs = F.normalize(activations, p=1, dim=1)
@@ -166,13 +174,19 @@ def get_entropy(activations: Float[Tensor, "batch d_enc"]) -> float:
     return torch.mean(entropy).item()
 
 
-def main(encoder: AutoEncoder, model: HookedTransformer, cfg: dict, prompt_data: Int[Tensor, "n_examples seq_len"], eval_prompts: list[str]):
-
+def main(
+    encoder: AutoEncoder,
+    model: HookedTransformer,
+    cfg: dict,
+    prompt_data: Int[Tensor, "n_examples seq_len"],
+    eval_prompts: list[str],
+    device: str
+):
     encoder_optim = torch.optim.AdamW(
         encoder.parameters(),
         lr=cfg["lr"],
         betas=(cfg["beta1"], cfg["beta2"]),
-        weight_decay=0.0
+        weight_decay=0.0,
     )
 
     num_tokens = torch.numel(prompt_data)
@@ -200,8 +214,7 @@ def main(encoder: AutoEncoder, model: HookedTransformer, cfg: dict, prompt_data:
     else:
         save_name = "local"
     cfg["save_name"] = save_name
-    os.makedirs(cfg['model'], exist_ok=True)
-    # Path(cfg['model']).mkdir(exist_ok=True)
+    os.makedirs(cfg["model"], exist_ok=True)
     with open(f"{cfg['model']}/{save_name}.json", "w") as f:
         json.dump(cfg, f, indent=4)
 
@@ -219,7 +232,7 @@ def main(encoder: AutoEncoder, model: HookedTransformer, cfg: dict, prompt_data:
                 0, cfg["num_eval_batches"] * cfg["batch_size"], cfg["batch_size"]
             ):
                 _, x_reconstruct, _, _, _ = encoder(
-                    eval_batch[i : i + cfg["batch_size"]].to(get_device())
+                    eval_batch[i : i + cfg["batch_size"]].to(device)
                 )
                 batch_reconstruct.append(x_reconstruct)
             x_reconstruct = torch.cat(batch_reconstruct, dim=0).cpu()
@@ -241,9 +254,9 @@ def main(encoder: AutoEncoder, model: HookedTransformer, cfg: dict, prompt_data:
 
             # Encoder
             active_directions = torch.argwhere(~dead_directions).flatten()
-            active_direction_norms = encoder.W_enc[:, active_directions].norm(
-                p=2, dim=0
-            ).cpu()  # d_mlp d_active_dir
+            active_direction_norms = (
+                encoder.W_enc[:, active_directions].norm(p=2, dim=0).cpu()
+            )  # d_mlp d_active_dir
             mean_active_norm = active_direction_norms.mean() * 0.2
             newly_normalized_inputs = neuron_inputs * mean_active_norm
 
@@ -252,31 +265,18 @@ def main(encoder: AutoEncoder, model: HookedTransformer, cfg: dict, prompt_data:
             )
             encoder.b_enc[dead_direction_indices] = 0
 
-            encoder_optim.state_dict()["state"][0]["exp_avg"][
-                :, dead_direction_indices
-            ] = 0
-            encoder_optim.state_dict()["state"][0]["exp_avg_sq"][
-                :, dead_direction_indices
-            ] = 0
-            encoder_optim.state_dict()["state"][1]["exp_avg"][
-                dead_direction_indices, :
-            ] = 0
-            encoder_optim.state_dict()["state"][1]["exp_avg_sq"][
-                dead_direction_indices, :
-            ] = 0
-            encoder_optim.state_dict()["state"][2]["exp_avg"][
-                dead_direction_indices
-            ] = 0
-            encoder_optim.state_dict()["state"][2]["exp_avg_sq"][
-                dead_direction_indices
-            ] = 0
-
+            encoder_optim.state_dict()["state"][0]["exp_avg"][:, dead_direction_indices] = 0
+            encoder_optim.state_dict()["state"][0]["exp_avg_sq"][:, dead_direction_indices] = 0
+            encoder_optim.state_dict()["state"][1]["exp_avg"][dead_direction_indices, :] = 0
+            encoder_optim.state_dict()["state"][1]["exp_avg_sq"][dead_direction_indices, :] = 0
+            encoder_optim.state_dict()["state"][2]["exp_avg"][dead_direction_indices] = 0
+            encoder_optim.state_dict()["state"][2]["exp_avg_sq"][dead_direction_indices] = 0
 
     dead_directions = torch.ones(size=(encoder.d_hidden,)).bool().to(device)
-    buffer = Buffer(cfg, model, prompt_data)
+    buffer = Buffer(cfg, model, prompt_data, device)
     eval_batch = torch.cat(list(islice(buffer, cfg["num_eval_batches"])), dim=0).cpu()
     print(f"Eval batch shape: {eval_batch.shape}")
-    
+
     reset_steps = [25000, 50000, 75000, 100000]
     count_dead_direction_steps = [step - 12500 for step in reset_steps]
     dead_directions_reset_interval = 50000
@@ -289,32 +289,50 @@ def main(encoder: AutoEncoder, model: HookedTransformer, cfg: dict, prompt_data:
         loss.backward()
         encoder.remove_parallel_component_of_grads()
         encoder_optim.step()
-        
+
         dead_directions = ((mid_acts != 0).sum(dim=0) == 0) & dead_directions
-        
+
         loss_dict = {
             "batch": batch_index,
             "loss": loss.item(),
             "l2_loss": l2_loss.item(),
             "l1_loss": l1_loss.item(),
-            "epoch": buffer.epoch
+            "epoch": buffer.epoch,
         }
 
         if (batch_index + 1) % eval_interval == 0:
-            reconstruction_loss = evaluate_autoencoder_reconstruction(encoder, f'blocks.{cfg["layer"]}.{cfg["act"]}', eval_prompts, model, reconstruction_loss_only=True, show_tqdm=False)
+            reconstruction_loss = evaluate_autoencoder_reconstruction(
+                encoder,
+                f'blocks.{cfg["layer"]}.{cfg["act"]}',
+                eval_prompts,
+                model,
+                reconstruction_loss_only=True,
+                show_tqdm=False,
+            )
             b_mean, b_variance, b_skew, b_kurt = get_moments(encoder.b_enc)
-            feature_cosine_sim_mean, feature_cosine_sim_variance, _, _  = get_cosine_sim_moments(encoder.W_enc, encoder.W_dec)
+            (
+                feature_cosine_sim_mean,
+                feature_cosine_sim_variance,
+                _,
+                _,
+            ) = get_cosine_sim_moments(encoder.W_enc, encoder.W_dec)
             W_dec_norm = encoder.W_dec.norm()
             W_enc_norm = encoder.W_enc.norm()
             entropy = get_entropy(mid_acts)
-            active_directions = (mid_acts != 0).sum(dim=-1).mean(dtype=torch.float32).item()
+            active_directions = (
+                (mid_acts != 0).sum(dim=-1).mean(dtype=torch.float32).item()
+            )
             num_dead_directions = dead_directions.sum().item()
-            mean_feature_unembed_cosine_sim_kurtosis = decoder_unembed_cosine_sim_mean_kurtosis(model, cfg["layer"], encoder.W_dec)
+            mean_feature_unembed_cosine_sim_kurtosis = (
+                decoder_unembed_cosine_sim_mean_kurtosis(
+                    model, cfg["layer"], encoder.W_dec
+                )
+            )
 
             eval_dict = {
                 "reconstruction_loss": reconstruction_loss,
                 "bias_mean": b_mean,
-                "bias_std": b_variance ** .5,
+                "bias_std": b_variance**0.5,
                 "bias_skew": b_skew,
                 "bias_kurtosis": b_kurt,
                 "feature_cosine_sim_mean": feature_cosine_sim_mean,
@@ -333,7 +351,9 @@ def main(encoder: AutoEncoder, model: HookedTransformer, cfg: dict, prompt_data:
 
         if (batch_index + 1) % save_interval == 0:
             if cfg["save_checkpoint_models"]:
-                torch.save(encoder.state_dict(), f"{cfg['model']}/{save_name}_{batch_index}.pt")
+                torch.save(
+                    encoder.state_dict(), f"{cfg['model']}/{save_name}_{batch_index}.pt"
+                )
             else:
                 torch.save(encoder.state_dict(), f"{cfg['model']}/{save_name}.pt")
 
@@ -377,15 +397,16 @@ DEFAULT_CONFIG = {
     "expansion_factor": 4,
     "seed": 47,
     "lr": 3e-5,
-    "l1_coeff": 3e-6, # Used for both square root and L1 regularization to maintain backwards compatibility
+    "l1_coeff": 1.2e-6,  # Used for both square root and L1 regularization to maintain backwards compatibility
     "wd": 1e-2,
     "beta1": 0.9,
     "beta2": 0.99,
-    "num_eval_prompts": 200, # Used for periodic evaluation logs
+    "num_eval_prompts": 200,  # Used for periodic evaluation logs
     "save_checkpoint_models": False,
     "use_sqrt_reg": True,
-    "finetune_encoder": None
+    "finetune_encoder": None,
 }
+
 
 def get_config():
     cfg = DEFAULT_CONFIG.copy()
@@ -434,16 +455,17 @@ def get_autoencoder(cfg: AutoEncoderConfig, device: str, seed: int):
         assert encoder_cfg.expansion_factor == cfg["expansion_factor"]
         encoder.reg_coeff = cfg["l1_coeff"]
     else:
-        if  cfg["act"] == "mlp.hook_post" or  cfg["act"] == "mlp.hook_pre":
+        if cfg["act"] == "mlp.hook_post" or cfg["act"] == "mlp.hook_pre":
             d_in = cfg["d_mlp"]
-        elif  cfg["act"] == "hook_mlp_out":
+        elif cfg["act"] == "hook_mlp_out":
             d_in = model.cfg.d_model
         else:
             raise ValueError(f"Unknown  act_name: {cfg['act']}")
 
         autoencoder_dim = d_in * cfg["expansion_factor"]
         encoder = AutoEncoder(
-            autoencoder_dim, reg_coeff=cfg["l1_coeff"], d_in=d_in, seed=seed, reg="sqrt" if cfg["use_sqrt_reg"] else "l1"
+            autoencoder_dim, reg_coeff=cfg["l1_coeff"], d_in=d_in, seed=seed,
+            reg="sqrt" if cfg["use_sqrt_reg"] else "l1",
         ).to(device)
         print(f"Input dim: {d_in}, autoencoder dim: {autoencoder_dim}")
     return encoder
@@ -453,7 +475,9 @@ if __name__ == "__main__":
     torch.cuda.empty_cache()
     cfg = get_config()
     prompt_data = load_tinystories_tokens(cfg["data_path"])
-    eval_prompts = load_tinystories_validation_prompts(cfg["data_path"])[:cfg["num_eval_prompts"]]
+    eval_prompts = load_tinystories_validation_prompts(cfg["data_path"])[
+        : cfg["num_eval_prompts"]
+    ]
 
     SEED = cfg["seed"]
     # GENERATOR = torch.manual_seed(SEED)
@@ -478,4 +502,4 @@ if __name__ == "__main__":
     #     torch.cuda.empty_cache()
     #     cfg["l1_coeff"] = l1_coeff
     #     main(cfg["model"], cfg["act"], cfg, prompt_data, eval_prompts)
-    main(encoder, model, cfg, prompt_data, eval_prompts)
+    main(encoder, model, cfg, prompt_data, eval_prompts, device)
