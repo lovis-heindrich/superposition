@@ -36,26 +36,38 @@ class AutoEncoderConfig:
     act_name: Literal["mlp.hook_post", "hook_mlp_out"]
     expansion_factor: int
     l1_coeff: float
+    d_in: int | None # TODO(LQ 23/11/09) remove None 
 
     @property
     def encoder_hook_point(self) -> str:
         return f"blocks.{self.layer}.{self.act_name}"
 
+
+def act_name_to_d_in(model: HookedTransformer, act_name: str):
+    if act_name == "mlp.hook_post" or act_name == "mlp.hook_pre":
+        return model.cfg.d_mlp
+    elif act_name == "hook_mlp_out":
+        return model.cfg.d_model
+    else:
+        raise ValueError("Act name not recognised: ", act_name)
+
+
 def load_encoder(save_name, model_name, model: HookedTransformer):
     with open(f"{model_name}/{save_name}.json", "r") as f:
         cfg = json.load(f)
-
+    
+    if "d_in" in cfg:
+        d_in = cfg["d_in"]
+    else:
+        d_in = act_name_to_d_in(model, cfg['act'])
+    
     cfg = AutoEncoderConfig(
-        cfg["layer"], cfg["act"], cfg["expansion_factor"], cfg["l1_coeff"]
+        cfg["layer"], cfg["act"], cfg["expansion_factor"], cfg["l1_coeff"], d_in
     )
 
-    if cfg.act_name == "hook_mlp_out":
-        d_in = model.cfg.d_model  # d_mlp
-    else:
-        d_in = model.cfg.d_mlp
-    d_hidden = d_in * cfg.expansion_factor
+    d_hidden = cfg.d_in * cfg.expansion_factor
 
-    encoder = AutoEncoder(d_hidden, cfg.l1_coeff, d_in)
+    encoder = AutoEncoder(d_hidden, cfg.l1_coeff, cfg.d_in)
     encoder.load_state_dict(torch.load(os.path.join(model_name, save_name + ".pt")))
     encoder.to(get_device())
     return encoder, cfg
