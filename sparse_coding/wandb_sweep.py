@@ -2,6 +2,7 @@
 # file for each model in the sweep then set the param to "cfg_file" and values to a list of file paths
 
 import argparse
+import subprocess
 import json
 from transformer_lens import HookedTransformer
 import torch
@@ -96,5 +97,8 @@ if __name__ == "__main__":
 
     
     sweep_id = define_sweep(args.param, args.value)
-    for device in range(num_devices):
+    for device_index in range(num_devices):
+        cmd = f"CUDA_VISIBLE_DEVICES={device_index} wandb agent {sweep_id} --count 5"
+        subprocess.run(cmd, shell=True)
+        # wandb.agent(sweep_id, train, count=5)
 
