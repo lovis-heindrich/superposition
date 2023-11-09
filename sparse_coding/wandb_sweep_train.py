@@ -18,21 +18,22 @@ from utils.autoencoder_utils import AutoEncoderConfig
 from utils.haystack_utils import get_device
 
 
-def add_derived_values(cfg):
+def get_derived_values(cfg):
+    derived_values = {}
     # Accept alternative config values from file specified in command line
     if cfg["cfg_file"] is not None:
         with open(cfg["cfg_file"], "r") as f:
-            cfg.update(json.load(f))
+            derived_values = json.load(f)
 
     # Derive config values
-    cfg["model_batch_size"] = cfg["batch_size"] // cfg["seq_len"] * 16
-    cfg["buffer_size"] = cfg["batch_size"] * cfg["buffer_mult"]
-    cfg["buffer_batches"] = (
-        cfg["buffer_size"] // cfg["seq_len"]
-    )  # (cfg["model_batch_size"] * cfg["seq_len"])
-    cfg["num_eval_batches"] = cfg["num_eval_tokens"] // cfg["batch_size"]
-    assert cfg["buffer_batches"] % cfg["model_batch_size"] == 0
-    return cfg
+    derived_values["model_batch_size"] = cfg["batch_size"] // cfg["seq_len"] * 16
+    derived_values["buffer_size"] = cfg["batch_size"] * cfg["buffer_mult"]
+    derived_values["buffer_batches"] = (
+        derived_values["buffer_size"] // cfg["seq_len"]
+    )
+    derived_values["num_eval_batches"] = cfg["num_eval_tokens"] // cfg["batch_size"]
+    assert derived_values["buffer_batches"] % derived_values["model_batch_size"] == 0
+    return derived_values
 
 
 def set_seed(cfg: AutoEncoderConfig) -> int:
@@ -46,7 +47,7 @@ def train(cfg=None):
     with wandb.init(config=cfg):
         # If called by wandb.agent this config will be set by Sweep Controller
         cfg = wandb.config
-        cfg = add_derived_values(cfg)
+        cfg.update(get_derived_values(cfg))
    
         torch.set_grad_enabled(True)
         seed = set_seed(cfg)
