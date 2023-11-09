@@ -30,7 +30,10 @@ def create_hf_dataset(seq_len=127):
     dataset = load_dataset("roneneldan/TinyStories", split="train")
     prompts = []
     for i in tqdm(range(len(dataset))):
-        prompts.append(dataset[i]["text"])
+        text_prompt = dataset[i]["text"]
+        # Fix encoding issue for special characters like em-dash
+        # text_prompt = text_prompt.encode("windows-1252").decode("utf-8", errors="ignore")
+        prompts.append(text_prompt)
 
     tokens = batch_prompts(prompts, model, seq_len=seq_len)
     #torch.save(tokens, f"{data_path}batched.pt")
@@ -64,8 +67,10 @@ def load_tinystories_validation_prompts(data_path = "data/tinystories", file_nam
             f.write(response.content)
 
     # Load Parquet into Pandas DataFrame
-    df = pd.read_parquet(file_path)
+    df = pd.read_parquet(file_path, engine='pyarrow')
     prompts = df["text"].tolist()
+    # Fix encoding issue for special characters like em-dash
+    # prompts = [prompt.encode("windows-1252").decode("utf-8", errors="ignore") for prompt in prompts]
     logging.info(f"Loaded {len(prompts)} TinyStories validation prompts")
     return prompts
 
@@ -74,3 +79,5 @@ if __name__ == "__main__":
     load_tinystories_tokens(data_path)
     load_tinystories_validation_prompts(data_path)
 
+
+# %%
