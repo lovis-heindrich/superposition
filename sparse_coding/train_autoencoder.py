@@ -18,7 +18,7 @@ import numpy as np
 import wandb
 from jaxtyping import Int, Float, Bool
 from process_tiny_stories_data import load_tinystories_validation_prompts, load_tinystories_tokens
-from utils.autoencoder_utils import evaluate_autoencoder_reconstruction, load_encoder
+from utils.autoencoder_utils import evaluate_autoencoder_reconstruction, load_encoder, AutoEncoderConfig
 from utils.haystack_utils import get_occurring_tokens
 from autoencoder import AutoEncoder
 import time
@@ -362,32 +362,33 @@ def main(encoder: AutoEncoder, model: HookedTransformer, cfg: dict, prompt_data:
         wandb.finish()
 
 
+DEFAULT_CONFIG = {
+    "cfg_file": None,
+    "data_path": "data/tinystories",
+    "use_wandb": True,
+    "num_eval_tokens": 800000,  # Tokens used to resample dead directions
+    "num_training_tokens": 5e8,
+    "batch_size": 4096,  # Batch shape is batch_size, d_mlp
+    "buffer_mult": 128,  # Buffer size is batch_size*buffer_mult, d_mlp
+    "seq_len": 128,
+    "model": "tiny-stories-2L-33M",
+    "layer": 1,
+    "act": "mlp.hook_post",
+    "expansion_factor": 4,
+    "seed": 47,
+    "lr": 3e-5,
+    "l1_coeff": 3e-6, # Used for both square root and L1 regularization to maintain backwards compatibility
+    "wd": 1e-2,
+    "beta1": 0.9,
+    "beta2": 0.99,
+    "num_eval_prompts": 200, # Used for periodic evaluation logs
+    "save_checkpoint_models": False,
+    "use_sqrt_reg": True,
+    "finetune_encoder": None
+}
+
 def get_config():
-    # Default config values
-    cfg = {
-        "cfg_file": None,
-        "data_path": "data/tinystories",
-        "use_wandb": True,
-        "num_eval_tokens": 800000,  # Tokens used to resample dead directions
-        "num_training_tokens": 5e8,
-        "batch_size": 4096,  # Batch shape is batch_size, d_mlp
-        "buffer_mult": 128,  # Buffer size is batch_size*buffer_mult, d_mlp
-        "seq_len": 128,
-        "model": "tiny-stories-2L-33M",
-        "layer": 1,
-        "act": "mlp.hook_post",
-        "expansion_factor": 4,
-        "seed": 47,
-        "lr": 3e-5,
-        "l1_coeff": 3e-4, # Used for both square root and L1 regularization to maintain backwards compatibility
-        "wd": 1e-2,
-        "beta1": 0.9,
-        "beta2": 0.99,
-        "num_eval_prompts": 200, # Used for periodic evaluation logs
-        "save_checkpoint_models": False,
-        "use_sqrt_reg": False,
-        "finetune_encoder": ""
-    }
+    cfg = DEFAULT_CONFIG.copy()
 
     # Accept alternative config values from command line
     parser = argparse.ArgumentParser(
@@ -425,29 +426,7 @@ def get_config():
     return cfg
 
 
-if __name__ == "__main__":
-    torch.cuda.empty_cache()
-    cfg = get_config()
-    prompt_data = load_tinystories_tokens(cfg["data_path"])
-    eval_prompts = load_tinystories_validation_prompts(cfg["data_path"])[:cfg["num_eval_prompts"]]
-
-    SEED = cfg["seed"]
-    GENERATOR = torch.manual_seed(SEED)
-    np.random.seed(SEED)
-    random.seed(SEED)
-    torch.set_grad_enabled(True)
-
-    device = get_device()
-    model = HookedTransformer.from_pretrained(
-        cfg["model"],
-        center_unembed=True,
-        center_writing_weights=True,
-        fold_ln=True,
-        device=device,
-    )
-
-    cfg["d_mlp"] = model.cfg.d_mlp
-
+def get_autoencoder(cfg: AutoEncoderConfig, device: str, seed: int):
     if cfg["finetune_encoder"] is not None:
         encoder, encoder_cfg = load_encoder(cfg["finetune_encoder"], cfg["model"], model)
         assert encoder_cfg.layer == cfg["layer"]
@@ -464,16 +443,39 @@ if __name__ == "__main__":
 
         autoencoder_dim = d_in * cfg["expansion_factor"]
         encoder = AutoEncoder(
-            autoencoder_dim, reg_coeff=cfg["l1_coeff"], d_in=d_in, seed=SEED, reg="sqrt" if cfg["use_sqrt_reg"] else "l1"
+            autoencoder_dim, reg_coeff=cfg["l1_coeff"], d_in=d_in, seed=seed, reg="sqrt" if cfg["use_sqrt_reg"] else "l1"
         ).to(device)
         print(f"Input dim: {d_in}, autoencoder dim: {autoencoder_dim}")
+    return encoder
+
+
+if __name__ == "__main__":
+    torch.cuda.empty_cache()
+    cfg = get_config()
+    prompt_data = load_tinystories_tokens(cfg["data_path"])
+    eval_prompts = load_tinystories_validation_prompts(cfg["data_path"])[:cfg["num_eval_prompts"]]
+
+    SEED = cfg["seed"]
+    # GENERATOR = torch.manual_seed(SEED)
+    np.random.seed(SEED)
+    random.seed(SEED)
+    torch.set_grad_enabled(True)
+
+    device = get_device()
+    model = HookedTransformer.from_pretrained(
+        cfg["model"],
+        center_unembed=True,
+        center_writing_weights=True,
+        fold_ln=True,
+        device=device,
+    )
+
+    cfg["d_mlp"] = model.cfg.d_mlp
+
+    encoder = get_autoencoder(cfg, device, SEED)
 
     # for l1_coeff in [0.00001, 0.0001, 0.0005, 0.001, 0.01]:
     #     torch.cuda.empty_cache()
     #     cfg["l1_coeff"] = l1_coeff
-    #     main(cfg["model"], cfg["act"], cfg, prompt_data, eval_prompts)
-    # for seed in [47, 48, 49, 50]:
-    #     torch.cuda.empty_cache()
-    #     cfg["seed"] = seed
     #     main(cfg["model"], cfg["act"], cfg, prompt_data, eval_prompts)
     main(encoder, model, cfg, prompt_data, eval_prompts)
