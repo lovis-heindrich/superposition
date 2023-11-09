@@ -33,7 +33,7 @@ import time
 
 class Buffer:
     """
-    This defines a data buffer, to store a bunch of MLP acts that can be used to train the autoencoder. It'll automatically run the model to generate more when it gets halfway empty.
+    This defines a data buffer, to store a bunch of model acts that can be used to train the autoencoder. It'll automatically run the model to generate more when it gets halfway empty.
     """
 
     def __init__(
@@ -44,12 +44,12 @@ class Buffer:
         device
     ):
         self.buffer = torch.zeros(
-            (cfg["buffer_size"], cfg["d_mlp"]),
+            (cfg["buffer_size"], cfg["d_in"]),
             dtype=torch.bfloat16,
             requires_grad=False,
         ).to(device)
         print(
-            f"\nBuffer size: {self.buffer.shape}, batch_shape: {(cfg['batch_size'], cfg['d_mlp'])}"
+            f"\nBuffer size: {self.buffer.shape}, batch_shape: {(cfg['batch_size'], cfg['d_in'])}"
         )
         self.cfg = cfg
         self.token_pointer = 0
@@ -95,14 +95,14 @@ class Buffer:
                     _, cache = self.model.run_with_cache(
                         tokens, names_filter=self.hook_name
                     )
-                mlp_acts = cache[self.hook_name].reshape(-1, self.cfg["d_mlp"])
-                # print(tokens.shape, mlp_acts.shape, self.pointer, self.token_pointer, self.buffer[self.pointer: self.pointer+mlp_acts.shape[0]].shape)
+                acts = cache[self.hook_name].reshape(-1, self.cfg["d_in"])
+                # print(tokens.shape, acts.shape, self.pointer, self.token_pointer, self.buffer[self.pointer: self.pointer+acts.shape[0]].shape)
                 if len(self.buffer) - self.pointer > 0:
-                    truncated_mlp_acts = mlp_acts[: len(self.buffer) - self.pointer]
+                    truncated_acts = acts[: len(self.buffer) - self.pointer]
                     self.buffer[
-                        self.pointer : self.pointer + mlp_acts.shape[0]
-                    ] = truncated_mlp_acts
-                    self.pointer += truncated_mlp_acts.shape[0]
+                        self.pointer : self.pointer + acts.shape[0]
+                    ] = truncated_acts
+                    self.pointer += truncated_acts.shape[0]
                     self.token_pointer += self.cfg["model_batch_size"]
 
         self.pointer = 0
@@ -221,7 +221,7 @@ def main(
     @torch.no_grad()
     def resample_dead_directions(
         encoder: AutoEncoder,
-        eval_batch: Float[Tensor, "batch d_mlp"],
+        eval_batch: Float[Tensor, "batch d_in"],
         dead_directions: Bool[Tensor, "d_enc"],
         num_dead_directions: int,
     ):
@@ -247,7 +247,7 @@ def main(
                 loss_probs, num_dead_directions, replacement=False
             )
             neuron_inputs = eval_batch[indices]
-            neuron_inputs = F.normalize(neuron_inputs, dim=-1)  # batch d_mlp
+            neuron_inputs = F.normalize(neuron_inputs, dim=-1)  # batch d_in
             encoder.W_dec[dead_direction_indices, :] = (
                 neuron_inputs.clone().to(encoder.W_dec.dtype).to(device)
             )
@@ -256,7 +256,7 @@ def main(
             active_directions = torch.argwhere(~dead_directions).flatten()
             active_direction_norms = (
                 encoder.W_enc[:, active_directions].norm(p=2, dim=0).cpu()
-            )  # d_mlp d_active_dir
+            )  # d_in d_active_dir
             mean_active_norm = active_direction_norms.mean() * 0.2
             newly_normalized_inputs = neuron_inputs * mean_active_norm
 
@@ -388,8 +388,8 @@ DEFAULT_CONFIG = {
     "use_wandb": True,
     "num_eval_tokens": 800000,  # Tokens used to resample dead directions
     "num_training_tokens": 5e8,
-    "batch_size": 4096,  # Batch shape is batch_size, d_mlp
-    "buffer_mult": 128,  # Buffer size is batch_size*buffer_mult, d_mlp
+    "batch_size": 4096,  # Batch shape is batch_size, d_in
+    "buffer_mult": 128,  # Buffer size is batch_size*buffer_mult, d_in
     "seq_len": 128,
     "model": "tiny-stories-2L-33M",
     "layer": 1,
@@ -455,20 +455,22 @@ def get_autoencoder(cfg: AutoEncoderConfig, device: str, seed: int):
         assert encoder_cfg.expansion_factor == cfg["expansion_factor"]
         encoder.reg_coeff = cfg["l1_coeff"]
     else:
-        if cfg["act"] == "mlp.hook_post" or cfg["act"] == "mlp.hook_pre":
-            d_in = cfg["d_mlp"]
-        elif cfg["act"] == "hook_mlp_out":
-            d_in = model.cfg.d_model
-        else:
-            raise ValueError(f"Unknown  act_name: {cfg['act']}")
-
-        autoencoder_dim = d_in * cfg["expansion_factor"]
+        autoencoder_dim = cfg['d_in'] * cfg["expansion_factor"]
         encoder = AutoEncoder(
-            autoencoder_dim, reg_coeff=cfg["l1_coeff"], d_in=d_in, seed=seed,
+            autoencoder_dim, reg_coeff=cfg["l1_coeff"], d_in=cfg['d_in'], seed=seed,
             reg="sqrt" if cfg["use_sqrt_reg"] else "l1",
         ).to(device)
-        print(f"Input dim: {d_in}, autoencoder dim: {autoencoder_dim}")
+        print(f"Input dim: {cfg['d_in']}, autoencoder dim: {autoencoder_dim}")
     return encoder
+
+
+def act_name_to_d_in(model: HookedTransformer, act_name: str):
+    if act_name == "mlp.hook_post" or act_name == "mlp.hook_pre":
+        return model.cfg.d_mlp
+    elif act_name == "hook_mlp_out":
+        return model.cfg.d_model
+    else:
+        raise ValueError("Act name not recognised: ", act_name)
 
 
 if __name__ == "__main__":
@@ -494,7 +496,7 @@ if __name__ == "__main__":
         device=device,
     )
 
-    cfg["d_mlp"] = model.cfg.d_mlp
+    cfg["d_in"] = act_name_to_d_in(model, cfg['act'])
 
     encoder = get_autoencoder(cfg, device, SEED)
 

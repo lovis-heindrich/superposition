@@ -13,7 +13,7 @@ from process_tiny_stories_data import (
     load_tinystories_validation_prompts,
     load_tinystories_tokens,
 )
-from sparse_coding.train_autoencoder import get_autoencoder, main
+from sparse_coding.train_autoencoder import get_autoencoder, main, act_name_to_d_in
 from utils.autoencoder_utils import AutoEncoderConfig
 from utils.haystack_utils import get_device
 
@@ -64,7 +64,7 @@ def train(cfg=None):
             fold_ln=True,
             device=device,
         )
-        cfg["d_mlp"] = model.cfg.d_mlp
+        cfg["d_in"] = act_name_to_d_in(model, cfg['act'])
 
         encoder = get_autoencoder(cfg, device, seed)
 
