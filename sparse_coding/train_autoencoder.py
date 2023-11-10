@@ -399,7 +399,7 @@ DEFAULT_CONFIG = {
     "expansion_factor": 8,
     "seed": 47,
     "lr": 1e-4,
-    "l1_coeff": 1e-4,  # Used for both square root and L1 regularization to maintain backwards compatibility
+    "l1_coeff": 3e-4,  # Used for both square root and L1 regularization to maintain backwards compatibility
     "wd": 1e-2,
     "beta1": 0.9,
     "beta2": 0.99,
@@ -491,7 +491,7 @@ if __name__ == "__main__":
 
     cfg["d_in"] = act_name_to_d_in(model, cfg['act'])
 
-    for layer in [1, 2, 3]:
+    for layer in [4, 3]:
         torch.cuda.empty_cache()
         cfg["layer"] = layer
         encoder = get_autoencoder(cfg, device, SEED)
