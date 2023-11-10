@@ -6,6 +6,7 @@ pythia160m/
 pythia-70m/
 europarl/
 .idea/
+cache/
 .DS_Store
 .vscode/
 *.zst
