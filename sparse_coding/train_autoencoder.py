@@ -215,8 +215,8 @@ def main(
     else:
         save_name = "local"
     cfg["save_name"] = save_name
-    os.makedirs(cfg["model"], exist_ok=True)
-    with open(f"{cfg['model']}/{save_name}.json", "w") as f:
+    os.makedirs(f"{cfg['save_path']}/{cfg['model']}", exist_ok=True)
+    with open(f"{cfg['save_path']}/{cfg['model']}/{save_name}.json", "w") as f:
         json.dump(cfg, f, indent=4)
 
     @torch.no_grad()
@@ -356,7 +356,7 @@ def main(
                     encoder.state_dict(), f"{cfg['model']}/{save_name}_{batch_index}.pt"
                 )
             else:
-                torch.save(encoder.state_dict(), f"{cfg['model']}/{save_name}.pt")
+                torch.save(encoder.state_dict(), f"{cfg['save_path']}/{cfg['model']}/{save_name}.pt")
 
         if (batch_index + 1) in reset_steps:
             num_dead_directions = dead_directions.sum().item()
@@ -378,14 +378,15 @@ def main(
             wandb.log(loss_dict)
         encoder_optim.zero_grad()
         del loss, x_reconstruct, mid_acts, l2_loss, l1_loss
-    torch.save(encoder.state_dict(), f"{cfg['model']}/{save_name}.pt")
+    torch.save(encoder.state_dict(), f"{cfg['save_path']}/{cfg['model']}/{save_name}.pt")
     if cfg["use_wandb"]:
         wandb.finish()
 
 
 DEFAULT_CONFIG = {
     "cfg_file": None,
-    "data_path": "data/tinystories",
+    "data_path": "/workspace/data/tinystories",
+    "save_path": "/workspace",
     "use_wandb": True,
     "num_eval_tokens": 800000,  # Tokens used to resample dead directions
     "num_training_tokens": 5e8,
