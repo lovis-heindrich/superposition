@@ -491,7 +491,7 @@ if __name__ == "__main__":
 
     cfg["d_in"] = act_name_to_d_in(model, cfg['act'])
 
-    for layer in [4, 3]:
+    for layer in [3, 2]:
         torch.cuda.empty_cache()
         cfg["layer"] = layer
         encoder = get_autoencoder(cfg, device, SEED)
