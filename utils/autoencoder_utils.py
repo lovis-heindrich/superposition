@@ -587,3 +587,14 @@ def get_encoder_feature_reconstruction_losses(
         loss_encoder_direction_inactive,
         loss_encoder_direction_zeroed,
     )
+
+
+def generate_with_encoder(model: HookedTransformer, autoencoder: AutoEncoder, cfg: AutoEncoderConfig, input: str, k=20):
+    def encode_activations_hook(value, hook):
+        value = value.squeeze(0)
+        _, x_reconstruct, _, _, _ = autoencoder(value)
+        return x_reconstruct.unsqueeze(0)
+    reconstruct_hooks = [(f'blocks.{cfg.layer}.{cfg.act_name}', encode_activations_hook)]
+
+    with model.hooks(reconstruct_hooks):
+        return model.generate(input, k, verbose=False, temperature=0, use_past_kv_cache=False)
