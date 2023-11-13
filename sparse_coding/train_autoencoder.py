@@ -129,50 +129,44 @@ def get_moments(data: torch.Tensor) -> tuple[float, float, float, float]:
     variance = torch.mean((data - mean) ** 2)
     std = torch.sqrt(variance)
     skew = torch.mean(((data - mean) / std) ** 3)
-    kurt = torch.mean(((data - mean) / std) ** 4) - 3  # excess kurtosis
-    return mean.item(), variance.item(), skew.item(), kurt.item()
+    excess_kurt = torch.mean(((data - mean) / std) ** 4) - 3
+    return mean.item(), variance.item(), skew.item(), excess_kurt.item()
 
 
 def decoder_unembed_cosine_sim_mean_kurtosis(
     model: HookedTransformer, layer: int, W_dec: torch.Tensor
 ) -> torch.Tensor:
     """Return mean kurtosis over all decoder features' cosine sims with the unembed (higher is better)"""
-    W_out = model.W_out[layer]
-    resid_dirs = torch.nn.functional.normalize(W_dec @ W_out, dim=-1)
-    unembed = torch.nn.functional.normalize(model.unembed.W_U, dim=0)
+    resid_dirs = F.normalize(W_dec @ model.W_out[layer], dim=-1)
+    unembed = F.normalize(model.unembed.W_U, dim=0)
     cosine_sims = einops.einsum(
         resid_dirs, unembed, "d_hidden d_model, d_model d_vocab -> d_hidden d_vocab"
     )
 
-    vocab_occurs = get_occurring_tokens(
-        model, tuple(load_tinystories_validation_prompts())
-    )
-    cosine_sims = cosine_sims[:, vocab_occurs == 1]
-
-    mean = einops.repeat(cosine_sims.mean(dim=-1), f"d_hidden -> d_hidden {cosine_sims.shape[1]}")
-    std = einops.repeat(cosine_sims.std(dim=-1), f"d_hidden -> d_hidden {cosine_sims.shape[1]}")
-    kurt = torch.mean(((cosine_sims - mean) / std) ** 4) - 3  # excess kurtosis
-
-    return kurt.mean()
+    mean = cosine_sims.mean(dim=-1).unsqueeze(1)
+    std = cosine_sims.std(dim=-1).unsqueeze(1)
+    excess_kurt = torch.mean(((cosine_sims - mean) / std) ** 4) - 3
+    return excess_kurt.mean()
 
 
 def get_cosine_sim_moments(W_enc: torch.Tensor, W_dec: torch.Tensor):
     """Cosine similarity between corresponding features of the encoder and decoder weights"""
     cosine_sim = torch.nn.CosineSimilarity(dim=1)
     sims = cosine_sim(W_enc, W_dec.T)
-    mean = torch.mean(sims)
-    variance = torch.mean((sims - mean) ** 2)
-    std = torch.sqrt(variance)
-    skew = torch.mean(((sims - mean) / std) ** 3)
-    kurt = torch.mean(((sims - mean) / std) ** 4) - 3
-    return mean.item(), variance.item(), skew.item(), kurt.item()
+    return get_moments(sims)
 
 
-def get_entropy(activations: Float[Tensor, "batch d_enc"]) -> float:
+def get_entropy(activations: Float[Tensor, "batch d_hidden"]) -> float:
     """Entropy of the activations"""
     probs = F.normalize(activations, p=1, dim=1)
     entropy = -(probs * torch.log(probs + 1e-8)).sum(dim=1)
     return torch.mean(entropy).item()
+
+
+def get_num_similar_dec_features(W_dec: Float[Tensor, "d_hidden d_mlp"]):
+    normalized_W_dec = F.normalize(W_dec, dim=1)
+    cosine_sims = torch.tril(torch.outer(normalized_W_dec, normalized_W_dec.T), diagonal=-1).flatten()
+    return cosine_sims
 
 
 def main(
@@ -329,6 +323,7 @@ def main(
                     model, cfg["layer"], encoder.W_dec
                 )
             )
+            num_similar_dec_features = get_num_similar_dec_features(encoder.W_dec)
 
             eval_dict = {
                 "reconstruction_loss": reconstruction_loss,
@@ -339,6 +334,7 @@ def main(
                 "feature_cosine_sim_mean": feature_cosine_sim_mean,
                 "feature_cosine_sim_variance": feature_cosine_sim_variance,
                 "mean_feature_unembed_cosine_sim_kurtosis": mean_feature_unembed_cosine_sim_kurtosis,
+                "num_similar_dec_features": num_similar_dec_features,
                 "W_enc_norm": W_enc_norm,
                 "W_dec_norm": W_dec_norm,
                 "entropy": entropy,
