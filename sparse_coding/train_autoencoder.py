@@ -151,7 +151,7 @@ def decoder_unembed_cosine_sim_mean_kurtosis(
 
     mean = einops.repeat(cosine_sims.mean(dim=-1), f"d_hidden -> d_hidden {cosine_sims.shape[1]}")
     std = einops.repeat(cosine_sims.std(dim=-1), f"d_hidden -> d_hidden {cosine_sims.shape[1]}")
-    kurt = torch.mean((cosine_sims - mean / std) ** 4) - 3  # excess kurtosis
+    kurt = torch.mean(((cosine_sims - mean) / std) ** 4) - 3  # excess kurtosis
 
     return kurt.mean()
 
