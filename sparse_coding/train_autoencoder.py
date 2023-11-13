@@ -27,7 +27,7 @@ from utils.autoencoder_utils import (
     AutoEncoderConfig,
     act_name_to_d_in
 )
-from utils.haystack_utils import get_occurring_tokens, get_device
+from utils.haystack_utils import get_device
 from autoencoder import AutoEncoder
 import time
 
@@ -165,7 +165,7 @@ def get_entropy(activations: Float[Tensor, "batch d_hidden"]) -> float:
 
 def get_num_similar_dec_features(W_dec: Float[Tensor, "d_hidden d_mlp"]):
     normalized_W_dec = F.normalize(W_dec, dim=1)
-    cosine_sims = torch.tril(torch.outer(normalized_W_dec, normalized_W_dec.T), diagonal=-1).flatten()
+    cosine_sims = torch.tril(normalized_W_dec @ normalized_W_dec.T, diagonal=-1).flatten()
     return cosine_sims
 
 
@@ -269,7 +269,7 @@ def main(
 
     dead_directions = torch.ones(size=(encoder.d_hidden,)).bool().to(device)
     buffer = Buffer(cfg, model, prompt_data, device)
-    eval_batch = torch.cat(list(islice(buffer, cfg["num_eval_batches"])), dim=0).cpu()
+    eval_batch = torch.cat(list(islice(buffer, cfg["num_eval_batches"])), dim=0).detach().cpu()
     print(f"Eval batch shape: {eval_batch.shape}")
 
     reset_steps = [25000, 50000, 75000, 100000]
@@ -296,55 +296,56 @@ def main(
         }
 
         if (batch_index + 1) % eval_interval == 0:
-            reconstruction_loss = evaluate_autoencoder_reconstruction(
-                encoder,
-                f'blocks.{cfg["layer"]}.{cfg["act"]}',
-                eval_prompts,
-                model,
-                reconstruction_loss_only=True,
-                show_tqdm=False,
-            )
-            b_mean, b_variance, b_skew, b_kurt = get_moments(encoder.b_enc)
-            (
-                feature_cosine_sim_mean,
-                feature_cosine_sim_variance,
-                _,
-                _,
-            ) = get_cosine_sim_moments(encoder.W_enc, encoder.W_dec)
-            W_dec_norm = encoder.W_dec.norm()
-            W_enc_norm = encoder.W_enc.norm()
-            entropy = get_entropy(mid_acts)
-            active_directions = (
-                (mid_acts != 0).sum(dim=-1).mean(dtype=torch.float32).item()
-            )
-            num_dead_directions = dead_directions.sum().item()
-            mean_feature_unembed_cosine_sim_kurtosis = (
-                decoder_unembed_cosine_sim_mean_kurtosis(
-                    model, cfg["layer"], encoder.W_dec
+            with torch.no_grad():
+                reconstruction_loss = evaluate_autoencoder_reconstruction(
+                    encoder,
+                    f'blocks.{cfg["layer"]}.{cfg["act"]}',
+                    eval_prompts,
+                    model,
+                    reconstruction_loss_only=True,
+                    show_tqdm=False,
                 )
-            )
-            num_similar_dec_features = get_num_similar_dec_features(encoder.W_dec)
+                b_mean, b_variance, b_skew, b_kurt = get_moments(encoder.b_enc)
+                (
+                    feature_cosine_sim_mean,
+                    feature_cosine_sim_variance,
+                    _,
+                    _,
+                ) = get_cosine_sim_moments(encoder.W_enc, encoder.W_dec)
+                W_dec_norm = encoder.W_dec.norm()
+                W_enc_norm = encoder.W_enc.norm()
+                entropy = get_entropy(mid_acts)
+                active_directions = (
+                    (mid_acts != 0).sum(dim=-1).mean(dtype=torch.float32).item()
+                )
+                num_dead_directions = dead_directions.sum().item()
+                mean_feature_unembed_cosine_sim_kurtosis = (
+                    decoder_unembed_cosine_sim_mean_kurtosis(
+                        model, cfg["layer"], encoder.W_dec
+                    )
+                )
+                num_similar_dec_features = get_num_similar_dec_features(encoder.W_dec)
 
-            eval_dict = {
-                "reconstruction_loss": reconstruction_loss,
-                "bias_mean": b_mean,
-                "bias_std": b_variance**0.5,
-                "bias_skew": b_skew,
-                "bias_kurtosis": b_kurt,
-                "feature_cosine_sim_mean": feature_cosine_sim_mean,
-                "feature_cosine_sim_variance": feature_cosine_sim_variance,
-                "mean_feature_unembed_cosine_sim_kurtosis": mean_feature_unembed_cosine_sim_kurtosis,
-                "num_similar_dec_features": num_similar_dec_features,
-                "W_enc_norm": W_enc_norm,
-                "W_dec_norm": W_dec_norm,
-                "entropy": entropy,
-                "avg_directions": active_directions,
-                "dead_directions": num_dead_directions,
-            }
-            loss_dict.update(eval_dict)
-            print(
-                f"\n(Batch {batch_index}) Loss: {loss_dict['loss']:.2f}, L2 loss: {loss_dict['l2_loss']:.2f}, L1 loss: {loss_dict['l1_loss']:.2f}, Avg directions: {loss_dict['avg_directions']:.2f}, Dead directions: {num_dead_directions}, Reconstruction loss: {reconstruction_loss:.2f}"
-            )
+                eval_dict = {
+                    "reconstruction_loss": reconstruction_loss,
+                    "bias_mean": b_mean,
+                    "bias_std": b_variance**0.5,
+                    "bias_skew": b_skew,
+                    "bias_kurtosis": b_kurt,
+                    "feature_cosine_sim_mean": feature_cosine_sim_mean,
+                    "feature_cosine_sim_variance": feature_cosine_sim_variance,
+                    "mean_feature_unembed_cosine_sim_kurtosis": mean_feature_unembed_cosine_sim_kurtosis,
+                    "num_similar_dec_features": num_similar_dec_features,
+                    "W_enc_norm": W_enc_norm,
+                    "W_dec_norm": W_dec_norm,
+                    "entropy": entropy,
+                    "avg_directions": active_directions,
+                    "dead_directions": num_dead_directions,
+                }
+                loss_dict.update(eval_dict)
+                print(
+                    f"\n(Batch {batch_index}) Loss: {loss_dict['loss']:.2f}, L2 loss: {loss_dict['l2_loss']:.2f}, L1 loss: {loss_dict['l1_loss']:.2f}, Avg directions: {loss_dict['avg_directions']:.2f}, Dead directions: {num_dead_directions}, Reconstruction loss: {reconstruction_loss:.2f}"
+                )
 
         if (batch_index + 1) % save_interval == 0:
             if cfg["save_checkpoint_models"]:
