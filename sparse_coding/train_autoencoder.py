@@ -284,6 +284,7 @@ def main(
         loss.backward()
         encoder.remove_parallel_component_of_grads()
         encoder_optim.step()
+        encoder.norm_decoder()
 
         dead_directions = ((mid_acts != 0).sum(dim=0) == 0) & dead_directions
 

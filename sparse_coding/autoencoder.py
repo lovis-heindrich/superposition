@@ -41,10 +41,12 @@ class AutoEncoder(nn.Module):
         return loss, x_reconstruct, acts, l2_loss, reg_loss
 
     @torch.no_grad()
+    def norm_decoder(self):
+        self.W_dec /= self.W_dec.norm(dim=-1, keepdim=True)
+
+    @torch.no_grad()
     def remove_parallel_component_of_grads(self):
-        W_dec_normed = self.W_dec / self.W_dec.norm(dim=-1, keepdim=True)
-        W_dec_grad_proj = (self.W_dec.grad * W_dec_normed).sum(
+        W_dec_grad_proj = (self.W_dec.grad * self.W_dec).sum(
             -1, keepdim=True
-        ) * W_dec_normed
+        ) * self.W_dec
         self.W_dec.grad -= W_dec_grad_proj
-        self.W_dec.data = W_dec_normed
