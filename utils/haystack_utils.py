@@ -1394,6 +1394,41 @@ def clean_print_strings_as_html(strings: list[str], color_values: list[float], m
     display(HTML(html))
 
 
+def color_print_strings(strings: list[str], color_values: list[float], max_value: float=None):
+    def normalize(values, max_value=None, min_value=None):
+        if max_value is None:
+            max_value = max(values)
+        if min_value is None:
+            min_value = min(values)
+        min_value = abs(min_value)
+        normalized = [value / max_value if value > 0 else value / min_value for value in values]
+        return normalized
+        
+    # Normalize color values
+    normalized_values = normalize(color_values, max_value, max_value)
+
+    colored_string = ''
+    for i in range(len(strings)):
+        color = color_values[i]
+        normalized_color = normalized_values[i]
+        
+        if color < 0:
+            red = int(max(0, min(255, (1 + normalized_color) * 255)))
+            green = int(max(0, min(255, (1 + normalized_color) * 255)))
+            blue = 255
+        else:
+            red = 255
+            green = int(max(0, min(255, (1 - normalized_color) * 255)))
+            blue = int(max(0, min(255, (1 - normalized_color) * 255)))
+
+        # Convert RGB to 8-bit color for terminal
+        terminal_color = 16 + (36 * (red // 51)) + (6 * (green // 51)) + (blue // 51)
+
+        # Print with ANSI escape code
+        colored_string += f"\x1b[38;5;{terminal_color}m{strings[i]}\x1b[0m"
+    print(colored_string)
+
+
 def get_average_loss_plot_method(activate_context_fwd_hooks, deactivate_context_fwd_hooks, activated_component_name="MLP5",
                                 deactivated_components = ("blocks.4.hook_attn_out", "blocks.5.hook_attn_out", "blocks.4.hook_mlp_out"),
                                 activated_components = ("blocks.5.hook_mlp_out", ), plot=True, return_type="loss", answer_token=None):
