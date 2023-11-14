@@ -183,7 +183,7 @@ def custom_forward(
     acts[:, neuron] = activation
     x_reconstruct = acts @ enc.W_dec + enc.b_dec
     l2_loss = (x_reconstruct - x).pow(2).sum(-1).mean(0)
-    l1_loss = enc.l1_coeff * (acts.abs().sum())
+    l1_loss = enc.reg_coeff * (acts.abs().sum())
     loss = l2_loss + l1_loss
     return loss, x_reconstruct, acts, l2_loss, l1_loss
 
