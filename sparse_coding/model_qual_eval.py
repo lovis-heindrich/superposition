@@ -44,7 +44,8 @@ from sparse_coding.train_autoencoder import AutoEncoder
 from utils.autoencoder_utils import custom_forward, AutoEncoderConfig, evaluate_autoencoder_reconstruction, get_encoder_feature_frequencies, load_encoder
 
 from joblib import Memory
-cachedir = './workspace/cache'
+cachedir = '/workspace/cache'
+data_path = '/workspace/'
 os.makedirs(cachedir, exist_ok=True)
 memory = Memory(cachedir, verbose=0, bytes_limit=20e9)
 
@@ -93,7 +94,7 @@ def main(model_name: str, run_name: str, label_path: str):
         device=haystack_utils.get_device(),
     )
 
-    encoder, cfg = load_encoder(run_name, model_name, model)
+    encoder, cfg = load_encoder(run_name, data_path + model_name, model)
     prompts = load_tinystories_validation_prompts()
     max_activation_per_prompt = get_max_activations(prompts, model, encoder, cfg)
 
