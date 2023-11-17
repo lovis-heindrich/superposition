@@ -37,6 +37,7 @@ class AutoEncoderConfig:
     expansion_factor: int
     l1_coeff: float
     d_in: int | None # TODO(LQ 23/11/09) remove None 
+    run_name: str | None = None
 
     @property
     def encoder_hook_point(self) -> str:
@@ -52,8 +53,9 @@ def act_name_to_d_in(model: HookedTransformer, act_name: str):
         raise ValueError("Act name not recognised: ", act_name)
 
 
-def load_encoder(save_name, model_name, model: HookedTransformer):
-    with open(f"{model_name}/{save_name}.json", "r") as f:
+def load_encoder(save_name, model_name, model: HookedTransformer, save_path="."):
+    path = f"{save_path}/{model_name}/{save_name}"
+    with open(f"{path}.json", "r") as f:
         cfg = json.load(f)
     
     if "d_in" in cfg:
@@ -68,7 +70,7 @@ def load_encoder(save_name, model_name, model: HookedTransformer):
     d_hidden = cfg.d_in * cfg.expansion_factor
 
     encoder = AutoEncoder(d_hidden, cfg.l1_coeff, cfg.d_in)
-    encoder.load_state_dict(torch.load(os.path.join(model_name, save_name + ".pt")))
+    encoder.load_state_dict(torch.load(f"{path}.pt"))
     encoder.to(get_device())
     return encoder, cfg
 
