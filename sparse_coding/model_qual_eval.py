@@ -13,6 +13,7 @@ from torch import Tensor
 import pandas as pd
 sys.path.append('../')  # Add the parent directory to the system path
 from process_tiny_stories_data import load_tinystories_validation_prompts
+from pathlib import Path
 
 pio.renderers.default = "notebook_connected"
 device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
@@ -81,6 +82,11 @@ def load_model(model_name: str, device):
     )
 
 def main(model_name: str, run_name: str, label_file: str):
+    if Path(label_file).is_file():
+        overwrite = print("Model evaluation already exists. Overwrite? Y/n")
+        if overwrite == 'n' or overwrite == 'N':
+            return
+
     model = load_model(model_name, haystack_utils.get_device())
 
     encoder, cfg = load_encoder(run_name, data_path + model_name, model)
@@ -106,23 +112,23 @@ if __name__ == '__main__':
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument(
-        "--model_name",
+        "--model",
         type=str,
         required=True
     )
     parser.add_argument(
-        "--run_name",
+        "--run",
         type=str,
         required=True
     )
     parser.add_argument(
-        "--label_file",
+        "--output",
         type=str,
     )
     args = parser.parse_args()
 
-    os.makedirs(args.model_name, exist_ok=True)
-    label_file = args.label_file or f"/workspace/data/{args.model_name}/{args.run_name}.json"
-    os.makedirs(f"/workspace/data/{args.model_name}", exist_ok=True)
+    os.makedirs(args.model, exist_ok=True)
+    output = args.output or f"/workspace/data/{args.model}/{args.run}.json"
+    os.makedirs(f"/workspace/data/{args.model}", exist_ok=True)
     
-    main(args.model_name, args.run_name, label_file)
+    main(args.model, args.run, output)
