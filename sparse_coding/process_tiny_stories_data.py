@@ -56,7 +56,7 @@ def load_tinystories_tokens(data_path = "data/tinystories", file_name = "data.hf
     return  data
 
 @lru_cache
-def load_tinystories_validation_prompts(data_path = "data/tinystories", file_name = "validation.parquet") -> list[str]:
+def load_tinystories_validation_prompts(data_path = "/workspace/data/tinystories", file_name = "validation.parquet") -> list[str]:
     Path(data_path).mkdir(parents=True, exist_ok=True)
     file_path = f'{data_path}/{file_name}'
     if not os.path.isfile(file_path):

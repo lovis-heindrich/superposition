@@ -72,7 +72,7 @@ def print_top_examples(model: HookedTransformer, encoder: AutoEncoder, cfg: Auto
             haystack_utils.color_print_strings(prompt_tokens, direction_act, max_value=max_direction_act)
 
 @memory.cache
-def load_model(model_name: str, device):
+def load_model(model_name: str, device: str) -> HookedTransformer:
     return HookedTransformer.from_pretrained(
         model_name,
         center_unembed=True,
