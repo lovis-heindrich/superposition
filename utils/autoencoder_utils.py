@@ -43,6 +43,58 @@ class AutoEncoderConfig:
     def encoder_hook_point(self) -> str:
         return f"blocks.{self.layer}.{self.act_name}"
 
+def get_direction_ablation_hook(encoder, direction, hook_pos=None):
+    def subtract_direction_hook(value, hook):
+        
+        x_cent = value[0, :] - encoder.b_dec
+        acts = F.relu(x_cent @ encoder.W_enc[:, direction] + encoder.b_enc[direction])
+        direction_impact_on_reconstruction = einops.einsum(acts, encoder.W_dec[direction, :], "pos, d_mlp -> pos d_mlp") # + encoder.b_dec ???
+        if hook_pos is not None:
+            value[:, hook_pos, :] -= direction_impact_on_reconstruction[hook_pos]
+        else:
+            value[:, :] -= direction_impact_on_reconstruction
+        return value
+    return subtract_direction_hook
+
+def evaluate_direction_ablation_single_prompt(prompt: str, encoder: AutoEncoder, model: HookedTransformer, direction: int, cfg: AutoEncoderConfig, pos: None | int = None) -> float:
+    encoder_hook_point = f"blocks.{cfg.layer}.{cfg.act_name}"
+    if pos is not None:
+        original_loss = model(prompt, return_type="loss", loss_per_token=True)[0, pos]
+    else:
+        original_loss = model(prompt, return_type="loss")
+    
+    with model.hooks(fwd_hooks=[(encoder_hook_point, get_direction_ablation_hook(encoder, direction, pos))]):
+        if pos is not None:
+            ablated_loss = model(prompt, return_type="loss", loss_per_token=True)[0, pos]
+        else:
+            ablated_loss = model(prompt, return_type="loss")
+    return original_loss.item(), ablated_loss.item()
+
+def get_top_activating_examples_for_direction(prompts, direction, max_activations_per_prompt: Tensor, max_activation_token_indices, k=10, mode: Literal["lower", "middle", "upper", "top"]="top"):
+    
+    sorted_activations = max_activations_per_prompt[:, direction].sort().values
+    num_non_zero_activations = sorted_activations[sorted_activations > 0].shape[0]
+
+    max_activation = sorted_activations[-1]
+    if mode=="upper":
+        index = torch.argwhere(sorted_activations > ((max_activation // 3) * 2)).min()
+    elif mode == "middle":
+        index = torch.argwhere(sorted_activations > ((max_activation // 3))).min()
+    else:
+        index = torch.argwhere(sorted_activations > ((max_activation // 10))).min()
+    negative_index = sorted_activations.shape[0] - index
+
+    activations = max_activations_per_prompt[:, direction]
+    _, prompt_indices = activations.topk(num_non_zero_activations+1)
+    if mode=="top":
+        prompt_indices = prompt_indices[:k]
+    else:
+        prompt_indices = prompt_indices[negative_index:negative_index+k]
+    prompt_indices = prompt_indices[:num_non_zero_activations]
+
+    top_prompts = [prompts[i] for i in prompt_indices]
+    token_indices = max_activation_token_indices[prompt_indices, direction]
+    return top_prompts, token_indices
 
 def act_name_to_d_in(model: HookedTransformer, act_name: str):
     if act_name == "mlp.hook_post" or act_name == "mlp.hook_pre":
@@ -307,19 +359,6 @@ def get_trigram_dataset_examples(
     return token_prompts
 
 
-def get_zero_ablate_encoder_direction_hook(
-    encoder: AutoEncoder, encoder_neuron, cfg: AutoEncoderConfig
-):
-    def zero_feature_hook(value, hook):
-        _, x_reconstruct, _, _, _ = custom_forward(
-            encoder, value[:, -1], encoder_neuron, 0
-        )
-        value[:, -1] = x_reconstruct
-        return value
-
-    return [(cfg.encoder_hook_point, zero_feature_hook)]
-
-
 def get_encode_activations_hook(
     encoder: AutoEncoder, encoder_neuron, cfg: AutoEncoderConfig
 ):
@@ -332,84 +371,84 @@ def get_encode_activations_hook(
     return [(cfg.encoder_hook_point, encode_activations_hook)]
 
 
-def get_direction_logit_and_logprob_boost(
-    trigram_tokens: Int[Tensor, "batch pos"],
-    encoder: AutoEncoder,
-    encoder_neuron,
-    model: HookedTransformer,
-    trigram: str,
-    common_tokens: Int[Tensor, "tokens"],
-    all_ignore: Int[Tensor, "tokens"],
-    cfg: AutoEncoderConfig,
-):
-    last_trigram_token = model.to_str_tokens(model.to_tokens(trigram))[-1]
+# def get_direction_logit_and_logprob_boost(
+#     trigram_tokens: Int[Tensor, "batch pos"],
+#     encoder: AutoEncoder,
+#     encoder_neuron,
+#     model: HookedTransformer,
+#     trigram: str,
+#     common_tokens: Int[Tensor, "tokens"],
+#     all_ignore: Int[Tensor, "tokens"],
+#     cfg: AutoEncoderConfig,
+# ):
+#     last_trigram_token = model.to_str_tokens(model.to_tokens(trigram))[-1]
 
-    zero_direction_hook = get_zero_ablate_encoder_direction_hook(
-        encoder, encoder_neuron, cfg
-    )
-    encode_activations_hook = get_encode_activations_hook(encoder, encoder_neuron, cfg)
+#     zero_direction_hook = get_zero_ablate_encoder_direction_hook(
+#         encoder, encoder_neuron, cfg
+#     )
+#     encode_activations_hook = get_encode_activations_hook(encoder, encoder_neuron, cfg)
 
-    with model.hooks(encode_activations_hook):
-        logits_active = model(trigram_tokens[:, :-1], return_type="logits")[:, -1]
+#     with model.hooks(encode_activations_hook):
+#         logits_active = model(trigram_tokens[:, :-1], return_type="logits")[:, -1]
 
-    with model.hooks(zero_direction_hook):
-        logits_inactive = model(trigram_tokens[:, :-1], return_type="logits")[:, -1]
+#     with model.hooks(zero_direction_hook):
+#         logits_inactive = model(trigram_tokens[:, :-1], return_type="logits")[:, -1]
 
-    last_trigram_token_tokenized = model.to_single_token(last_trigram_token)
-    last_token_logit_encoded = (
-        logits_active[:, last_trigram_token_tokenized].mean(0).item()
-    )
-    last_token_logit_zeroed = (
-        logits_inactive[:, last_trigram_token_tokenized].mean(0).item()
-    )
-    logging.info(
-        f"Logit '{last_trigram_token}' when reconstructing activations with encoder: {last_token_logit_encoded:.2f}"
-    )
-    logging.info(
-        f"Logit '{last_trigram_token}' when reconstructing activations with encoder zeroing out the direction: {last_token_logit_zeroed:.2f}"
-    )
+#     last_trigram_token_tokenized = model.to_single_token(last_trigram_token)
+#     last_token_logit_encoded = (
+#         logits_active[:, last_trigram_token_tokenized].mean(0).item()
+#     )
+#     last_token_logit_zeroed = (
+#         logits_inactive[:, last_trigram_token_tokenized].mean(0).item()
+#     )
+#     logging.info(
+#         f"Logit '{last_trigram_token}' when reconstructing activations with encoder: {last_token_logit_encoded:.2f}"
+#     )
+#     logging.info(
+#         f"Logit '{last_trigram_token}' when reconstructing activations with encoder zeroing out the direction: {last_token_logit_zeroed:.2f}"
+#     )
 
-    logprobs_active = logits_active.log_softmax(dim=-1)
-    logprobs_inactive = logits_inactive.log_softmax(dim=-1)
-    last_token_logprob_encoded = (
-        logprobs_active[:, last_trigram_token_tokenized].mean(0).item()
-    )
-    last_token_logprob_zeroed = (
-        logprobs_inactive[:, last_trigram_token_tokenized].mean(0).item()
-    )
-    logging.info(
-        f"Logprob '{last_trigram_token}' when reconstructing activations with encoder: {last_token_logprob_encoded:.2f}"
-    )
-    logging.info(
-        f"Logprob '{last_trigram_token}' when reconstructing activations with encoder zeroing out the direction: {last_token_logprob_zeroed:.2f}"
-    )
+#     logprobs_active = logits_active.log_softmax(dim=-1)
+#     logprobs_inactive = logits_inactive.log_softmax(dim=-1)
+#     last_token_logprob_encoded = (
+#         logprobs_active[:, last_trigram_token_tokenized].mean(0).item()
+#     )
+#     last_token_logprob_zeroed = (
+#         logprobs_inactive[:, last_trigram_token_tokenized].mean(0).item()
+#     )
+#     logging.info(
+#         f"Logprob '{last_trigram_token}' when reconstructing activations with encoder: {last_token_logprob_encoded:.2f}"
+#     )
+#     logging.info(
+#         f"Logprob '{last_trigram_token}' when reconstructing activations with encoder zeroing out the direction: {last_token_logprob_zeroed:.2f}"
+#     )
 
-    boosts = (logprobs_active - logprobs_inactive).mean(0)
-    boosts[logprobs_active.mean(0) < -7] = 0
-    boosts[all_ignore] = 0
-    top_boosts, top_tokens = torch.topk(boosts, 15)
-    non_zero_boosts = top_boosts != 0
-    top_deboosts, top_deboosted_tokens = torch.topk(boosts, 15, largest=False)
-    non_zero_deboosts = top_deboosts != 0
-    boosted_tokens = (
-        model.to_str_tokens(top_tokens[non_zero_boosts]),
-        top_boosts[non_zero_boosts].tolist(),
-    )
-    deboosted_tokens = (
-        model.to_str_tokens(top_deboosted_tokens[non_zero_deboosts]),
-        top_deboosts[non_zero_deboosts].tolist(),
-    )
-    logging.info(f"Top boosted: {boosted_tokens}")
-    logging.info(f"Top deboosted: {deboosted_tokens}")
+#     boosts = (logprobs_active - logprobs_inactive).mean(0)
+#     boosts[logprobs_active.mean(0) < -7] = 0
+#     boosts[all_ignore] = 0
+#     top_boosts, top_tokens = torch.topk(boosts, 15)
+#     non_zero_boosts = top_boosts != 0
+#     top_deboosts, top_deboosted_tokens = torch.topk(boosts, 15, largest=False)
+#     non_zero_deboosts = top_deboosts != 0
+#     boosted_tokens = (
+#         model.to_str_tokens(top_tokens[non_zero_boosts]),
+#         top_boosts[non_zero_boosts].tolist(),
+#     )
+#     deboosted_tokens = (
+#         model.to_str_tokens(top_deboosted_tokens[non_zero_deboosts]),
+#         top_deboosts[non_zero_deboosts].tolist(),
+#     )
+#     logging.info(f"Top boosted: {boosted_tokens}")
+#     logging.info(f"Top deboosted: {deboosted_tokens}")
 
-    return (
-        last_token_logit_encoded,
-        last_token_logit_zeroed,
-        last_token_logprob_encoded,
-        last_token_logprob_zeroed,
-        boosted_tokens,
-        deboosted_tokens,
-    )
+#     return (
+#         last_token_logit_encoded,
+#         last_token_logit_zeroed,
+#         last_token_logprob_encoded,
+#         last_token_logprob_zeroed,
+#         boosted_tokens,
+#         deboosted_tokens,
+#     )
 
 
 def print_direction_activations(
