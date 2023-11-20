@@ -57,6 +57,7 @@ def get_direction_ablation_hook(encoder, direction, hook_pos=None):
     return subtract_direction_hook
 
 def evaluate_direction_ablation_single_prompt(prompt: str, encoder: AutoEncoder, model: HookedTransformer, direction: int, cfg: AutoEncoderConfig, pos: None | int = None) -> float:
+    """ Pos needs to be the absolute position of the token to ablate, negative indexing does not work """
     encoder_hook_point = f"blocks.{cfg.layer}.{cfg.act_name}"
     if pos is not None:
         original_loss = model(prompt, return_type="loss", loss_per_token=True)[0, pos]
