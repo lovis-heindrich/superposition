@@ -9,7 +9,7 @@ import scipy.stats as stats
 from scipy.stats import skew, kurtosis
 import pandas as pd
 
-def line(x, xlabel="", ylabel="", title="", xticks=None, width=800, yaxis=None, hover_data=None, show_legend=True, plot=True):
+def line(x: list[float], xlabel="", ylabel="", title="", xticks=None, width=800, yaxis=None, hover_data=None, show_legend=True, plot=True):
     
     # Avoid empty plot when x contains a single element
     if len(x) > 1:
@@ -32,6 +32,40 @@ def line(x, xlabel="", ylabel="", title="", xticks=None, width=800, yaxis=None, 
     #fig.update_yaxes(range=[3.45, 3.85])
     if hover_data != None:
         fig.update(data=[{'customdata': hover_data, 'hovertemplate': "Loss: %{y:.4f} (+%{customdata:.2f}%)"}])
+    if plot:
+        fig.show()
+    else:
+        return fig
+
+def multiple_line(x: list[list[float]], names: list[str], xlabel="", ylabel="", title="", xticks=None, width=800, yaxis=None, hover_data=None, show_legend=True, plot=True):
+    if len(x) != len(names):
+        raise ValueError("Length of 'x' and 'names' must be the same.")
+
+    # Create a DataFrame for Plotly
+    data = []
+    for line_idx, line in enumerate(x):
+        for point_idx, point in enumerate(line):
+            data.append({'x': point_idx, 'y': point, 'line': names[line_idx]})
+    df = pd.DataFrame(data)
+
+    # Create the figure
+    fig = px.line(df, x='x', y='y', color='line', title=title)
+
+    fig.update_layout(xaxis_title=xlabel, yaxis_title=ylabel, width=width, showlegend=show_legend)
+    if xticks is not None:
+        fig.update_layout(
+            xaxis=dict(
+                tickmode='array',
+                tickvals=[i for i in range(len(xticks))],
+                ticktext=xticks,
+                range=[-0.2, len(xticks)-0.8]
+            ),
+            yaxis=yaxis,
+        )
+
+    if hover_data is not None:
+        fig.update_traces(customdata=hover_data, hovertemplate="Value: %{y:.4f} (+%{customdata:.2f}%)")
+
     if plot:
         fig.show()
     else:
