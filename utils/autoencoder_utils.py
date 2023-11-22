@@ -15,6 +15,7 @@ import logging
 from tqdm import tqdm
 import numpy as np
 import json
+import pickle
 
 import utils.haystack_utils as haystack_utils
 from sparse_coding.autoencoder import AutoEncoder
@@ -42,6 +43,35 @@ class AutoEncoderConfig:
     @property
     def encoder_hook_point(self) -> str:
         return f"blocks.{self.layer}.{self.act_name}"
+
+def get_max_activations(prompts: list[str], model: HookedTransformer, encoder: AutoEncoder, cfg: AutoEncoderConfig):
+    activations = []
+    indices = []
+    for prompt in tqdm(prompts):
+        acts = get_acts(prompt, model, encoder, cfg)[:-1]
+        value, index = acts.max(0)
+        activations.append(value)
+        indices.append(index)
+
+    max_activation_per_prompt = torch.stack(activations)  # n_prompt x d_enc
+    max_activation_token_index = torch.stack(indices)
+
+    total_activations = max_activation_per_prompt.sum(0)
+    print(f"Active directions on validation data: {total_activations.nonzero().shape[0]} out of {total_activations.shape[0]}")
+    return max_activation_per_prompt, max_activation_token_index
+
+def get_activations(encoder, cfg, encoder_name, prompts, model, save_path="/workspace"):
+    path = f"{save_path}/data/{encoder_name}_activations.pkl"
+    if os.path.exists(path):
+        with open(path, "rb") as f:
+            data = pickle.load(f)
+            max_activations = data["max_activations"]
+            max_activation_token_indices = data["max_activation_token_indices"]
+    else:
+        max_activations, max_activation_token_indices = get_max_activations(prompts, model, encoder, cfg)
+        with open(path, "wb") as f:
+            pickle.dump({"max_activations": max_activations, "max_activation_token_indices": max_activation_token_indices}, f)
+    return max_activations, max_activation_token_indices
 
 def get_direction_ablation_hook(encoder, direction, hook_pos=None):
     if type(direction) == int:
