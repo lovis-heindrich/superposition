@@ -80,7 +80,7 @@ def eval_ablation_token_rank(prompt: str, encoder: AutoEncoder, model: HookedTra
     answer_rank = (logits > logits[answer_token_index]).sum().item()
     answer_logprob = logits.log_softmax(dim=-1)[answer_token_index]
     answer_logit = logits[answer_token_index]
-    
+
     with model.hooks(fwd_hooks=[(encoder_hook_point, get_direction_ablation_hook(encoder, direction, pos))]):
         ablated_logits = model(prompt, return_type="logits")[0, pos]
         ablated_answer_rank = (ablated_logits > ablated_logits[answer_token_index]).sum().item()
@@ -88,6 +88,20 @@ def eval_ablation_token_rank(prompt: str, encoder: AutoEncoder, model: HookedTra
         ablated_answer_logit = ablated_logits[answer_token_index]
     return answer_logprob.item(), ablated_answer_logprob.item(), answer_logit.item(), ablated_answer_logit.item(), answer_rank, ablated_answer_rank
 
+def eval_direction_tokens_global(max_activations, prompts, model, encoder, cfg, percentage_threshold = 0.25):
+    max_activation_value = max_activations.max(dim=0)[0]
+    threshold_per_direction = max_activation_value * percentage_threshold
+    token_wise_activations = torch.zeros((encoder.d_hidden, model.cfg.d_vocab), dtype=torch.int32)
+
+    for i, prompt in tqdm(enumerate(prompts), total=len(prompts)):
+        tokens = model.to_tokens(prompt).flatten().cpu()
+        activations = get_acts(prompt, model, encoder, cfg).cpu()
+        num_tokens = activations.shape[0]
+        for position in range(10, num_tokens):
+            valid_directions = torch.argwhere(activations[position] > threshold_per_direction).flatten().cpu()
+            if len(valid_directions) > 0:
+                token_wise_activations[valid_directions, tokens[position]] += 1
+    return token_wise_activations
 
 @torch.no_grad()
 def get_acts(prompt: str | Tensor, model: HookedTransformer, encoder: AutoEncoder, cfg: AutoEncoderConfig):
