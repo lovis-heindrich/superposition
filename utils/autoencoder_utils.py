@@ -44,11 +44,12 @@ class AutoEncoderConfig:
         return f"blocks.{self.layer}.{self.act_name}"
 
 def get_direction_ablation_hook(encoder, direction, hook_pos=None):
+    if type(direction) == int:
+        direction = [direction]
     def subtract_direction_hook(value, hook):
-        
         x_cent = value[0, :] - encoder.b_dec
         acts = F.relu(x_cent @ encoder.W_enc[:, direction] + encoder.b_enc[direction])
-        direction_impact_on_reconstruction = einops.einsum(acts, encoder.W_dec[direction, :], "pos, d_mlp -> pos d_mlp") # + encoder.b_dec ???
+        direction_impact_on_reconstruction = einops.einsum(acts, encoder.W_dec[direction, :], "pos directions, directions d_mlp -> pos d_mlp") # + encoder.b_dec ???
         if hook_pos is not None:
             value[:, hook_pos, :] -= direction_impact_on_reconstruction[hook_pos]
         else:
@@ -56,7 +57,7 @@ def get_direction_ablation_hook(encoder, direction, hook_pos=None):
         return value
     return subtract_direction_hook
 
-def evaluate_direction_ablation_single_prompt(prompt: str, encoder: AutoEncoder, model: HookedTransformer, direction: int, cfg: AutoEncoderConfig, pos: None | int = None) -> float:
+def evaluate_direction_ablation_single_prompt(prompt: str, encoder: AutoEncoder, model: HookedTransformer, direction: int | list[int], cfg: AutoEncoderConfig, pos: None | int = None) -> float:
     """ Pos needs to be the absolute position of the token to ablate, negative indexing does not work """
     encoder_hook_point = f"blocks.{cfg.layer}.{cfg.act_name}"
     if pos is not None:
@@ -70,6 +71,47 @@ def evaluate_direction_ablation_single_prompt(prompt: str, encoder: AutoEncoder,
         else:
             ablated_loss = model(prompt, return_type="loss")
     return original_loss.item(), ablated_loss.item()
+
+def eval_ablation_token_rank(prompt: str, encoder: AutoEncoder, model: HookedTransformer, direction: int | list[int], cfg: AutoEncoderConfig, answer_token: str, pos: int = -2):
+    encoder_hook_point = f"blocks.{cfg.layer}.{cfg.act_name}"
+    answer_token_index = model.to_single_token(answer_token)
+
+    logits = model(prompt, return_type="logits")[0, pos]
+    answer_rank = (logits > logits[answer_token_index]).sum().item()
+    answer_logprob = logits.log_softmax(dim=-1)[answer_token_index]
+    answer_logit = logits[answer_token_index]
+    
+    with model.hooks(fwd_hooks=[(encoder_hook_point, get_direction_ablation_hook(encoder, direction, pos))]):
+        ablated_logits = model(prompt, return_type="logits")[0, pos]
+        ablated_answer_rank = (ablated_logits > ablated_logits[answer_token_index]).sum().item()
+        ablated_answer_logprob = ablated_logits.log_softmax(dim=-1)[answer_token_index]
+        ablated_answer_logit = ablated_logits[answer_token_index]
+    return answer_logprob.item(), ablated_answer_logprob.item(), answer_logit.item(), ablated_answer_logit.item(), answer_rank, ablated_answer_rank
+
+
+@torch.no_grad()
+def get_acts(prompt: str | Tensor, model: HookedTransformer, encoder: AutoEncoder, cfg: AutoEncoderConfig):
+    _, cache = model.run_with_cache(prompt, names_filter=cfg.encoder_hook_point)
+    acts = cache[cfg.encoder_hook_point].squeeze(0)
+    _, _, mid_acts, _, _ = encoder(acts)
+    return mid_acts
+
+
+def get_max_activations(prompts: list[str], model: HookedTransformer, encoder: AutoEncoder, cfg: AutoEncoderConfig):
+    activations = []
+    indices = []
+    for prompt in tqdm(prompts):
+        acts = get_acts(prompt, model, encoder, cfg)[:-1]
+        value, index = acts.max(0)
+        activations.append(value)
+        indices.append(index)
+
+    max_activation_per_prompt = torch.stack(activations)  # n_prompt x d_enc
+    max_activation_token_index = torch.stack(indices)
+
+    total_activations = max_activation_per_prompt.sum(0)
+    print(f"Active directions on validation data: {total_activations.nonzero().shape[0]} out of {total_activations.shape[0]}")
+    return max_activation_per_prompt, max_activation_token_index
 
 def get_top_activating_examples_for_direction(prompts, direction, max_activations_per_prompt: Tensor, max_activation_token_indices, k=10, mode: Literal["lower", "middle", "upper", "top"]="top"):
     
