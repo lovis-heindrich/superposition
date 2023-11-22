@@ -1,60 +1,49 @@
-from accelerate import Accelerator
-from transformers import AdamW, get_scheduler
-from transformers import GPTNeoForCausalLM, GPT2Tokenizer
+import setup
 
 from tqdm.auto import tqdm
 from torch.utils.data import DataLoader
+from accelerate import Accelerator
+from transformers import AdamW, get_scheduler, Trainer, TrainingArguments, GPTNeoForCausalLM, GPT2Tokenizer, GPTNeoConfig, GPTNeoModel, AutoTokenizer, DataCollatorWithPadding
 from datasets import load_dataset
-from transformers import AutoTokenizer, DataCollatorWithPadding
+
+from utils.haystack_utils import load_json_data
 
 
-raw_datasets = load_dataset("glue", "mrpc")
-checkpoint = "bert-base-uncased"
-tokenizer = AutoTokenizer.from_pretrained(checkpoint)
+dataset = load_dataset("roneneldan/TinyStories")
+config = load_json_data('sparse_coding/config/tiny-stories-2L-33M_model.json')
 
+def tokenize_function(examples):
+    examples = tokenizer(examples["text"], padding="max_length", truncation=True)
+    examples["input_ids"] = examples.data['input_ids']
+    examples["labels"] = examples["input_ids"].copy()
+    return examples
 
-def tokenize_function(example):
-    return tokenizer(example["sentence1"], example["sentence2"], truncation=True)
+tokenizer = GPT2Tokenizer.from_pretrained("EleutherAI/gpt-neo-125M")
+tokenizer.pad_token = tokenizer.bos_token
 
+# needs cols required in model forward
+tokenized_datasets = dataset.map(tokenize_function, batched=True)
 
-tokenized_datasets = raw_datasets.map(tokenize_function, batched=True)
-data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+config = GPTNeoConfig.from_json_file('sparse_coding/config/tiny-stories-2L-33M_model.json')
+model = GPTNeoForCausalLM(config)
 
-train_dataloader = DataLoader(
-    tokenized_datasets["train"], shuffle=True, batch_size=8, collate_fn=data_collator
-)
-eval_dataloader = DataLoader(
-    tokenized_datasets["validation"], batch_size=8, collate_fn=data_collator
-)
-
-accelerator = Accelerator()
-
-model = GPTNeoForCausalLM.from_pretrained(checkpoint, num_labels=2)
-optimizer = AdamW(model.parameters(), lr=3e-5)
-
-train_dl, eval_dl, model, optimizer = accelerator.prepare(
-    train_dataloader, eval_dataloader, model, optimizer
-)
-
-num_epochs = 1
-num_training_steps = num_epochs * len(train_dl)
-lr_scheduler = get_scheduler(
-    "linear",
-    optimizer=optimizer,
-    num_warmup_steps=0,
-    num_training_steps=num_training_steps,
+training_args = TrainingArguments(
+    output_dir="./gpt-neo-tinystories",
+    num_train_epochs=1,
+    per_device_train_batch_size=2,
+    per_device_eval_batch_size=2,
+    warmup_steps=500,
+    weight_decay=0.01,
+    logging_dir='./logs',
 )
 
-progress_bar = tqdm(range(num_training_steps))
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=tokenized_datasets["train"],
+    eval_dataset=tokenized_datasets["validation"],
+)
 
-model.train()
-for epoch in range(num_epochs):
-    for batch in train_dl:
-        outputs = model(**batch)
-        loss = outputs.loss
-        accelerator.backward(loss)
+trainer.train()
 
-        optimizer.step()
-        lr_scheduler.step()
-        optimizer.zero_grad()
-        progress_bar.update(1)
+model.save_pretrained("./gpt-neo-tinystories")
