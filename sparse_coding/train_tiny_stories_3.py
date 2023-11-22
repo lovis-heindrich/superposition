@@ -1,3 +1,5 @@
+os.environ['TRANSFORMERS_CACHE'] = "/workspace"
+
 import os
 import pickle
 import torch
@@ -14,10 +16,10 @@ model_name = 'tiny-stories-33M'
 device = "cuda"
 
 dataset = load_dataset("roneneldan/TinyStories")
-cfg = load_json_data(f'sparse_coding/config/{model_name}_model.json')
+cfg = load_json_data(f'/workspace/config/{model_name}_model.json')
 cfg["model"] = model_name
 
-tokenizer = GPT2Tokenizer.from_pretrained("EleutherAI/gpt-neo-125M")
+tokenizer = GPT2Tokenizer.from_pretrained("EleutherAI/gpt-neo-125M", cache_dir="/workspace")
 print("Loaded tokenizer")
 tokenizer.pad_token = tokenizer.bos_token
 
@@ -26,15 +28,7 @@ def tokenize_function(examples):
     return tokenizer(examples["text"], padding="max_length", max_length=cfg["window_size"], truncation=True)
 
 
-# datasets_path = f"workspace/data/{cfg['model']}/tokenized_datasets/da"
-# if os.path.isfile(datasets_path):
-#     with open(datasets_path, 'rb') as f:
-#         tokenized_datasets = pickle.load(f)
-# else:
-#     os.makedirs(datasets_path, exist_ok=True)
 tokenized_datasets = dataset.map(tokenize_function, batched=True)
-#     with open(datasets_path, 'wb') as f:
-#         pickle.dump(tokenized_datasets, f)
 
 
 def collate_fn(batch):
@@ -44,7 +38,7 @@ def collate_fn(batch):
 
 train_dataloader = DataLoader(tokenized_datasets["train"], batch_size=cfg["batch_size"], collate_fn=collate_fn)
 
-config = GPTNeoConfig.from_json_file(f"sparse_coding/config/{cfg['model']}_model.json")
+config = GPTNeoConfig.from_json_file(f"/workspace/config/{cfg['model']}_model.json")
 model = GPTNeoForCausalLM(config).to(device)
 print("Loaded model")
 optim = torch.optim.AdamW(
@@ -71,7 +65,7 @@ with open(f"{cfg['save_path']}/{cfg['model']}/{save_name}.json", "w") as f:
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 model.train()
 print("Training...")
-for epoch in range(cfg["epochs"]):
+for epoch in tqdm(range(cfg["epochs"])):
     for i, (input_ids, labels) in tqdm(enumerate(train_dataloader)):
         input_ids = input_ids.to(device)
         optim.zero_grad()
