@@ -25,6 +25,7 @@ from process_tiny_stories_data import (
 )
 from utils.autoencoder_utils import (
     evaluate_autoencoder_reconstruction,
+    train_autoencoder_evaluate_autoencoder_reconstruction,
     load_encoder,
     AutoEncoderConfig,
     act_name_to_d_in
@@ -300,7 +301,7 @@ def main(
 
         if (batch_index + 1) % eval_interval == 0:
             with torch.no_grad():
-                reconstruction_loss = evaluate_autoencoder_reconstruction(
+                reconstruction_loss, fig = train_autoencoder_evaluate_autoencoder_reconstruction(
                     encoder,
                     f'blocks.{cfg["layer"]}.{cfg["act"]}',
                     eval_prompts,
@@ -344,6 +345,7 @@ def main(
                     "entropy": entropy,
                     "avg_directions": active_directions,
                     "dead_directions": num_dead_directions,
+                    "feature_non_zero_act_means": fig
                 }
                 loss_dict.update(eval_dict)
                 print(
