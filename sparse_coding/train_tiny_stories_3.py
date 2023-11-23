@@ -1,13 +1,18 @@
 import os
 import torch
 import json
+import numpy as np
 from tqdm.auto import tqdm
 import wandb
 from torch.utils.data import DataLoader
 from transformers import GPTNeoForCausalLM, GPT2Tokenizer, GPTNeoConfig
 from datasets import load_dataset
 from utils.haystack_utils import load_json_data, clean_cache
+import torch.distributed as dist
+from torch.utils.data.distributed import DistributedSampler
+from torch.nn.parallel import DistributedDataParallel as DDP
 
+from process_tiny_stories_data import load_tinystories_validation_prompts
 
 cache_dir = '/workspace/cache'
 
@@ -16,7 +21,13 @@ os.environ["TRANSFORMERS_CACHE"] = cache_dir
 os.environ["HF_HOME"] = cache_dir
 
 clean_cache()
-device = "cuda"
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+    torch.cuda.set_device(0)  # set to appropriate CUDA device
+    dist.init_process_group(backend='nccl')
+else:
+    device = "cpu"
+
 model_name = 'tiny-stories-33M'
 cfg = load_json_data(f'/workspace/config/{model_name}_model.json')
 cfg["model"] = model_name
@@ -35,18 +46,25 @@ tokenized_datasets = dataset.map(tokenize_function, batched=True)
 
 def collate_fn(batch):
     input_ids = torch.tensor([item['input_ids'] for item in batch])
-    labels = input_ids.clone()
-    return input_ids, labels
-train_dataloader = DataLoader(tokenized_datasets["train"], batch_size=cfg["batch_size"], collate_fn=collate_fn)
+    labels = input_ids.clone()[:, 1:]
+    return input_ids[:, 1:], labels
+
+train_sampler = DistributedSampler(tokenized_datasets["train"])
+train_dataloader = DataLoader(tokenized_datasets["train"], batch_size=cfg["batch_size"], collate_fn=collate_fn, sampler=train_sampler)
 
 config = GPTNeoConfig.from_json_file(f"/workspace/config/{cfg['model']}_model.json")
-model = GPTNeoForCausalLM(config).to(device)
+model = GPTNeoForCausalLM(config)
+if torch.cuda.device_count() > 1:
+    model = DDP(model)
+model.to(device)
+
 optim = torch.optim.AdamW(
     model.parameters(),
     lr=cfg["lr"],
     betas=(cfg["beta1"], cfg["beta2"]),
     weight_decay=cfg["wd"]
 )
+validation_prompts = load_tinystories_validation_prompts()[:100]
 
 if cfg["use_wandb"]:
     wandb.init(project=f'{cfg["model"]}', config=cfg)
@@ -64,23 +82,32 @@ with open(f"{cfg['save_path']}/{cfg['model']}/{save_name}.json", "w") as f:
 
 model.train()
 for epoch in range(cfg["epochs"]):
+    train_sampler.set_epoch(epoch)
     for i, (input_ids, labels) in tqdm(enumerate(train_dataloader)):
         input_ids = input_ids.to(device)
         optim.zero_grad()
-        outputs = model(input_ids[:, :-1], labels=input_ids[:, 1:])
+        outputs = model(input_ids, labels)
         loss = outputs.loss
         loss.backward()
         optim.step()
 
-        if cfg["use_wandb"]:
+        with torch.no_grad():
             log_dict = {
                 "batch": i,
                 "loss": loss.item(),
                 "epoch": epoch,
             }
-            wandb.log(log_dict)
 
-        if i % (10_000 // cfg['batch_size']) == 0:
-            torch.save(model.state_dict(), f"{cfg['save_path']}/{cfg['model']}/{save_name}_{i}.pt")
+            if i % (10_000 // cfg['batch_size']) == 0:
+                torch.save(model.state_dict(), f"{cfg['save_path']}/{cfg['model']}/{save_name}_{i}.pt")
+
+                reconstruction_losses = []
+                for prompt in validation_prompts:
+                    reconstruction_losses.append(model(prompt, return_type='loss').item())
+                    log_dict['reconstruction_loss'] = np.mean(reconstruction_losses)
+
+            if cfg["use_wandb"]:  
+                wandb.log(log_dict)
+                
 
 torch.save(model.state_dict(), f"{cfg['save_path']}/{cfg['model']}/{save_name}.pt")

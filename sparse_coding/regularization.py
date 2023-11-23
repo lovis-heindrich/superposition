@@ -28,7 +28,6 @@ def hoyer_d(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:
 
 @regularization
 def l1(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:
-    print(type(reg_coeff * acts.abs().sum()))
     return reg_coeff * acts.abs().sum()
 
 
