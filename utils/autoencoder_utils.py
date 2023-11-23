@@ -88,20 +88,24 @@ def get_direction_ablation_hook(encoder, direction, hook_pos=None):
         return value
     return subtract_direction_hook
 
-def evaluate_direction_ablation_single_prompt(prompt: str, encoder: AutoEncoder, model: HookedTransformer, direction: int | list[int], cfg: AutoEncoderConfig, pos: None | int = None) -> float:
+def evaluate_direction_ablation_single_prompt(prompt: str, encoder: AutoEncoder, model: HookedTransformer, direction: int | list[int], cfg: AutoEncoderConfig, pos: None | int = None, loss_per_token=False) -> float:
     """ Pos needs to be the absolute position of the token to ablate, negative indexing does not work """
     encoder_hook_point = f"blocks.{cfg.layer}.{cfg.act_name}"
     if pos is not None:
-        original_loss = model(prompt, return_type="loss", loss_per_token=True)[0, pos]
+        original_loss = model(prompt, return_type="loss", loss_per_token=True)[0, pos].item()
+    elif not loss_per_token:
+        original_loss = model(prompt, return_type="loss").item()
     else:
-        original_loss = model(prompt, return_type="loss")
+        original_loss = model(prompt, return_type="loss", loss_per_token=True)
     
     with model.hooks(fwd_hooks=[(encoder_hook_point, get_direction_ablation_hook(encoder, direction, pos))]):
         if pos is not None:
-            ablated_loss = model(prompt, return_type="loss", loss_per_token=True)[0, pos]
+            ablated_loss = model(prompt, return_type="loss", loss_per_token=True)[0, pos].item()
+        elif not loss_per_token:
+            ablated_loss = model(prompt, return_type="loss").item()
         else:
-            ablated_loss = model(prompt, return_type="loss")
-    return original_loss.item(), ablated_loss.item()
+            ablated_loss = model(prompt, return_type="loss", loss_per_token=True)
+    return original_loss, ablated_loss
 
 def eval_ablation_token_rank(prompt: str, encoder: AutoEncoder, model: HookedTransformer, direction: int | list[int], cfg: AutoEncoderConfig, answer_token: str, pos: int = -2):
     encoder_hook_point = f"blocks.{cfg.layer}.{cfg.act_name}"

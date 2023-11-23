@@ -1379,7 +1379,8 @@ def clean_print_strings_as_html(strings: list[str], color_values: list[float], m
         text_color = "black" if luminance > 0.5 else "white"
 
         #visible_string = re.sub(r'\s+', '&nbsp;', strings[i])
-        visible_string = re.sub(r'\s+', '_', strings[i])
+        visible_string = re.sub(r'\n', '¶', strings[i])
+        visible_string = re.sub(r'\s+', '·', visible_string)
         # visible_string = re.sub(r"[\n\t\s\r]*", "", visible_string)
 
         html += f'<span style="background-color: rgb({red}, {green}, {blue}); color: {text_color}; padding: 2px;" '

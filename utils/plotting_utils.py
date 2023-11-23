@@ -181,3 +181,42 @@ def get_neuron_moments(
             tensor_numpy = acts[:, i].numpy()
             neuron_moments.append((layer, neuron, skew(tensor_numpy), kurtosis(tensor_numpy)))
     return pd.DataFrame(neuron_moments, columns=['layer', 'neuron', 'skew', 'kurtosis'])
+
+
+def plot_square_heatmap(data, labels, title=""):
+    """
+    Plots a square heatmap using Plotly with 
+    the diagonal going from top left to bottom right.
+
+    :param data: A square numpy array or PyTorch tensor.
+    :param labels: List of labels for the x and y axis.
+    """
+    # Convert PyTorch tensor to numpy array if necessary
+    if isinstance(data, torch.Tensor):
+        data = data.cpu().numpy()
+    labels = [f"{direction}" for direction in labels]
+    # Ensuring the data is square
+    assert data.shape[0] == data.shape[1], "Data must be a square matrix"
+
+    # Setting the lower triangle to 0 and flipping the matrix for correct orientation
+    data = np.flipud(np.triu(data))
+
+    # Creating the heatmap using Plotly
+    fig = go.Figure(data=go.Heatmap(
+        z=data,
+        x=labels,
+        y=labels[::-1],  # Reverse the y-axis labels to match the flipped data
+        colorscale="amp"
+    ))
+
+    # Updating the layout
+    fig.update_layout(
+        title=title,
+        xaxis_nticks=len(labels),
+        yaxis_nticks=len(labels),
+        autosize=False,    # This allows us to set a specific width and height
+        width=600,         # Width of the figure in pixels
+        height=600
+    )
+
+    return fig
