@@ -2,13 +2,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 from typing import Literal, Callable
-
-
-regularization_fns: dict[str, Callable] = {}
-def regularization(reg_fn: Callable):
-    regularization_fns[reg_fn.__name__] = reg_fn
-    return reg_fn
-
+from regularization import REGULARIZATION_FNS
 
 class AutoEncoder(nn.Module):
     def __init__(
@@ -36,7 +30,7 @@ class AutoEncoder(nn.Module):
         acts = F.relu(x_cent @ self.W_enc + self.b_enc)
         x_reconstruct = acts @ self.W_dec + self.b_dec
         l2_loss = (x_reconstruct - x).pow(2).sum(-1).mean(0)
-        reg_loss = regularization_fns[self.reg](acts)
+        reg_loss = REGULARIZATION_FNS[self.reg](acts, self.reg_coeff)
         loss = l2_loss + reg_loss
         return loss, x_reconstruct, acts, l2_loss, reg_loss
 
@@ -52,20 +46,3 @@ class AutoEncoder(nn.Module):
         self.W_dec.grad -= W_dec_grad_proj
 
 
-    @regularization
-    def _hoyer(self, acts):
-        l1 = acts.abs().sum()
-        l2 = (acts ** 2).sum().sqrt()
-        return self.reg_coeff * (l1 / l2)
-
-
-    @regularization
-    def _l1(self, acts):
-        return self.reg_coeff * acts.abs().sum()
-
-
-    @regularization
-    def _sqrt(self, acts):
-        reg_loss_per_act = self.reg_coeff * acts.abs()
-        reg_loss_per_act[(acts > 0) & (acts < 1)] **= 0.5
-        reg_loss = reg_loss_per_act.sum()
