@@ -17,7 +17,7 @@ def hoyer(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:
 
 
 @regularization
-def hoyer_square_density(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:
+def hoyer_d(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:
     '''from paper on signSGD'''
     l1 = acts.abs().sum()
     l2 = (acts ** 2).sum().sqrt()

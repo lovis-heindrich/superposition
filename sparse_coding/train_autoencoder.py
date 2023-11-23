@@ -399,13 +399,13 @@ DEFAULT_CONFIG = {
     "expansion_factor": 8,
     "seed": 47,
     "lr": 1e-4,
-    "l1_coeff": 2e-3,  # Used for all regularization types to maintain backwards compatibility
+    "l1_coeff": 0.02,  # Used for all regularization types to maintain backwards compatibility
     "wd": 1e-2,
     "beta1": 0.9,
     "beta2": 0.99,
     "num_eval_prompts": 200,  # Used for periodic evaluation logs
     "save_checkpoint_models": False,
-    "reg": "l1", # l1 | sqrt | hoyer
+    "reg": "l1", # l1 | sqrt | hoyer | hoyer_d
     "finetune_encoder": None,
 }
 
