@@ -1,7 +1,4 @@
-os.environ['TRANSFORMERS_CACHE'] = "/workspace"
-
 import os
-import pickle
 import torch
 import json
 from tqdm.auto import tqdm
@@ -11,23 +8,28 @@ from transformers import GPTNeoForCausalLM, GPT2Tokenizer, GPTNeoConfig
 from datasets import load_dataset
 from utils.haystack_utils import load_json_data, clean_cache
 
-clean_cache()
-model_name = 'tiny-stories-33M'
-device = "cuda"
 
-dataset = load_dataset("roneneldan/TinyStories")
+cache_dir = '/workspace/cache'
+
+os.makedirs(cache_dir, exist_ok=True)
+os.environ["TRANSFORMERS_CACHE"] = cache_dir
+os.environ["HF_HOME"] = cache_dir
+
+clean_cache()
+device = "cuda"
+model_name = 'tiny-stories-33M'
 cfg = load_json_data(f'/workspace/config/{model_name}_model.json')
 cfg["model"] = model_name
 
-tokenizer = GPT2Tokenizer.from_pretrained("EleutherAI/gpt-neo-125M", cache_dir="/workspace")
-print("Loaded tokenizer")
+
+dataset = load_dataset("roneneldan/TinyStories")
+
+tokenizer = GPT2Tokenizer.from_pretrained("EleutherAI/gpt-neo-125M")
 tokenizer.pad_token = tokenizer.bos_token
 
 
 def tokenize_function(examples):
     return tokenizer(examples["text"], padding="max_length", max_length=cfg["window_size"], truncation=True)
-
-
 tokenized_datasets = dataset.map(tokenize_function, batched=True)
 
 
@@ -35,12 +37,10 @@ def collate_fn(batch):
     input_ids = torch.tensor([item['input_ids'] for item in batch])
     labels = input_ids.clone()
     return input_ids, labels
-
 train_dataloader = DataLoader(tokenized_datasets["train"], batch_size=cfg["batch_size"], collate_fn=collate_fn)
 
 config = GPTNeoConfig.from_json_file(f"/workspace/config/{cfg['model']}_model.json")
 model = GPTNeoForCausalLM(config).to(device)
-print("Loaded model")
 optim = torch.optim.AdamW(
     model.parameters(),
     lr=cfg["lr"],
@@ -62,10 +62,8 @@ os.makedirs(f"{cfg['save_path']}/{cfg['model']}", exist_ok=True)
 with open(f"{cfg['save_path']}/{cfg['model']}/{save_name}.json", "w") as f:
     json.dump(cfg, f, indent=4)
 
-os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 model.train()
-print("Training...")
-for epoch in tqdm(range(cfg["epochs"])):
+for epoch in range(cfg["epochs"]):
     for i, (input_ids, labels) in tqdm(enumerate(train_dataloader)):
         input_ids = input_ids.to(device)
         optim.zero_grad()
@@ -82,5 +80,7 @@ for epoch in tqdm(range(cfg["epochs"])):
             }
             wandb.log(log_dict)
 
-        if i % 10_000 == 0:
+        if i % (10_000 // cfg['batch_size']) == 0:
             torch.save(model.state_dict(), f"{cfg['save_path']}/{cfg['model']}/{save_name}_{i}.pt")
+
+torch.save(model.state_dict(), f"{cfg['save_path']}/{cfg['model']}/{save_name}.pt")
