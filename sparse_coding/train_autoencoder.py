@@ -2,6 +2,8 @@ import os
 import sys
 
 sys.path.append("../")
+import setup
+
 import json
 import random
 import argparse
@@ -403,7 +405,7 @@ DEFAULT_CONFIG = {
     "beta2": 0.99,
     "num_eval_prompts": 200,  # Used for periodic evaluation logs
     "save_checkpoint_models": False,
-    "use_sqrt_reg": False,
+    "reg": "l1", # l1 | sqrt | hoyer
     "finetune_encoder": None,
 }
 
@@ -457,8 +459,7 @@ def get_autoencoder(cfg: AutoEncoderConfig, device: str, seed: int):
     else:
         autoencoder_dim = cfg['d_in'] * cfg["expansion_factor"]
         encoder = AutoEncoder(
-            autoencoder_dim, reg_coeff=cfg["l1_coeff"], d_in=cfg['d_in'], seed=seed,
-            reg="sqrt" if cfg["use_sqrt_reg"] else "l1",
+            autoencoder_dim, reg_coeff=cfg["l1_coeff"], d_in=cfg['d_in'], seed=seed, reg=cfg["reg"]
         ).to(device)
         print(f"Input dim: {cfg['d_in']}, autoencoder dim: {autoencoder_dim}")
     return encoder
