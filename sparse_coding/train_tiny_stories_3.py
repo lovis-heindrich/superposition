@@ -24,6 +24,7 @@ cache_dir = '/workspace/cache'
 os.makedirs(cache_dir, exist_ok=True)
 os.environ["TRANSFORMERS_CACHE"] = cache_dir
 os.environ["HF_HOME"] = cache_dir
+os.environ["WANDB_SILENT"] = "true"
 
 
 def train():
@@ -53,7 +54,7 @@ def train():
     def collate_fn(batch):
         input_ids = torch.tensor([item['input_ids'] for item in batch])
         labels = input_ids.clone()[:, 1:]
-        return input_ids[:, 1:], labels
+        return input_ids[:, :-1], labels
 
     train_sampler = DistributedSampler(tokenized_datasets["train"])
     train_dataloader = DataLoader(tokenized_datasets["train"], batch_size=cfg["batch_size"], collate_fn=collate_fn, sampler=train_sampler)
