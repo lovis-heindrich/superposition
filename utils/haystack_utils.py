@@ -403,7 +403,7 @@ def load_txt_data(path: str) -> List[str]:
     )
     return data
 
-def load_json_data(path: str) -> list[str]:
+def load_json_data(path: str) -> list[str] | dict[str]:
     with open(path, 'r') as f:
         data = json.load(f)
 
