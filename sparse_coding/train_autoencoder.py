@@ -283,7 +283,7 @@ def main(
 
     for batch_index in tqdm(range(num_training_batches)):
         batch = next(buffer)
-        loss, x_reconstruct, mid_acts, l2_loss, l1_loss = encoder(batch.to(device))
+        loss, x_reconstruct, mid_acts, mse_loss, reg_loss = encoder(batch.to(device))
         loss.backward()
         encoder.remove_parallel_component_of_grads()
         encoder_optim.step()
@@ -294,8 +294,8 @@ def main(
         loss_dict = {
             "batch": batch_index,
             "loss": loss.item(),
-            "l2_loss": l2_loss.item(),
-            "l1_loss": l1_loss.item(),
+            "mse_loss": mse_loss.item(),
+            "reg_loss": reg_loss.item(),
             "epoch": buffer.epoch,
         }
 
@@ -349,7 +349,7 @@ def main(
                 }
                 loss_dict.update(eval_dict)
                 print(
-                    f"\n(Batch {batch_index}) Loss: {loss_dict['loss']:.2f}, L2 loss: {loss_dict['l2_loss']:.2f}, L1 loss: {loss_dict['l1_loss']:.2f}, Avg directions: {loss_dict['avg_directions']:.2f}, Dead directions: {num_dead_directions}, Reconstruction loss: {reconstruction_loss:.2f}"
+                    f"\n(Batch {batch_index}) Loss: {loss_dict['loss']:.2f}, MSE loss: {loss_dict['mse_loss']:.2f}, reg_loss: {loss_dict['reg_loss']:.2f}, Avg directions: {loss_dict['avg_directions']:.2f}, Dead directions: {num_dead_directions}, Reconstruction loss: {reconstruction_loss:.2f}"
                 )
 
         if (batch_index + 1) % save_interval == 0:
@@ -379,7 +379,7 @@ def main(
         if cfg["use_wandb"]:
             wandb.log(loss_dict)
         encoder_optim.zero_grad()
-        del loss, x_reconstruct, mid_acts, l2_loss, l1_loss
+        del loss, x_reconstruct, mid_acts, mse_loss, reg_loss
     torch.save(encoder.state_dict(), f"{cfg['save_path']}/{cfg['model']}/{save_name}.pt")
     if cfg["use_wandb"]:
         wandb.finish()
@@ -401,7 +401,7 @@ DEFAULT_CONFIG = {
     "expansion_factor": 8,
     "seed": 47,
     "lr": 1e-4,
-    "l1_coeff": 0.01,  # Used for all regularization types to maintain backwards compatibility
+    "l1_coeff": 0.015,  # Used for all regularization types to maintain backwards compatibility
     "wd": 1e-2,
     "beta1": 0.9,
     "beta2": 0.99,

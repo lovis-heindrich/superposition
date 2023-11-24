@@ -104,7 +104,7 @@ def train():
                     "epoch": epoch,
                 }
 
-                if i % (10_000 // cfg['batch_size']) == 0 and local_rank == 0:
+                if i % (20_000 // cfg['batch_size']) == 0 and local_rank == 0:
                     torch.save(model.state_dict(), f"{cfg['save_path']}/{cfg['model']}/{save_name}_{i}.pt")
 
                     reconstruction_losses = []

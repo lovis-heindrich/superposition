@@ -8,8 +8,7 @@ def regularization(reg_fn: Callable):
 
 
 @regularization
-def hoyer(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:
-    '''hoyer square'''
+def hoyer_square(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:
     l1_squared = acts.abs().sum() ** 2
     l2_squared = (acts ** 2).sum()
     hoyer_square = l1_squared  / l2_squared
