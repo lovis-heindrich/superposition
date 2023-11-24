@@ -6,6 +6,13 @@ def regularization(reg_fn: Callable):
     REGULARIZATION_FNS[reg_fn.__name__] = reg_fn
     return reg_fn
 
+@regularization
+def hoyer_d_scaled_l1(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:
+    l1_squared = acts.abs().sum() ** 2
+    l2_squared = (acts ** 2).sum()
+    hoyer_square = l1_squared  / l2_squared
+    hoyer_square_normalized = hoyer_square / acts.shape[-1]
+    return hoyer_square_normalized * reg_coeff * acts.abs().sum()
 
 @regularization
 def hoyer_square(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:

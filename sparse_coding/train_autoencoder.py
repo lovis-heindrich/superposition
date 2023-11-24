@@ -278,7 +278,7 @@ def main(
     reset_steps = [25000, 50000, 75000, 100000]
     count_dead_direction_steps = [step - 12500 for step in reset_steps]
     dead_directions_reset_interval = 50000
-    eval_interval = 1000
+    eval_interval = 500
     save_interval = 10000
 
     for batch_index in tqdm(range(num_training_batches)):
@@ -299,7 +299,7 @@ def main(
             "epoch": buffer.epoch,
         }
 
-        if (batch_index + 1) % eval_interval == 0:
+        if ((batch_index + 1) % eval_interval == 0):
             with torch.no_grad():
                 reconstruction_loss, fig = train_autoencoder_evaluate_autoencoder_reconstruction(
                     encoder,
@@ -391,14 +391,14 @@ DEFAULT_CONFIG = {
     "save_path": "/workspace",
     "use_wandb": True,
     "num_eval_tokens": 800000,  # Tokens used to resample dead directions
-    "num_training_tokens": 5e8,
+    "num_training_tokens": 0.5e8,
     "batch_size": 4096,  # Batch shape is batch_size, d_in
     "buffer_mult": 128,  # Buffer size is batch_size*buffer_mult, d_in
     "seq_len": 128,
-    "model": "tiny-stories-33M",
-    "layer": 3,
+    "model": "tiny-stories-2L-33M",
+    "layer": 1,
     "act": "mlp.hook_post",
-    "expansion_factor": 8,
+    "expansion_factor": 4,
     "seed": 47,
     "lr": 1e-4,
     "l1_coeff": 0.015,  # Used for all regularization types to maintain backwards compatibility
@@ -407,7 +407,7 @@ DEFAULT_CONFIG = {
     "beta2": 0.99,
     "num_eval_prompts": 200,  # Used for periodic evaluation logs
     "save_checkpoint_models": False,
-    "reg": "l1", # l1 | sqrt | hoyer | hoyer_d
+    "reg": "hoyer_d_scaled_l1", # l1 | sqrt | hoyer | hoyer_d | hoyer_d_scaled_l1
     "finetune_encoder": None,
 }
 
