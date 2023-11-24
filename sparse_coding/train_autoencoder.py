@@ -401,7 +401,7 @@ DEFAULT_CONFIG = {
     "expansion_factor": 8,
     "seed": 47,
     "lr": 1e-4,
-    "l1_coeff": 0.02,  # Used for all regularization types to maintain backwards compatibility
+    "l1_coeff": 0.01,  # Used for all regularization types to maintain backwards compatibility
     "wd": 1e-2,
     "beta1": 0.9,
     "beta2": 0.99,

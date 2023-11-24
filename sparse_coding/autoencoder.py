@@ -29,10 +29,10 @@ class AutoEncoder(nn.Module):
         x_cent = x - self.b_dec
         acts = F.relu(x_cent @ self.W_enc + self.b_enc)
         x_reconstruct = acts @ self.W_dec + self.b_dec
-        l2_loss = (x_reconstruct - x).pow(2).sum(-1).mean(0)
+        mse_loss = (x_reconstruct - x).pow(2).sum(-1).mean(0)
         reg_loss = REGULARIZATION_FNS[self.reg](acts, self.reg_coeff)
-        loss = l2_loss + reg_loss
-        return loss, x_reconstruct, acts, l2_loss, reg_loss
+        loss = mse_loss + reg_loss
+        return loss, x_reconstruct, acts, mse_loss, reg_loss
 
     @torch.no_grad()
     def norm_decoder(self):
