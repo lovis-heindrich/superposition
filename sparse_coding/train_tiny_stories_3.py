@@ -1,7 +1,12 @@
 import os
 import torch
 import json
+import argparse
 import numpy as np
+import sys
+sys.path.append('./')
+sys.path.append('../')
+# import setup
 from tqdm.auto import tqdm
 import wandb
 from torch.utils.data import DataLoader
@@ -11,9 +16,10 @@ from utils.haystack_utils import load_json_data, clean_cache
 import torch.distributed as dist
 from torch.utils.data.distributed import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.distributed.elastic.multiprocessing.errors import record
+from sparse_coding.process_tiny_stories_data import load_tinystories_validation_prompts
 
-from process_tiny_stories_data import load_tinystories_validation_prompts
-
+HAS_WORKSPACE = False
 cache_dir = '/workspace/cache'
 
 os.makedirs(cache_dir, exist_ok=True)
@@ -21,7 +27,9 @@ os.environ["TRANSFORMERS_CACHE"] = cache_dir
 os.environ["HF_HOME"] = cache_dir
 
 
-def train(world_size: int, rank: int):
+def train():
+    local_rank = int(os.environ["LOCAL_RANK"])
+    local_world_size = int(os.environ["LOCAL_WORLD_SIZE"])
     n = torch.cuda.device_count() // local_world_size
     device_ids = list(range(local_rank * n, (local_rank + 1) * n))
 
@@ -64,8 +72,10 @@ def train(world_size: int, rank: int):
         weight_decay=cfg["wd"]
     )
     validation_prompts = load_tinystories_validation_prompts()[:100]
+    tokenized_validation = [tokenizer(prompt, padding="max_length", max_length=cfg["window_size"], truncation=True) for prompt in validation_prompts]
+    print(tokenized_validation[0].keys())
 
-    if cfg["use_wandb"]:
+    if cfg["use_wandb"] and local_rank == 0:
         wandb.init(project=f'{cfg["model"]}', config=cfg)
         wandb_name = wandb.run.name
         save_name = f"{wandb_name.split('-')[-1]}_" + "_".join(
@@ -83,9 +93,9 @@ def train(world_size: int, rank: int):
     for epoch in range(cfg["epochs"]):
         train_sampler.set_epoch(epoch)
         for i, (input_ids, labels) in tqdm(enumerate(train_dataloader)):
-            input_ids = input_ids.to(device)
+            input_ids = input_ids.to(f"cuda:{n}")
             optim.zero_grad()
-            outputs = model(input_ids, labels)
+            outputs = model(input_ids, labels=labels)
             loss = outputs.loss
             loss.backward()
             optim.step()
@@ -97,41 +107,37 @@ def train(world_size: int, rank: int):
                     "epoch": epoch,
                 }
 
-                if i % (10_000 // cfg['batch_size']) == 0:
+                if i % (10_000 // cfg['batch_size']) == 0 and local_rank == 0:
                     torch.save(model.state_dict(), f"{cfg['save_path']}/{cfg['model']}/{save_name}_{i}.pt")
 
                     reconstruction_losses = []
-                    for prompt in validation_prompts:
-                        reconstruction_losses.append(model(prompt, return_type='loss').item())
+                    for tokenized_prompt in tokenized_validation:
+                        # print(type(tokenized_prompt['input_ids']))
+                        # print(tokenized_prompt['input_ids'])
+                        tokens = torch.tensor(tokenized_prompt['input_ids'])
+                        # print(tokens)
+                        reconstruction_losses.append(model(tokens[:-1], labels=tokens[1:]).loss.item())
                         log_dict['reconstruction_loss'] = np.mean(reconstruction_losses)
 
-                if cfg["use_wandb"]:  
+                if cfg["use_wandb"] and local_rank == 0:  
                     wandb.log(log_dict)
                     
 
     torch.save(model.state_dict(), f"{cfg['save_path']}/{cfg['model']}/{save_name}.pt")
 
 
-def main(world_size: int, rank: int):
+@record
+def main():
     env_dict = {
         key: os.environ[key]
         for key in ("MASTER_ADDR", "MASTER_PORT", "RANK", "WORLD_SIZE")
     }
     print(f"[{os.getpid()}] Initializing process group with: {env_dict}")
+    
     dist.init_process_group(backend="nccl")
-    print(
-        f"[{os.getpid()}] world_size = {dist.get_world_size()}, "
-        + f"rank = {dist.get_rank()}, backend={dist.get_backend()}"
-    )
-
-    train(local_world_size, local_rank)
-
+    train()
     dist.destroy_process_group()
 
     
-if __name__ == "main":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--local_rank", type=int, default=0)
-    parser.add_argument("--local_world_size", type=int, default=1)
-    args = parser.parse_args()
-    main(args.local_world_size, args.local_rank)
+if __name__ == "__main__":
+    main()
