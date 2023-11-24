@@ -19,9 +19,8 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.distributed.elastic.multiprocessing.errors import record
 from sparse_coding.process_tiny_stories_data import load_tinystories_validation_prompts
 
-HAS_WORKSPACE = False
-cache_dir = '/workspace/cache'
 
+cache_dir = '/workspace/cache'
 os.makedirs(cache_dir, exist_ok=True)
 os.environ["TRANSFORMERS_CACHE"] = cache_dir
 os.environ["HF_HOME"] = cache_dir
@@ -47,11 +46,9 @@ def train():
     tokenizer = GPT2Tokenizer.from_pretrained("EleutherAI/gpt-neo-125M")
     tokenizer.pad_token = tokenizer.bos_token
 
-
     def tokenize_function(examples):
         return tokenizer(examples["text"], padding="max_length", max_length=cfg["window_size"], truncation=True)
     tokenized_datasets = dataset.map(tokenize_function, batched=True)
-
 
     def collate_fn(batch):
         input_ids = torch.tensor([item['input_ids'] for item in batch])
@@ -73,7 +70,6 @@ def train():
     )
     validation_prompts = load_tinystories_validation_prompts()[:100]
     tokenized_validation = [tokenizer(prompt, padding="max_length", max_length=cfg["window_size"], truncation=True) for prompt in validation_prompts]
-    print(tokenized_validation[0].keys())
 
     if cfg["use_wandb"] and local_rank == 0:
         wandb.init(project=f'{cfg["model"]}', config=cfg)
@@ -112,10 +108,7 @@ def train():
 
                     reconstruction_losses = []
                     for tokenized_prompt in tokenized_validation:
-                        # print(type(tokenized_prompt['input_ids']))
-                        # print(tokenized_prompt['input_ids'])
                         tokens = torch.tensor(tokenized_prompt['input_ids'])
-                        # print(tokens)
                         reconstruction_losses.append(model(tokens[:-1], labels=tokens[1:]).loss.item())
                         log_dict['reconstruction_loss'] = np.mean(reconstruction_losses)
 
