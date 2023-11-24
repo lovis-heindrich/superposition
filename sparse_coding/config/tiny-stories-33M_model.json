@@ -49,6 +49,6 @@
   "wd": 0.1,
   "batch_size": 64,
   "use_wandb": true,
-  "save_path": "/workspace/data",
-  "epochs": 1
+  "save_path": "/data",
+  "epochs": 8
 }

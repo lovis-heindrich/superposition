@@ -39,7 +39,7 @@ def train():
     )
 
     model_name = 'tiny-stories-33M'
-    cfg = load_json_data(f'/workspace/config/{model_name}_model.json')
+    cfg = load_json_data(f'sparse_coding/config/{model_name}_model.json')
     cfg["model"] = model_name
 
     dataset = load_dataset("roneneldan/TinyStories")
@@ -59,7 +59,7 @@ def train():
     train_sampler = DistributedSampler(tokenized_datasets["train"])
     train_dataloader = DataLoader(tokenized_datasets["train"], batch_size=cfg["batch_size"], collate_fn=collate_fn, sampler=train_sampler)
 
-    config = GPTNeoConfig.from_json_file(f"/workspace/config/{cfg['model']}_model.json")
+    config = GPTNeoConfig.from_json_file(f"sparse_coding/config/{cfg['model']}_model.json")
     model = GPTNeoForCausalLM(config).cuda(device_ids[0])
     model = DDP(model, device_ids)
 
