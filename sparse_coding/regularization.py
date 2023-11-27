@@ -39,6 +39,6 @@ def l1(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:
 
 @regularization
 def sqrt(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:
-    act_reg_loss = reg_coeff * acts.abs()
-    act_reg_loss[(acts > 0) & (acts < 1)] **= 0.5
-    return act_reg_loss.sum()
+    act_reg_loss = acts.abs() + 1e-9
+    act_reg_loss[(act_reg_loss < 1)] **= 0.5
+    return reg_coeff * act_reg_loss.sum()
