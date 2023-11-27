@@ -36,13 +36,28 @@ class AutoEncoder(nn.Module):
 
     @torch.no_grad()
     def norm_decoder(self):
-        self.W_dec /= self.W_dec.norm(dim=-1, keepdim=True)
+        self.W_dec.data = self.W_dec / self.W_dec.norm(dim=-1, keepdim=True)
+
+    # @torch.no_grad()
+    # def remove_parallel_component_of_grads(self):
+    #     W_dec_grad_proj = (self.W_dec.grad * self.W_dec).sum(
+    #         -1, keepdim=True
+    #     ) * self.W_dec
+    #     self.W_dec.grad -= W_dec_grad_proj
 
     @torch.no_grad()
     def remove_parallel_component_of_grads(self):
-        W_dec_grad_proj = (self.W_dec.grad * self.W_dec).sum(
-            -1, keepdim=True
-        ) * self.W_dec
+        W_dec_normed = self.W_dec / self.W_dec.norm(dim=-1, keepdim=True)
+        W_dec_grad_proj = (self.W_dec.grad * W_dec_normed).sum(-1, keepdim=True) * W_dec_normed
         self.W_dec.grad -= W_dec_grad_proj
+    
 
+    # @torch.no_grad()
+    # def make_decoder_weights_and_grad_unit_norm(self):
+    #     W_dec_normed = self.W_dec / self.W_dec.norm(dim=-1, keepdim=True)
+    #     W_dec_grad_proj = (self.W_dec.grad * W_dec_normed).sum(-1, keepdim=True) * W_dec_normed
+    #     self.W_dec.grad -= W_dec_grad_proj
+    #     # Bugfix(?) for ensuring W_dec retains unit norm
+    #     self.W_dec.data = W_dec_normed
+    
 
