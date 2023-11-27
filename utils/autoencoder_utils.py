@@ -61,7 +61,7 @@ def get_max_activations(prompts: list[str], model: HookedTransformer, encoder: A
     print(f"Active directions on validation data: {total_activations.nonzero().shape[0]} out of {total_activations.shape[0]}")
     return max_activation_per_prompt, max_activation_token_index
 
-def get_activations(encoder, cfg, encoder_name, prompts, model, save_path="/workspace"):
+def get_activations(encoder, cfg, encoder_name, prompts, model, save_path="/workspace", save_activations=True):
     path = f"{save_path}/data/{encoder_name}_activations.pkl"
     if os.path.exists(path):
         with open(path, "rb") as f:
@@ -70,8 +70,9 @@ def get_activations(encoder, cfg, encoder_name, prompts, model, save_path="/work
             max_activation_token_indices = data["max_activation_token_indices"]
     else:
         max_activations, max_activation_token_indices = get_max_activations(prompts, model, encoder, cfg)
-        with open(path, "wb") as f:
-            pickle.dump({"max_activations": max_activations, "max_activation_token_indices": max_activation_token_indices}, f)
+        if save_activations:
+            with open(path, "wb") as f:
+                pickle.dump({"max_activations": max_activations, "max_activation_token_indices": max_activation_token_indices}, f)
     return max_activations, max_activation_token_indices
 
 def get_direction_ablation_hook(encoder, direction, hook_pos=None):
