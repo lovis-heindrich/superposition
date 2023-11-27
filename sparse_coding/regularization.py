@@ -15,12 +15,27 @@ def hoyer_d_scaled_l1(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:
     return hoyer_square_normalized * reg_coeff * acts.abs().sum()
 
 @regularization
-def hoyer_square(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:
-    l1_squared = acts.abs().sum() ** 2
-    l2_squared = (acts ** 2).sum()
-    hoyer_square = l1_squared  / l2_squared
-    return hoyer_square * reg_coeff
+def l1(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:
+    return reg_coeff * acts.abs().sum()
 
+@regularization
+def hoyer_square(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:
+    # l1_squared = acts.abs().sum() ** 2
+    # l2_squared = (acts ** 2).sum()
+    # squared_old = l1_squared  / l2_squared
+    l1 = acts.norm(p=1, dim=-1)
+    l2 = acts.norm(p=2, dim=-1)
+    squared = ((l1 / l2) ** 2).sum()
+    # print(squared, squared_old)
+    return squared * reg_coeff
+
+@regularization
+def combined_hoyer_l1(acts: torch.Tensor, reg_coeffs: list[float]) -> list[torch.Tensor]:
+    l1_coeff = reg_coeffs[0]
+    hoyer_coeff = reg_coeffs[1]
+    l1_loss = l1(acts, l1_coeff)
+    hoyer_loss = hoyer_square(acts, hoyer_coeff)
+    return [l1_loss, hoyer_loss]
 
 @regularization
 def hoyer_d(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:
@@ -30,11 +45,6 @@ def hoyer_d(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:
     hoyer_square = l1_squared  / l2_squared
     hoyer_square_normalized = hoyer_square / acts.shape[-1]
     return hoyer_square_normalized * reg_coeff
-
-
-@regularization
-def l1(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:
-    return reg_coeff * acts.abs().sum()
 
 
 @regularization

@@ -283,21 +283,33 @@ def main(
 
     for batch_index in tqdm(range(num_training_batches)):
         batch = next(buffer)
-        loss, x_reconstruct, mid_acts, mse_loss, reg_loss = encoder(batch.to(device))
+        loss, x_reconstruct, mid_acts, mse_loss, reg_losses = encoder(batch.to(device))
         loss.backward()
         encoder.remove_parallel_component_of_grads()
         encoder_optim.step()
         encoder.norm_decoder()
 
         dead_directions = ((mid_acts != 0).sum(dim=0) == 0) & dead_directions
-
-        loss_dict = {
+        if isinstance(reg_losses, list):
+            l1_loss = reg_losses[0].item()
+            hoyer_loss = reg_losses[1].item()
+            loss_dict = {
             "batch": batch_index,
             "loss": loss.item(),
             "mse_loss": mse_loss.item(),
-            "reg_loss": reg_loss.item(),
+            "reg_loss": l1_loss + hoyer_loss,
+            "l1_loss": l1_loss,
+            "hoyer_loss": hoyer_loss,
             "epoch": buffer.epoch,
         }
+        else:
+            loss_dict = {
+                "batch": batch_index,
+                "loss": loss.item(),
+                "mse_loss": mse_loss.item(),
+                "reg_loss": reg_losses.item(),
+                "epoch": buffer.epoch,
+            }
 
         if ((batch_index + 1) % eval_interval == 0):
             with torch.no_grad():
@@ -379,7 +391,7 @@ def main(
         if cfg["use_wandb"]:
             wandb.log(loss_dict)
         encoder_optim.zero_grad()
-        del loss, x_reconstruct, mid_acts, mse_loss, reg_loss
+        del loss, x_reconstruct, mid_acts, mse_loss, reg_losses
     torch.save(encoder.state_dict(), f"{cfg['save_path']}/{cfg['model']}/{save_name}.pt")
     if cfg["use_wandb"]:
         wandb.finish()
@@ -401,13 +413,13 @@ DEFAULT_CONFIG = {
     "expansion_factor": 4,
     "seed": 47,
     "lr": 1e-4,
-    "l1_coeff": 0.015,  # Used for all regularization types to maintain backwards compatibility
+    "l1_coeff": (0.0002, 0.0001),  # Used for all regularization types to maintain backwards compatibility
     "wd": 1e-2,
     "beta1": 0.9,
     "beta2": 0.99,
     "num_eval_prompts": 200,  # Used for periodic evaluation logs
     "save_checkpoint_models": False,
-    "reg": "hoyer_d_scaled_l1", # l1 | sqrt | hoyer | hoyer_d | hoyer_d_scaled_l1
+    "reg": "combined_hoyer_l1", # l1 | sqrt | hoyer | hoyer_d | hoyer_d_scaled_l1 | combined_hoyer_l1
     "finetune_encoder": None,
 }
 
