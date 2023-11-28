@@ -154,10 +154,23 @@ def decoder_unembed_cosine_sim_mean_kurtosis(
 
 def get_cosine_sim_moments(W_enc: torch.Tensor, W_dec: torch.Tensor):
     """Cosine similarity between corresponding features of the encoder and decoder weights"""
-    cosine_sim = torch.nn.CosineSimilarity(dim=1)
+    cosine_sim = torch.nn.CosineSimilarity(dim=0)
     sims = cosine_sim(W_enc, W_dec.T)
     return get_moments(sims)
 
+def get_encoder_sims(W_enc: torch.Tensor):
+    normalized_W_enc = F.normalize(W_enc, dim=0)
+    cosine_sims = (normalized_W_enc.T @ normalized_W_enc)
+    mask = torch.tril(torch.ones_like(cosine_sims), diagonal=-1).flatten().bool()
+    cosine_sims = cosine_sims.flatten()[mask].mean().item()
+    return cosine_sims
+
+def get_decoder_sims(W_dec: torch.Tensor):
+    normalized_W_dec = W_dec
+    cosine_sims = (normalized_W_dec @ normalized_W_dec.T)
+    mask = torch.tril(torch.ones_like(cosine_sims), diagonal=-1).flatten().bool()
+    cosine_sims = cosine_sims.flatten()[mask].mean().item()
+    return cosine_sims
 
 def get_entropy(activations: Float[Tensor, "batch d_hidden"]) -> float:
     """Entropy of the activations"""
@@ -342,6 +355,9 @@ def main(
                 )
                 num_similar_dec_features = get_num_similar_dec_features(encoder.W_dec)
 
+                encoder_sim = get_encoder_sims(encoder.W_enc)
+                decoder_sim = get_decoder_sims(encoder.W_dec)
+
                 eval_dict = {
                     "reconstruction_loss": reconstruction_loss,
                     "bias_mean": b_mean,
@@ -357,12 +373,17 @@ def main(
                     "entropy": entropy,
                     "avg_directions": active_directions,
                     "dead_directions": num_dead_directions,
-                    "feature_non_zero_act_means": fig
+                    "feature_non_zero_act_means": fig,
+                    "encoder_sim": encoder_sim,
+                    "decoder_sim": decoder_sim
                 }
+
                 loss_dict.update(eval_dict)
                 print(
                     f"\n(Batch {batch_index}) Loss: {loss_dict['loss']:.2f}, MSE loss: {loss_dict['mse_loss']:.2f}, reg_loss: {loss_dict['reg_loss']:.2f}, Avg directions: {loss_dict['avg_directions']:.2f}, Dead directions: {num_dead_directions}, Reconstruction loss: {reconstruction_loss:.2f}"
                 )
+                
+                    
 
         if (batch_index + 1) % save_interval == 0:
             if cfg["save_checkpoint_models"]:
@@ -371,6 +392,21 @@ def main(
                 )
             else:
                 torch.save(encoder.state_dict(), f"{cfg['save_path']}/{cfg['model']}/{save_name}.pt")
+
+            # Update L1 coefficient if aiming for a target number of active directions
+            if (cfg["reg"] == "l1") and (cfg["l1_target"] != None):
+                eps = 0.2
+                update_coeff = 0.000002
+                if active_directions > cfg["l1_target"] + eps:
+                    new_coeff = encoder.reg_coeff + update_coeff
+                elif active_directions < cfg["l1_target"] - eps:
+                    new_coeff = encoder.reg_coeff - update_coeff
+                if np.abs(active_directions - cfg["l1_target"]) > eps:
+                    print(f"Updating reg coeff from {encoder.reg_coeff} to {new_coeff}")
+                    encoder.reg_coeff = new_coeff
+                    cfg["l1_coeff"] = encoder.reg_coeff
+                    with open(f"{cfg['save_path']}/{cfg['model']}/{save_name}.json", "w") as f:
+                        json.dump(cfg, f, indent=4)
 
         if (batch_index + 1) in reset_steps:
             num_dead_directions = dead_directions.sum().item()
@@ -401,7 +437,7 @@ DEFAULT_CONFIG = {
     "cfg_file": None,
     "data_path": "/workspace/data/tinystories",
     "save_path": "/workspace",
-    "use_wandb": False,
+    "use_wandb": True,
     "num_eval_tokens": 800000,  # Tokens used to resample dead directions
     "num_training_tokens": 5e8,
     "batch_size": 4096,  # Batch shape is batch_size, d_in
@@ -413,7 +449,8 @@ DEFAULT_CONFIG = {
     "expansion_factor": 4,
     "seed": 47,
     "lr": 1e-4,
-    "l1_coeff": 0.0002, #(0.0001, 0.00015),  # Used for all regularization types to maintain backwards compatibility
+    "l1_coeff": 0.00034, #(0.0001, 0.00015),  # Used for all regularization types to maintain backwards compatibility
+    "l1_target": 32.5,
     "wd": 1e-2,
     "beta1": 0.9,
     "beta2": 0.99,
