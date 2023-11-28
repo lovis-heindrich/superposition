@@ -32,7 +32,7 @@ class AutoEncoder(nn.Module):
         mse_loss = (x_reconstruct - x).pow(2).sum(-1).mean(0)
         reg_losses = REGULARIZATION_FNS[self.reg](acts, self.reg_coeff)
         loss = mse_loss
-        if isinstance(reg_losses, list):
+        if isinstance(reg_losses, list) or isinstance(reg_losses, tuple):
             for reg_loss in reg_losses:
                 loss += reg_loss
         else:
@@ -43,20 +43,12 @@ class AutoEncoder(nn.Module):
     def norm_decoder(self):
         self.W_dec.data = self.W_dec / self.W_dec.norm(dim=-1, keepdim=True)
 
-    # @torch.no_grad()
-    # def remove_parallel_component_of_grads(self):
-    #     W_dec_grad_proj = (self.W_dec.grad * self.W_dec).sum(
-    #         -1, keepdim=True
-    #     ) * self.W_dec
-    #     self.W_dec.grad -= W_dec_grad_proj
-
     @torch.no_grad()
     def remove_parallel_component_of_grads(self):
         W_dec_normed = self.W_dec / self.W_dec.norm(dim=-1, keepdim=True)
         W_dec_grad_proj = (self.W_dec.grad * W_dec_normed).sum(-1, keepdim=True) * W_dec_normed
         self.W_dec.grad -= W_dec_grad_proj
     
-
     # @torch.no_grad()
     # def make_decoder_weights_and_grad_unit_norm(self):
     #     W_dec_normed = self.W_dec / self.W_dec.norm(dim=-1, keepdim=True)
