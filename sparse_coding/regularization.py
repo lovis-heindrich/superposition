@@ -20,13 +20,13 @@ def l1(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:
 
 @regularization
 def hoyer_square(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:
-    # l1_squared = acts.abs().sum() ** 2
-    # l2_squared = (acts ** 2).sum()
-    # squared_old = l1_squared  / l2_squared
-    l1 = acts.norm(p=1, dim=-1)
-    l2 = acts.norm(p=2, dim=-1)
-    squared = ((l1 / l2) ** 2).sum()
-    # print(squared, squared_old)
+    l1_squared = acts.abs().sum(-1) ** 2
+    l2_squared = (acts ** 2).sum(-1) + 1e-9
+    squared = (l1_squared  / l2_squared).sum()
+    # l1 = acts.norm(p=1, dim=-1)
+    # l2 = acts.norm(p=2, dim=-1)
+    # squared = ((l1 / l2)**2).sum()
+    #print(squared, squared_old)
     return squared * reg_coeff
 
 @regularization

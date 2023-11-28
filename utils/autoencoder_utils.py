@@ -40,6 +40,7 @@ class AutoEncoderConfig:
     l1_coeff: float
     d_in: int | None # TODO(LQ 23/11/09) remove None 
     run_name: str | None = None
+    reg: str = "l1"
 
     @property
     def encoder_hook_point(self) -> str:
@@ -207,14 +208,17 @@ def load_encoder(save_name, model_name, model: HookedTransformer, save_path=".")
         d_in = cfg["d_in"]
     else:
         d_in = act_name_to_d_in(model, cfg['act'])
+
+    if "reg" not in cfg:
+        cfg["reg"] = "l1"
     
     cfg = AutoEncoderConfig(
-        cfg["layer"], cfg["act"], cfg["expansion_factor"], cfg["l1_coeff"], d_in
+        cfg["layer"], cfg["act"], cfg["expansion_factor"], cfg["l1_coeff"], d_in, reg=cfg["reg"]
     )
 
     d_hidden = cfg.d_in * cfg.expansion_factor
 
-    encoder = AutoEncoder(d_hidden, cfg.l1_coeff, cfg.d_in)
+    encoder = AutoEncoder(d_hidden, cfg.l1_coeff, cfg.d_in, reg=cfg.reg)
     encoder.load_state_dict(torch.load(f"{path}.pt"))
     encoder.to(get_device())
     return encoder, cfg
@@ -499,12 +503,12 @@ def get_trigram_dataset_examples(
 
 
 def get_encode_activations_hook(
-    encoder: AutoEncoder, encoder_neuron, cfg: AutoEncoderConfig
+    encoder: AutoEncoder, encoder_neuron, cfg: AutoEncoderConfig, pos=-1
 ):
     def encode_activations_hook(value, hook):
-        _, x_reconstruct, acts, _, _ = encoder(value[:, -1])
+        _, x_reconstruct, acts, _, _ = encoder(value[:, pos])
         feature_activations = acts[:, encoder_neuron]
-        value[:, -1] = x_reconstruct
+        value[:, pos] = x_reconstruct
         return value
 
     return [(cfg.encoder_hook_point, encode_activations_hook)]
