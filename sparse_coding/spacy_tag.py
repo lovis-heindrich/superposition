@@ -2,7 +2,11 @@ import numpy as np
 import pandas as pd
 import spacy
 import datasets
-from utils import timestamp
+import datetime
+
+def timestamp():
+    return datetime.datetime.now().timestamp()
+# from utils import timestamp
 import spacy_alignments as tokenizations
 
 # https://universaldependencies.org/u/dep/
@@ -25,7 +29,6 @@ def get_model_labels(model2spacy, spacy_tag):
 
 
 def make_spacy_feature_df(model, token_tensor):
-
     spacy.prefer_gpu()
     nlp = spacy.load('en_core_web_trf')
 
