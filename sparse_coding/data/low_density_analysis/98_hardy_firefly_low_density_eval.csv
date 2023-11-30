@@ -1,0 +1,2 @@
+run,original_l2_loss,zero_ablated_l2_loss,mean_ablated_l2_loss,original_model_loss,original_reconstruct_loss,zero_reconstruct_loss,mean_reconstruct_loss,percent_good_directions,percent_high_cosine_sims,percent_ood_directions,percent_low_density_features
+98_hardy_firefly,106.26227318572998,106.93596300506591,106.93596294403076,1.378268056988716,1.7755742644667625,1.7413050070405007,1.7413050150871277,0.158203125,0.84100341796875,0.24493408203125,0.84027099609375

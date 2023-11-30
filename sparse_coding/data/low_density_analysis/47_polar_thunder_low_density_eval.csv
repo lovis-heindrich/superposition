@@ -1,0 +1,2 @@
+run,original_l2_loss,zero_ablated_l2_loss,mean_ablated_l2_loss,original_model_loss,original_reconstruct_loss,zero_reconstruct_loss,mean_reconstruct_loss,percent_good_directions,percent_high_cosine_sims,percent_ood_directions,percent_low_density_features
+47_polar_thunder,53.35300965499878,34.562512535095216,34.562512496948244,1.378268056988716,1.5303705109357835,1.5335642967224121,1.5335642712712287,0.419677734375,0.0,0.580322265625,0.0
