@@ -373,7 +373,7 @@ def batched_reconstruction_loss(encoder: AutoEncoder, encoded_hook_name: str, da
     return np.mean(losses)
 
 def custom_forward(
-    enc: AutoEncoder, x: Float[Tensor, "batch d_in"], neuron: int, activation: float
+    enc: AutoEncoder, x: Float[Tensor, "batch d_in"], neuron: int | Tensor, activation: float | Tensor
 ):
     x_cent = x - enc.b_dec
     acts = F.relu(x_cent @ enc.W_enc + enc.b_enc)
