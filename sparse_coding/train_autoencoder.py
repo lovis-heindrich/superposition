@@ -233,10 +233,12 @@ def main(
     def resample_dead_directions(
         encoder: AutoEncoder,
         eval_batch: Float[Tensor, "batch d_in"],
-        dead_directions: Bool[Tensor, "d_enc"],
+        direction_counter: Int[Tensor, "d_enc"],
         num_dead_directions: int,
+        dead_direction_threshold: float
     ):
         if num_dead_directions > 0:
+            dead_directions = (direction_counter <= dead_direction_threshold)
             dead_direction_indices = torch.argwhere(dead_directions).flatten()
             batch_reconstruct = []
             for i in range(
@@ -283,14 +285,16 @@ def main(
             encoder_optim.state_dict()["state"][2]["exp_avg"][dead_direction_indices] = 0
             encoder_optim.state_dict()["state"][2]["exp_avg_sq"][dead_direction_indices] = 0
 
-    dead_directions = torch.ones(size=(encoder.d_hidden,)).bool().to(device)
+    direction_counter = torch.zeros(size=(encoder.d_hidden,)).to(torch.int64).to(device)
     buffer = Buffer(cfg, model, prompt_data, device)
     eval_batch = torch.cat(list(islice(buffer, cfg["num_eval_batches"])), dim=0).detach().cpu()
     print(f"Eval batch shape: {eval_batch.shape}")
 
     reset_steps = [25000, 50000, 75000, 100000]
-    count_dead_direction_steps = [step - 12500 for step in reset_steps]
-    dead_directions_reset_interval = 50000
+    reset_count_interval = 12500
+    count_dead_direction_steps = [step - reset_count_interval for step in reset_steps]
+    dead_direction_threshold = 1e-5 * (reset_count_interval * cfg["batch_size"])
+    print(dead_direction_threshold)
     eval_interval = 500
     save_interval = 10000
 
@@ -302,7 +306,8 @@ def main(
         encoder_optim.step()
         encoder.norm_decoder()
 
-        dead_directions = ((mid_acts != 0).sum(dim=0) == 0) & dead_directions
+        #dead_directions = ((mid_acts != 0).sum(dim=0) == 0) & dead_directions
+        direction_counter += (mid_acts != 0).sum(dim=0)
         if isinstance(reg_losses, list):
             l1_loss = reg_losses[0].item()
             hoyer_loss = reg_losses[1].item()
@@ -347,7 +352,8 @@ def main(
                 active_directions = (
                     (mid_acts != 0).sum(dim=-1).mean(dtype=torch.float32).item()
                 )
-                num_dead_directions = dead_directions.sum().item()
+
+                num_dead_directions = (direction_counter <= 0).sum().item() #dead_directions.sum().item()
                 mean_feature_unembed_cosine_sim_kurtosis = (
                     decoder_unembed_cosine_sim_mean_kurtosis(
                         model, cfg["layer"], encoder.W_dec
@@ -409,20 +415,19 @@ def main(
                         json.dump(cfg, f, indent=4)
 
         if (batch_index + 1) in reset_steps:
-            num_dead_directions = dead_directions.sum().item()
+            print(direction_counter.min(), direction_counter.max(), dead_direction_threshold)
+            num_dead_directions = (direction_counter <= dead_direction_threshold).sum().item() #dead_directions.sum().item()
+            print(num_dead_directions)
             resample_dead_directions(
-                encoder, eval_batch, dead_directions, num_dead_directions
+                encoder, eval_batch, direction_counter, num_dead_directions, dead_direction_threshold
             )
+            loss_dict["resampled_directions"] = num_dead_directions
             print(f"\nResampled {num_dead_directions} dead directions")
 
         if (batch_index + 1) in count_dead_direction_steps + reset_steps:
             print("Resetting dead direction counter")
-            dead_directions = torch.ones(size=(encoder.d_hidden,)).bool().to(device)
+            direction_counter = torch.zeros(size=(encoder.d_hidden,)).to(device)
 
-        if ((batch_index + 1) > max(reset_steps)) and (
-            (batch_index + 1) % dead_directions_reset_interval == 0
-        ):
-            dead_directions = torch.ones(size=(encoder.d_hidden,)).bool().to(device)
 
         if cfg["use_wandb"]:
             wandb.log(loss_dict)
@@ -449,8 +454,8 @@ DEFAULT_CONFIG = {
     "expansion_factor": 4,
     "seed": 47,
     "lr": 1e-4,
-    "l1_coeff": 0.00034, #(0.0001, 0.00015),  # Used for all regularization types to maintain backwards compatibility
-    "l1_target": 32.5,
+    "l1_coeff": 0.00035, #(0.0001, 0.00015),  # Used for all regularization types to maintain backwards compatibility
+    "l1_target": None,
     "wd": 1e-2,
     "beta1": 0.9,
     "beta2": 0.99,
