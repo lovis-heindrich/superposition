@@ -3,6 +3,7 @@ import pandas as pd
 import spacy
 import datasets
 import datetime
+from tqdm.auto import tqdm
 
 def timestamp():
     return datetime.datetime.now().timestamp()
@@ -28,13 +29,13 @@ def get_model_labels(model2spacy, spacy_tag):
     ])
 
 
-def make_spacy_feature_df(model, token_tensor):
+def make_spacy_feature_df(model, token_tensor, use_tqdm=False):
     spacy.prefer_gpu()
     nlp = spacy.load('en_core_web_trf')
 
     print('Starting spacy processing of dataset...')
     texts = [model.to_string(token_tensor[i, 1:]) for i in range(len(token_tensor))]
-    docs = list(nlp.pipe(texts, batch_size=100))
+    docs = list(tqdm(nlp.pipe(texts, batch_size=10), disable=not use_tqdm))
     print('Finished spacy processing of dataset.')
 
     n, seq_len = token_tensor.shape
@@ -55,7 +56,7 @@ def make_spacy_feature_df(model, token_tensor):
     is_sent_end_matrix = np.zeros((n, seq_len), dtype='<U5')
     is_sent_begins_matrix = np.zeros((n, seq_len), dtype='<U5')
 
-    for i, doc in enumerate(docs):
+    for i, doc in tqdm(enumerate(docs), disable=not use_tqdm):
         if i % 1000 == 0:
             print(timestamp(), i)
 
