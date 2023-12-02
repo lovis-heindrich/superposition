@@ -90,18 +90,20 @@ class Buffer:
                     self.token_pointer = 0
                     self.epoch += 1
                     print("Resetting token pointer")
+                if len(self.buffer) <= self.pointer:
+                    continue
                 tokens = self.all_tokens[
                     self.token_pointer : self.token_pointer
                     + self.cfg["model_batch_size"]
-                ]
-                tokens = tokens.to(torch.long)
+                ].to(torch.long)
                 with torch.no_grad():
-                    _, cache = self.model.run_with_cache(
-                        tokens, names_filter=self.hook_name
-                    )
-                acts = cache[self.hook_name].reshape(-1, self.cfg["d_in"])
-                # print(tokens.shape, acts.shape, self.pointer, self.token_pointer, self.buffer[self.pointer: self.pointer+acts.shape[0]].shape)
-                if len(self.buffer) - self.pointer > 0:
+                    def acts_hook(value, hook):
+                        hook.ctx["activation"] = value
+                    acts_hooks = [(self.hook_name, acts_hook)]
+                    with self.model.hooks(acts_hooks):
+                        self.model(tokens)
+                    
+                    acts = self.model.hook_dict[self.hook_name].ctx['activation'].reshape(-1, self.cfg["d_in"])
                     truncated_acts = acts[: len(self.buffer) - self.pointer]
                     self.buffer[
                         self.pointer : self.pointer + acts.shape[0]
@@ -492,7 +494,7 @@ def get_config():
             cfg.update(json.load(f))
 
     # Derive config values
-    cfg["model_batch_size"] = cfg["batch_size"] // cfg["seq_len"] * 16
+    cfg["model_batch_size"] = cfg["batch_size"] // cfg["seq_len"]
     cfg["buffer_size"] = cfg["batch_size"] * cfg["buffer_mult"]
     cfg["buffer_batches"] = (
         cfg["buffer_size"] // cfg["seq_len"]
