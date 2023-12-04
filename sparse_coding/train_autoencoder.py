@@ -295,7 +295,7 @@ def main(
     reset_steps = [25000, 50000, 75000, 100000]
     reset_count_interval = 12500
     count_dead_direction_steps = [step - reset_count_interval for step in reset_steps]
-    dead_direction_threshold = 1e-5 * (reset_count_interval * cfg["batch_size"])
+    dead_direction_threshold = cfg["dead_direction_frequency"] * (reset_count_interval * cfg["batch_size"])
     print(dead_direction_threshold)
     eval_interval = 500
     save_interval = 10000
@@ -456,7 +456,7 @@ DEFAULT_CONFIG = {
     "expansion_factor": 4,
     "seed": 47,
     "lr": 1e-4,
-    "l1_coeff": 0.00035, #(0.0001, 0.00015),  # Used for all regularization types to maintain backwards compatibility
+    "l1_coeff": 0.0003, #(0.0001, 0.00015),  # Used for all regularization types to maintain backwards compatibility
     "l1_target": None,
     "wd": 1e-2,
     "beta1": 0.9,
@@ -465,6 +465,7 @@ DEFAULT_CONFIG = {
     "save_checkpoint_models": False,
     "reg": "l1", # l1 | sqrt | hoyer | hoyer_d | hoyer_d_scaled_l1 | combined_hoyer_l1 | combined_hoyer_sqrt
     "finetune_encoder": None,
+    "dead_direction_frequency": 5e-4
 }
 
 

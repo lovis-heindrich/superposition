@@ -45,6 +45,57 @@ class AutoEncoderConfig:
     @property
     def encoder_hook_point(self) -> str:
         return f"blocks.{self.layer}.{self.act_name}"
+    
+def get_loss_recovered(prompts, model, encoder, cfg: AutoEncoderConfig, disable_tqdm=False):
+    hook_name = f"blocks.{cfg.layer}.{cfg.act_name}"
+
+    def zero_ablation_hook(value, hook):
+        value[:, :] = 0
+        return value
+
+    def encode_activations_hook(value, hook):
+        _, x_reconstruct, _, _, _ = encoder(value.squeeze(0))
+        return x_reconstruct.unsqueeze(0)
+
+    zero_ablate_hook = [(hook_name, zero_ablation_hook)]
+    encode_mlp_hook = [(hook_name, encode_activations_hook)]
+
+    losses = []
+    zero_abl_losses = []
+    recons_losses = []
+
+    for prompt in tqdm(prompts, disable=disable_tqdm):
+        loss = model(prompt, return_type="loss", loss_per_token=False).item()
+        with model.hooks(fwd_hooks=zero_ablate_hook):
+            zero_abl_loss = model(prompt, return_type="loss", loss_per_token=False).item()
+        with model.hooks(fwd_hooks=encode_mlp_hook):
+            recons_loss = model(prompt, return_type="loss", loss_per_token=False).item()
+        losses.append(loss)
+        zero_abl_losses.append(zero_abl_loss)
+        recons_losses.append(recons_loss)
+
+    loss_recovered = ((np.mean(zero_abl_losses) - np.mean(recons_losses))/(np.mean(zero_abl_losses) - np.mean(losses)))
+    return loss_recovered
+
+def get_l0(prompts, model, encoder, cfg:AutoEncoderConfig, disable_tqdm=False):
+    l0 = []
+    for prompt in tqdm(prompts, disable=disable_tqdm):
+        acts = get_acts(prompt, model, encoder, cfg)
+        active_directions = (acts > 0).sum(1)
+        l0.extend(active_directions.tolist())
+    return np.mean(l0)
+
+def get_feature_density(prompts, model, encoder, cfg, disable_tqdm=False):
+    feature_activations = torch.zeros(encoder.d_hidden).to(torch.long).cuda()
+    total_num_tokens = 0
+    for prompt in tqdm(prompts, disable=disable_tqdm):
+        acts = get_acts(prompt, model, encoder, cfg)
+        num_tokens = acts.shape[0]
+        acts = (acts>0).sum(0)
+        total_num_tokens += num_tokens
+        feature_activations += acts
+    feature_density = feature_activations / total_num_tokens
+    return feature_density
 
 def get_max_activations(prompts: list[str], model: HookedTransformer, encoder: AutoEncoder, cfg: AutoEncoderConfig):
     activations = []

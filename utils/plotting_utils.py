@@ -9,6 +9,46 @@ import scipy.stats as stats
 from scipy.stats import skew, kurtosis
 import pandas as pd
 
+
+def plot_loss_comparison(loss_groups, group_names):
+    """
+    Plots a bar chart comparing different loss groups.
+
+    Parameters:
+    - loss_groups: List of lists, each containing loss values for a group.
+    - group_names: List of names for each loss group.
+    """
+
+    # Function to calculate standard error
+    def standard_error(data):
+        return np.std(data) / np.sqrt(len(data))
+
+    # Calculate means and standard errors for each group
+    means = [np.mean(group) for group in loss_groups]
+    std_errors = [standard_error(group) for group in loss_groups]
+    ci_95 = [se * 1.96 for se in std_errors]
+
+    # Create the bar chart
+    fig = go.Figure(data=[
+        go.Bar(
+            x=group_names,
+            y=means,
+            error_y=dict(type='data', array=ci_95)
+        )
+    ])
+
+    # Update layout
+    fig.update_layout(
+        title="Ablation loss comparison for closing quotation prompts '.\"'",
+        xaxis_title="Ablation",
+        yaxis_title="Loss",
+        showlegend=False,
+        width=600
+    )
+
+    fig.show()
+
+
 def line(x: list[float], xlabel="", ylabel="", title="", xticks=None, width=800, yaxis=None, hover_data=None, show_legend=True, plot=True):
     
     # Avoid empty plot when x contains a single element
