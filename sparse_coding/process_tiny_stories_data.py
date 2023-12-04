@@ -41,7 +41,7 @@ def create_hf_dataset(seq_len=127):
     ds = Dataset.from_dict({"tokens": tokens})
     ds.push_to_hub("MechInterpResearch/tinystories_tokenized", private=True)
 
-def load_tinystories_tokens(data_path = "data/tinystories", file_name = "data.hf") -> Int[Tensor, "n_samples seq_len"]:
+def load_tinystories_tokens(data_path = "data/tinystories", file_name = "data.hf", exclude_bos=False) -> Int[Tensor, "n_samples seq_len"]:
     Path(data_path).mkdir(parents=True, exist_ok=True)
     file_path = f'{data_path}/{file_name}'
     if not os.path.exists(file_path):
@@ -52,6 +52,8 @@ def load_tinystories_tokens(data_path = "data/tinystories", file_name = "data.hf
     data = load_from_disk(file_path)
     data.set_format(type="torch", columns=["tokens"])
     data = data["tokens"]
+    if exclude_bos:
+        data = data[:, 1:]
     logging.info(f"Loaded TinyStories dataset with shape {data.shape}")
     return  data
 

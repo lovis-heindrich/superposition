@@ -340,6 +340,7 @@ def main(
                     model,
                     reconstruction_loss_only=True,
                     show_tqdm=False,
+                    prepend_bos=False
                 )
                 b_mean, b_variance, b_skew, b_kurt = get_moments(encoder.b_enc)
                 (
@@ -447,16 +448,16 @@ DEFAULT_CONFIG = {
     "use_wandb": True,
     "num_eval_tokens": 800000,  # Tokens used to resample dead directions
     "num_training_tokens": 5e8,
-    "batch_size": 4096,  # Batch shape is batch_size, d_in
+    "batch_size": 5080,  # Batch shape is batch_size, d_in
     "buffer_mult": 128,  # Buffer size is batch_size*buffer_mult, d_in
-    "seq_len": 128,
+    "seq_len": 127,
     "model": "tiny-stories-2L-33M",
     "layer": 1,
     "act": "mlp.hook_post",
     "expansion_factor": 4,
     "seed": 47,
     "lr": 1e-4,
-    "l1_coeff": 0.0003, #(0.0001, 0.00015),  # Used for all regularization types to maintain backwards compatibility
+    "l1_coeff": 0.0004, #(0.0001, 0.00015),  # Used for all regularization types to maintain backwards compatibility
     "l1_target": None,
     "wd": 1e-2,
     "beta1": 0.9,
@@ -527,7 +528,7 @@ def get_autoencoder(cfg: AutoEncoderConfig, device: str, seed: int):
 if __name__ == "__main__":
     torch.cuda.empty_cache()
     cfg = get_config()
-    prompt_data = load_tinystories_tokens(cfg["data_path"])
+    prompt_data = load_tinystories_tokens(cfg["data_path"], exclude_bos=True)
     eval_prompts = load_tinystories_validation_prompts(cfg["data_path"])[
         : cfg["num_eval_prompts"]
     ]

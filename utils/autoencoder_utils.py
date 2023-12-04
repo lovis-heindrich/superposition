@@ -353,7 +353,7 @@ def evaluate_autoencoder_reconstruction(autoencoder: AutoEncoder, encoded_hook_n
     return np.mean(original_losses), np.mean(reconstruct_losses), np.mean(zero_ablation_losses)
 
 @torch.no_grad()
-def train_autoencoder_evaluate_autoencoder_reconstruction(autoencoder: AutoEncoder, encoded_hook_name: str, data: list[str], model: HookedTransformer, reconstruction_loss_only: bool = False, show_tqdm=True):
+def train_autoencoder_evaluate_autoencoder_reconstruction(autoencoder: AutoEncoder, encoded_hook_name: str, data: list[str], model: HookedTransformer, reconstruction_loss_only: bool = False, show_tqdm=True, prepend_bos=True):
     '''Also grabs histogram of acts > 0'''
     act_nonzero_sums = torch.zeros(autoencoder.d_hidden).cuda()
     act_nonzero_counts = torch.zeros(autoencoder.d_hidden).cuda()
@@ -380,13 +380,14 @@ def train_autoencoder_evaluate_autoencoder_reconstruction(autoencoder: AutoEncod
     zero_ablation_losses = []
 
     for prompt in tqdm(data, disable=(not show_tqdm)):
+        tokens = model.to_tokens(prompt, prepend_bos=prepend_bos)
         with model.hooks(reconstruct_hooks):
-            reconstruct_loss = model(prompt, return_type="loss")
+            reconstruct_loss = model(tokens, return_type="loss")
         reconstruct_losses.append(reconstruct_loss.item())
         if not reconstruction_loss_only:
-            original_loss = model(prompt, return_type="loss")
+            original_loss = model(tokens, return_type="loss")
             with model.hooks(zero_ablate_hooks):
-                zero_ablate_loss = model(prompt, return_type="loss")
+                zero_ablate_loss = model(tokens, return_type="loss")
             original_losses.append(original_loss.item())
             zero_ablation_losses.append(zero_ablate_loss.item())
 
