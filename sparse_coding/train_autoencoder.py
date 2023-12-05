@@ -292,13 +292,15 @@ def main(
     eval_batch = torch.cat(list(islice(buffer, cfg["num_eval_batches"])), dim=0).detach().cpu()
     print(f"Eval batch shape: {eval_batch.shape}")
 
-    reset_steps = [25000, 50000, 75000, 100000]
-    reset_count_interval = 12500
+    reset_steps = [15000, 25000, 50000, 75000]
+    reset_count_interval = 10000
     count_dead_direction_steps = [step - reset_count_interval for step in reset_steps]
     dead_direction_threshold = cfg["dead_direction_frequency"] * (reset_count_interval * cfg["batch_size"])
-    print(dead_direction_threshold)
-    eval_interval = 500
+    eval_interval = 1000
     save_interval = 10000
+
+    eval_direction_counter = torch.zeros(size=(encoder.d_hidden,)).to(torch.int64).to(device)
+    eval_dead_direction_threshold = cfg["dead_direction_frequency"] * (eval_interval * cfg["batch_size"])
 
     for batch_index in tqdm(range(num_training_batches)):
         batch = next(buffer)
@@ -308,8 +310,15 @@ def main(
         encoder_optim.step()
         encoder.norm_decoder()
 
+        active_directions = (
+                    (mid_acts != 0).sum(dim=-1).mean(dtype=torch.float32).item()
+                )
+
         #dead_directions = ((mid_acts != 0).sum(dim=0) == 0) & dead_directions
-        direction_counter += (mid_acts != 0).sum(dim=0)
+        count_active_directions = (mid_acts != 0).sum(dim=0)
+        direction_counter += count_active_directions
+        eval_direction_counter += count_active_directions
+
         if isinstance(reg_losses, list):
             l1_loss = reg_losses[0].item()
             hoyer_loss = reg_losses[1].item()
@@ -321,6 +330,7 @@ def main(
             "l1_loss": l1_loss,
             "hoyer_loss": hoyer_loss,
             "epoch": buffer.epoch,
+            "avg_directions": active_directions,
         }
         else:
             loss_dict = {
@@ -329,6 +339,7 @@ def main(
                 "mse_loss": mse_loss.item(),
                 "reg_loss": reg_losses.item(),
                 "epoch": buffer.epoch,
+                "avg_directions": active_directions,
             }
 
         if ((batch_index + 1) % eval_interval == 0):
@@ -352,11 +363,7 @@ def main(
                 W_dec_norm = encoder.W_dec.norm()
                 W_enc_norm = encoder.W_enc.norm()
                 entropy = get_entropy(mid_acts)
-                active_directions = (
-                    (mid_acts != 0).sum(dim=-1).mean(dtype=torch.float32).item()
-                )
-
-                num_dead_directions = (direction_counter <= 0).sum().item() #dead_directions.sum().item()
+                
                 mean_feature_unembed_cosine_sim_kurtosis = (
                     decoder_unembed_cosine_sim_mean_kurtosis(
                         model, cfg["layer"], encoder.W_dec
@@ -366,6 +373,9 @@ def main(
 
                 encoder_sim = get_encoder_sims(encoder.W_enc)
                 decoder_sim = get_decoder_sims(encoder.W_dec)
+
+                num_dead_directions = (eval_direction_counter <= eval_dead_direction_threshold).sum().item() #dead_directions.sum().item()
+                eval_direction_counter = torch.zeros(size=(encoder.d_hidden,)).to(torch.int64).to(device)
 
                 eval_dict = {
                     "reconstruction_loss": reconstruction_loss,
@@ -380,7 +390,6 @@ def main(
                     "W_enc_norm": W_enc_norm,
                     "W_dec_norm": W_dec_norm,
                     "entropy": entropy,
-                    "avg_directions": active_directions,
                     "dead_directions": num_dead_directions,
                     "feature_non_zero_act_means": fig,
                     "encoder_sim": encoder_sim,
@@ -418,9 +427,7 @@ def main(
                         json.dump(cfg, f, indent=4)
 
         if (batch_index + 1) in reset_steps:
-            print(direction_counter.min(), direction_counter.max(), dead_direction_threshold)
             num_dead_directions = (direction_counter <= dead_direction_threshold).sum().item() #dead_directions.sum().item()
-            print(num_dead_directions)
             resample_dead_directions(
                 encoder, eval_batch, direction_counter, num_dead_directions, dead_direction_threshold
             )
@@ -457,16 +464,16 @@ DEFAULT_CONFIG = {
     "expansion_factor": 4,
     "seed": 47,
     "lr": 1e-4,
-    "l1_coeff": 0.0004, #(0.0001, 0.00015),  # Used for all regularization types to maintain backwards compatibility
+    "l1_coeff": (0.0001, 0.00015), #,  # Used for all regularization types to maintain backwards compatibility
     "l1_target": None,
     "wd": 1e-2,
     "beta1": 0.9,
     "beta2": 0.99,
     "num_eval_prompts": 200,  # Used for periodic evaluation logs
     "save_checkpoint_models": False,
-    "reg": "l1", # l1 | sqrt | hoyer | hoyer_d | hoyer_d_scaled_l1 | combined_hoyer_l1 | combined_hoyer_sqrt
+    "reg": "combined_hoyer_sqrt", # l1 | sqrt | hoyer | hoyer_d | hoyer_d_scaled_l1 | combined_hoyer_l1 | combined_hoyer_sqrt
     "finetune_encoder": None,
-    "dead_direction_frequency": 5e-4
+    "dead_direction_frequency": 1e-5
 }
 
 
