@@ -46,6 +46,28 @@ class AutoEncoderConfig:
     def encoder_hook_point(self) -> str:
         return f"blocks.{self.layer}.{self.act_name}"
     
+def get_mlp_baseline_losses(prompts, model, hook_name: str, disable_tqdm=False, prepend_bos=False):
+    
+
+    def zero_ablation_hook(value, hook):
+        value[:, :] = 0
+        return value
+
+    zero_ablate_hook = [(hook_name, zero_ablation_hook)]
+
+    losses = []
+    zero_abl_losses = []
+
+    for prompt in tqdm(prompts, disable=disable_tqdm):
+        tokens = model.to_tokens(prompt, prepend_bos=prepend_bos)
+        loss = model(tokens, return_type="loss", loss_per_token=False).item()
+        with model.hooks(fwd_hooks=zero_ablate_hook):
+            zero_abl_loss = model(tokens, return_type="loss", loss_per_token=False).item()
+        losses.append(loss)
+        zero_abl_losses.append(zero_abl_loss)
+    
+    return np.mean(losses), np.mean(zero_abl_losses)
+    
 def get_loss_recovered(prompts, model, encoder, cfg: AutoEncoderConfig, disable_tqdm=False, prepend_bos=False):
     hook_name = f"blocks.{cfg.layer}.{cfg.act_name}"
 

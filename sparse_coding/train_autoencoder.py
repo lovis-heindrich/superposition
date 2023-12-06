@@ -28,7 +28,8 @@ from utils.autoencoder_utils import (
     train_autoencoder_evaluate_autoencoder_reconstruction,
     load_encoder,
     AutoEncoderConfig,
-    act_name_to_d_in
+    act_name_to_d_in,
+    get_mlp_baseline_losses
 )
 from utils.haystack_utils import get_device
 from autoencoder import AutoEncoder
@@ -203,6 +204,9 @@ def main(
         weight_decay=0.0,
     )
 
+    hook_name = f"blocks.{cfg['layer']}.{cfg['act']}"
+    baseline_loss, baseline_zero_ablation_loss = get_mlp_baseline_losses(eval_prompts, model, hook_name, disable_tqdm=True, prepend_bos=False)
+
     num_tokens = torch.numel(prompt_data)
     num_eval_tokens = cfg["num_eval_batches"] * cfg["batch_size"]
 
@@ -297,7 +301,7 @@ def main(
     reset_count_interval = 10000
     count_dead_direction_steps = [step - reset_count_interval for step in reset_steps]
     dead_direction_threshold = cfg["dead_direction_frequency"] * (reset_count_interval * cfg["batch_size"])
-    eval_interval = 1000
+    eval_interval = 10#0#0
     save_interval = 10000
 
     eval_direction_counter = torch.zeros(size=(encoder.d_hidden,)).to(torch.int64).to(device)
@@ -344,6 +348,7 @@ def main(
             }
 
         if ((batch_index + 1) % eval_interval == 0):
+            start_time = time.time()
             with torch.no_grad():
                 reconstruction_loss, fig = train_autoencoder_evaluate_autoencoder_reconstruction(
                     encoder,
@@ -354,6 +359,8 @@ def main(
                     show_tqdm=False,
                     prepend_bos=False
                 )
+                loss_recovered = ((baseline_zero_ablation_loss - reconstruction_loss)/(baseline_zero_ablation_loss - baseline_loss))
+
                 b_mean, b_variance, b_skew, b_kurt = get_moments(encoder.b_enc)
                 (
                     feature_cosine_sim_mean,
@@ -380,6 +387,7 @@ def main(
 
                 eval_dict = {
                     "reconstruction_loss": reconstruction_loss,
+                    "loss_recovered": loss_recovered,
                     "bias_mean": b_mean,
                     "bias_std": b_variance**0.5,
                     "bias_skew": b_skew,
@@ -397,9 +405,10 @@ def main(
                     "decoder_sim": decoder_sim
                 }
 
+                print(f"Eval time: {time.time() - start_time:.2f} seconds")
                 loss_dict.update(eval_dict)
                 print(
-                    f"\n(Batch {batch_index}) Loss: {loss_dict['loss']:.2f}, MSE loss: {loss_dict['mse_loss']:.2f}, reg_loss: {loss_dict['reg_loss']:.2f}, Avg directions: {loss_dict['avg_directions']:.2f}, Dead directions: {num_dead_directions}, Reconstruction loss: {reconstruction_loss:.2f}"
+                    f"\n(Batch {batch_index}) Loss: {loss_dict['loss']:.2f}, MSE loss: {loss_dict['mse_loss']:.2f}, reg_loss: {loss_dict['reg_loss']:.2f}, Avg directions: {loss_dict['avg_directions']:.2f}, Dead directions: {num_dead_directions}, Reconstruction loss: {reconstruction_loss:.2f}, Loss Recovered: {loss_recovered:.2f}"
                 )
                 
                     
@@ -470,7 +479,7 @@ DEFAULT_CONFIG = {
     "wd": 1e-2,
     "beta1": 0.9,
     "beta2": 0.99,
-    "num_eval_prompts": 200,  # Used for periodic evaluation logs
+    "num_eval_prompts": 150,  # Used for periodic evaluation logs
     "save_checkpoint_models": False,
     "reg": "combined_hoyer_sqrt", # l1 | sqrt | hoyer | hoyer_d | hoyer_d_scaled_l1 | combined_hoyer_l1 | combined_hoyer_sqrt
     "finetune_encoder": None,
