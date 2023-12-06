@@ -33,6 +33,7 @@ from utils.autoencoder_utils import (
 from utils.haystack_utils import get_device
 from autoencoder import AutoEncoder
 import time
+from datasets import load_dataset
 
 
 class Buffer:
@@ -533,14 +534,18 @@ def get_autoencoder(cfg: AutoEncoderConfig, device: str, seed: int):
 
 
 def get_dataset_dispatch(model_name: str) -> tuple[Dataset, Dataset]:
-    if "tiny-stories" in cfg["model"]:
+    if "tiny-stories" in model_name:
         prompt_data = load_tinystories_tokens(cfg["data_path"], exclude_bos=True)
         eval_prompts = load_tinystories_validation_prompts(cfg["data_path"])[
             : cfg["num_eval_prompts"]
         ]
-    elif "pythia" in cfg["model"]:
-        prompt_data = load_pythia_tokens(cfg["data_path"], exclude_bos=True)
-        eval_prompts = load_pythia_validation_prompts(cfg["data_path"])
+    elif "pythia" in model_name:
+        prompt_data = load_dataset("NeelNanda/pile-tokenized-2b", split='train')
+        prompt_data.set_format(type="torch", columns=["tokens"])
+        prompt_data = prompt_data["tokens"]
+        
+        eval_prompts = prompt_data[:len(prompt_data) // 100, 1:]
+        prompt_data = prompt_data[len(prompt_data) // 100:, 1:]
     else:
         raise ValueError(f"Model without registered training data: {cfg['model']}")
     return prompt_data, eval_prompts
