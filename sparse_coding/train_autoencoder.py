@@ -450,7 +450,7 @@ def main(
 
 
 DEFAULT_CONFIG = {
-    "cfg_file": None,
+    "cfg_file": '',
     "data_path": "/workspace/data/tinystories",
     "save_path": "/workspace",
     "use_wandb": True,
@@ -499,7 +499,7 @@ def get_config():
     cfg.update(parsed_args)
 
     # Accept alternative config values from file specified in command line
-    if cfg["cfg_file"] is not None:
+    if cfg["cfg_file"]:
         with open(cfg["cfg_file"], "r") as f:
             cfg.update(json.load(f))
 
