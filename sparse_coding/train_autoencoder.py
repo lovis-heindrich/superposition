@@ -544,8 +544,8 @@ def get_dataset_dispatch(model_name: str) -> tuple[Dataset, Dataset]:
         prompt_data.set_format(type="torch", columns=["tokens"])
         prompt_data = prompt_data["tokens"]
         
-        eval_prompts = prompt_data[:len(prompt_data) // 100, 1:]
-        prompt_data = prompt_data[len(prompt_data) // 100:, 1:]
+        eval_prompts = prompt_data[:cfg["num_eval_prompts"]].detach().cpu()
+        prompt_data = prompt_data[cfg["num_eval_prompts"]:, 1:]
     else:
         raise ValueError(f"Model without registered training data: {cfg['model']}")
     return prompt_data, eval_prompts
