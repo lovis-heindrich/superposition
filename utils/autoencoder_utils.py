@@ -383,7 +383,10 @@ def train_autoencoder_evaluate_autoencoder_reconstruction(autoencoder: AutoEncod
     zero_ablation_losses = []
 
     for prompt in tqdm(data, disable=(not show_tqdm)):
-        tokens = model.to_tokens(prompt, prepend_bos=prepend_bos)
+        if isinstance(data, torch.Tensor):
+            tokens = prompt
+        else:
+            tokens = model.to_tokens(prompt, prepend_bos=prepend_bos)
         with model.hooks(reconstruct_hooks):
             reconstruct_loss = model(tokens, return_type="loss")
         reconstruct_losses.append(reconstruct_loss.item())
@@ -396,7 +399,7 @@ def train_autoencoder_evaluate_autoencoder_reconstruction(autoencoder: AutoEncod
 
     act_nonzero_means = act_nonzero_sums / act_nonzero_counts
 
-    fig = px.histogram(act_nonzero_means.cpu(), title="Non-zero activation means over encoder features")
+    fig = px.histogram(act_nonzero_means.cpu().detach(), title="Non-zero activation means over encoder features")
     fig.update_layout({
         "showlegend": False
     })
