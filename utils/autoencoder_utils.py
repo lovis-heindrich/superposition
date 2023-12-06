@@ -3,7 +3,7 @@ import sys
 sys.path.append('../')  # Add the parent directory to the system path
 
 import torch.nn.functional as F
-from jaxtyping import Int, Float
+from jaxtyping import Int, Float, Bool
 from torch import Tensor
 import einops
 from dataclasses import dataclass
@@ -17,6 +17,7 @@ import numpy as np
 import json
 import pickle
 import plotly.express as px
+import pandas as pd
 
 import utils.haystack_utils as haystack_utils
 from sparse_coding.autoencoder import AutoEncoder
@@ -452,6 +453,15 @@ def batched_reconstruction_loss(encoder: AutoEncoder, encoded_hook_name: str, da
             losses.append(reconstruct_loss[non_eos_mask].mean().item())
     return np.mean(losses)
 
+def custom_reconstruct(
+    enc: AutoEncoder, x: Float[Tensor, "batch d_in"], neuron: int | Tensor, activation: float | Tensor
+):
+    x_cent = x - enc.b_dec
+    acts = F.relu(x_cent @ enc.W_enc + enc.b_enc)
+    acts[:, neuron] = activation
+    x_reconstruct = acts @ enc.W_dec + enc.b_dec
+    return x_reconstruct
+
 def custom_forward(
     enc: AutoEncoder, x: Float[Tensor, "batch d_in"], neuron: int | Tensor, activation: float | Tensor
 ):
@@ -463,7 +473,6 @@ def custom_forward(
     l1_loss = enc.reg_coeff * (acts.abs().sum())
     loss = l2_loss + l1_loss
     return loss, x_reconstruct, acts, l2_loss, l1_loss
-
 
 def encoder_dla_batched(
     tokens: Int[Tensor, "batch pos"],
@@ -786,6 +795,14 @@ def get_encoder_token_reconstruction_losses(
 
     return encoder_context_active_loss, encoder_context_inactive_loss
 
+def get_custom_forward_hook(encoder, directions: int | Tensor, activation: float | Tensor, cfg: AutoEncoderConfig, pos=-2):
+    def feature_hook(value, hook):
+        x_reconstruct = custom_reconstruct(
+            encoder, value[:, pos], directions, activation
+        )
+        value[:, pos] = x_reconstruct
+        return value
+    return [(cfg.encoder_hook_point, feature_hook)]
 
 def get_encoder_feature_reconstruction_losses(
     tokens: Int[Tensor, "batch pos"],
@@ -862,3 +879,120 @@ def generate_with_encoder(model: HookedTransformer, autoencoder: AutoEncoder, cf
 
     with model.hooks(reconstruct_hooks):
         return model.generate(input, k, verbose=False, temperature=0, use_past_kv_cache=False)
+
+
+def get_all_activating_test_prompts(prompts: list[str], encoder: AutoEncoder, model: HookedTransformer, cfg: AutoEncoderConfig, active_threshold=0.1, negative_pos_offset=-2):
+    activating_test_prompts_all_dir = torch.zeros((len(prompts), encoder.d_hidden), dtype=torch.bool)
+    for i, prompt in tqdm(enumerate(prompts), total=len(prompts)):
+        tokens = model.to_tokens(prompt)
+        act_token_index = tokens.shape[1] + negative_pos_offset
+        act = get_acts(prompt, model, encoder, cfg)[act_token_index]
+        act_active = act > active_threshold
+        activating_test_prompts_all_dir[i] = act_active
+    return activating_test_prompts_all_dir
+
+def eval_encoder_reconstruction_single_position(prompts, encoder: AutoEncoder, model: HookedTransformer, cfg: AutoEncoderConfig):
+    """ Assumes prompts to end in answer tokens, evaluates reconstruction loss on the second to last token """
+    # Original and zero ablation loss on test prompts
+    original_losses = []
+    ablated_losses = []
+    encoded_losses = []
+
+    def zero_ablate_mlp(value, hook):
+        value[:, -2] = 0
+        return value
+
+    def encode_mlp(value, hook):
+        recons = encoder(value[0, -2])[1]
+        value[0, -2] = recons
+        return value
+
+    zero_ablate_mlp_hook = [(cfg.encoder_hook_point, zero_ablate_mlp)]
+    encode_mlp_hook = [(cfg.encoder_hook_point, encode_mlp)]
+
+    for prompt in tqdm(prompts):
+        original_loss = model(prompt, return_type="loss", loss_per_token=True)[0, -1].item()
+        with model.hooks(zero_ablate_mlp_hook):
+            ablated_loss = model(prompt, return_type="loss", loss_per_token=True)[0, -1].item()
+        with model.hooks(encode_mlp_hook):
+            encoded_loss = model(prompt, return_type="loss", loss_per_token=True)[0, -1].item()
+        original_losses.append(original_loss)
+        ablated_losses.append(ablated_loss)
+        encoded_losses.append(encoded_loss)
+
+    original_loss = np.mean(original_losses)
+    ablated_loss = np.mean(ablated_losses)
+    encoded_loss = np.mean(encoded_losses)
+    return original_loss, ablated_loss, encoded_loss
+
+def get_top_direction_ablation_df(activating_test_prompts: Bool[Tensor, "n_test_prompts d_enc"], prompts: list[str], model, encoder: AutoEncoder, cfg: AutoEncoderConfig, max_activations: Float[Tensor, "n_data d_enc"]):
+    assert activating_test_prompts.shape[0] == len(prompts)
+
+    all_acts = []
+    for prompt in prompts[:1000]:
+        acts = get_acts(prompt, model, encoder, cfg)[-2]
+        all_acts.append(acts)
+
+    all_acts = torch.stack(all_acts)
+
+    # Max per direction
+    max_val, _ = max_activations.max(0)
+    threshold_per_direction = (max_val * 0.17).cuda()
+
+    # Mean activation on all prompts is misleading, prompts could be important on subset of test prompts
+    num_active_acts = (all_acts > threshold_per_direction).sum(0) + 1e-9
+    all_acts_tmp = all_acts.clone()
+    all_acts_tmp[all_acts_tmp <= threshold_per_direction] = 0
+    # Direction wise mean activation on active prompts
+    mean_active_acts = all_acts_tmp.sum(0) / num_active_acts
+    # Filter directions that are active on less than x% of quotation prompts
+    mean_active_acts[num_active_acts < 0.05*all_acts.shape[0]] = 0
+    n_non_zero_directions = (mean_active_acts > 0).sum().item()
+    top_acts, top_dirs = torch.topk(mean_active_acts, min(100, n_non_zero_directions))
+    
+    print(f"Number of directions with mean activation > 0: {n_non_zero_directions}")
+
+    # Run ablation for activating directions
+    data = []
+    for direction in tqdm(top_dirs):
+        hook = get_custom_forward_hook(encoder, direction, 0, cfg, pos=-2)
+        loss_increases = []
+        loss_increases_encoded_ablation = []
+        active_test_prompt_indices = torch.argwhere(activating_test_prompts[:, direction]).flatten().tolist()
+        active_test_prompts = [prompts[i] for i in active_test_prompt_indices]
+        num_prompts = min(len(active_test_prompts), 200)
+        for prompt in active_test_prompts[:num_prompts]:
+            tokens = model.to_tokens(prompt, prepend_bos=False)
+            pos = tokens.shape[1]-2
+            original_loss, ablated_loss = evaluate_direction_ablation_single_prompt(tokens, encoder, model, direction.item(), cfg, pos=pos)
+            with model.hooks(hook):
+                encoded_ablated_loss = model(tokens, return_type="loss", loss_per_token=True)[0, -1].item()
+            loss_increase = ablated_loss - original_loss
+            loss_increases.append(loss_increase)
+            loss_increases_encoded_ablation.append(encoded_ablated_loss - original_loss)
+        loss_increase = np.mean(loss_increases)
+        loss_increase_encoded_ablation = np.mean(loss_increases_encoded_ablation)
+        # Summary statistic on subset of prompts
+        mean_activation =  mean_active_acts[direction].item()
+        percentage_activation = num_active_acts[direction].item() / all_acts.shape[0]
+        data.append([direction.item(), loss_increase, loss_increase_encoded_ablation, mean_activation, percentage_activation])
+    df = pd.DataFrame(data, columns=["Direction", "Loss increase", "Loss increase (encoded)", "Mean activation", "Percentage activation"])
+    df = df.sort_values("Loss increase", ascending=False)
+    top_directions = df["Direction"].tolist()
+    directions = top_directions[:3]
+    print(f"The top 3 directions are {directions}")
+    return df
+
+def get_mean_component_wise_mlp(prompts, model, encoder_cfg):
+    mlp_wise_decompositions = []
+    for prompt in prompts:
+        _, cache = model.run_with_cache(prompt)
+
+        decomposition = cache.get_full_resid_decomposition(encoder_cfg.layer, mlp_input=True, apply_ln=True, return_labels=False, expand_neurons=False, pos_slice=None)
+        decomposition = decomposition.squeeze(1) # Batch
+        # Account for GELU in DLA by setting neuron contributions to 0 if they are not activated
+        mlp_wise_decomposition = einops.einsum(decomposition, model.W_in[encoder_cfg.layer], "component pos d_res, d_res d_mlp -> component pos d_mlp")
+        mlp_wise_decomposition = mlp_wise_decomposition.mean(1)
+        mlp_wise_decompositions.append(mlp_wise_decomposition)
+    mlp_wise_decompositions = torch.stack(mlp_wise_decompositions).mean(0)
+    return mlp_wise_decompositions
