@@ -8,7 +8,7 @@ import json
 import random
 import argparse
 from itertools import islice
-
+from datasets import Dataset
 import torch
 import einops
 from torch import Tensor
@@ -532,14 +532,25 @@ def get_autoencoder(cfg: AutoEncoderConfig, device: str, seed: int):
     return encoder
 
 
+def get_dataset_dispatch(model_name: str) -> tuple[Dataset, Dataset]:
+    if "tiny-stories" in cfg["model"]:
+        prompt_data = load_tinystories_tokens(cfg["data_path"], exclude_bos=True)
+        eval_prompts = load_tinystories_validation_prompts(cfg["data_path"])[
+            : cfg["num_eval_prompts"]
+        ]
+    elif "pythia" in cfg["model"]:
+        prompt_data = load_pythia_tokens(cfg["data_path"], exclude_bos=True)
+        eval_prompts = load_pythia_validation_prompts(cfg["data_path"])
+    else:
+        raise ValueError(f"Model without registered training data: {cfg['model']}")
+    return prompt_data, eval_prompts
+
+
 if __name__ == "__main__":
     torch.cuda.empty_cache()
     cfg = get_config()
-    prompt_data = load_tinystories_tokens(cfg["data_path"], exclude_bos=True)
-    eval_prompts = load_tinystories_validation_prompts(cfg["data_path"])[
-        : cfg["num_eval_prompts"]
-    ]
-
+    prompt_data, eval_prompts = get_dataset_dispatch(cfg['model'])
+    
     SEED = cfg["seed"]
     # GENERATOR = torch.manual_seed(SEED)
     np.random.seed(SEED)
