@@ -301,7 +301,7 @@ def main(
     reset_count_interval = 10000
     count_dead_direction_steps = [step - reset_count_interval for step in reset_steps]
     dead_direction_threshold = cfg["dead_direction_frequency"] * (reset_count_interval * cfg["batch_size"])
-    eval_interval = 10#0#0
+    eval_interval = 1000
     save_interval = 10000
 
     eval_direction_counter = torch.zeros(size=(encoder.d_hidden,)).to(torch.int64).to(device)
@@ -361,26 +361,26 @@ def main(
                 )
                 loss_recovered = ((baseline_zero_ablation_loss - reconstruction_loss)/(baseline_zero_ablation_loss - baseline_loss))
 
-                b_mean, b_variance, b_skew, b_kurt = get_moments(encoder.b_enc)
-                (
-                    feature_cosine_sim_mean,
-                    feature_cosine_sim_variance,
-                    _,
-                    _,
-                ) = get_cosine_sim_moments(encoder.W_enc, encoder.W_dec)
+                # b_mean, b_variance, b_skew, b_kurt = get_moments(encoder.b_enc)
+                # (
+                #     feature_cosine_sim_mean,
+                #     feature_cosine_sim_variance,
+                #     _,
+                #     _,
+                # ) = get_cosine_sim_moments(encoder.W_enc, encoder.W_dec)
                 W_dec_norm = encoder.W_dec.norm()
                 W_enc_norm = encoder.W_enc.norm()
-                entropy = get_entropy(mid_acts)
+                # entropy = get_entropy(mid_acts)
                 
-                mean_feature_unembed_cosine_sim_kurtosis = (
-                    decoder_unembed_cosine_sim_mean_kurtosis(
-                        model, cfg["layer"], encoder.W_dec
-                    )
-                )
-                num_similar_dec_features = get_num_similar_dec_features(encoder.W_dec)
+                # mean_feature_unembed_cosine_sim_kurtosis = (
+                #     decoder_unembed_cosine_sim_mean_kurtosis(
+                #         model, cfg["layer"], encoder.W_dec
+                #     )
+                # )
+                # num_similar_dec_features = get_num_similar_dec_features(encoder.W_dec)
 
                 encoder_sim = get_encoder_sims(encoder.W_enc)
-                decoder_sim = get_decoder_sims(encoder.W_dec)
+                # decoder_sim = get_decoder_sims(encoder.W_dec)
 
                 num_dead_directions = (eval_direction_counter <= eval_dead_direction_threshold).sum().item() #dead_directions.sum().item()
                 eval_direction_counter = torch.zeros(size=(encoder.d_hidden,)).to(torch.int64).to(device)
@@ -388,21 +388,21 @@ def main(
                 eval_dict = {
                     "reconstruction_loss": reconstruction_loss,
                     "loss_recovered": loss_recovered,
-                    "bias_mean": b_mean,
-                    "bias_std": b_variance**0.5,
-                    "bias_skew": b_skew,
-                    "bias_kurtosis": b_kurt,
-                    "feature_cosine_sim_mean": feature_cosine_sim_mean,
-                    "feature_cosine_sim_variance": feature_cosine_sim_variance,
-                    "mean_feature_unembed_cosine_sim_kurtosis": mean_feature_unembed_cosine_sim_kurtosis,
-                    "num_similar_dec_features": num_similar_dec_features,
+                    # "bias_mean": b_mean,
+                    # "bias_std": b_variance**0.5,
+                    # "bias_skew": b_skew,
+                    # "bias_kurtosis": b_kurt,
+                    # "feature_cosine_sim_mean": feature_cosine_sim_mean,
+                    # "feature_cosine_sim_variance": feature_cosine_sim_variance,
+                    # "mean_feature_unembed_cosine_sim_kurtosis": mean_feature_unembed_cosine_sim_kurtosis,
+                    # "num_similar_dec_features": num_similar_dec_features,
                     "W_enc_norm": W_enc_norm,
                     "W_dec_norm": W_dec_norm,
-                    "entropy": entropy,
+                    # "entropy": entropy,
                     "dead_directions": num_dead_directions,
                     "feature_non_zero_act_means": fig,
                     "encoder_sim": encoder_sim,
-                    "decoder_sim": decoder_sim
+                    # "decoder_sim": decoder_sim
                 }
 
                 print(f"Eval time: {time.time() - start_time:.2f} seconds")
@@ -466,7 +466,7 @@ DEFAULT_CONFIG = {
     "num_eval_tokens": 800000,  # Tokens used to resample dead directions
     "num_training_tokens": 5e8,
     "batch_size": 5080,  # Batch shape is batch_size, d_in
-    "buffer_mult": 128,  # Buffer size is batch_size*buffer_mult, d_in
+    "buffer_mult": 256,  # Buffer size is batch_size*buffer_mult, d_in
     "seq_len": 127,
     "model": "tiny-stories-2L-33M",
     "layer": 1,
