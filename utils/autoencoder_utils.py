@@ -946,7 +946,7 @@ def get_top_direction_ablation_df(activating_test_prompts: Bool[Tensor, "n_test_
     # Direction wise mean activation on active prompts
     mean_active_acts = all_acts_tmp.sum(0) / num_active_acts
     # Filter directions that are active on less than x% of quotation prompts
-    mean_active_acts[num_active_acts < 0.05*all_acts.shape[0]] = 0
+    mean_active_acts[num_active_acts < 0.02*all_acts.shape[0]] = 0
     n_non_zero_directions = (mean_active_acts > 0).sum().item()
     top_acts, top_dirs = torch.topk(mean_active_acts, min(100, n_non_zero_directions))
     
@@ -954,6 +954,7 @@ def get_top_direction_ablation_df(activating_test_prompts: Bool[Tensor, "n_test_
 
     # Run ablation for activating directions
     data = []
+    global_loss_increases = []
     for direction in tqdm(top_dirs):
         hook = get_custom_forward_hook(encoder, direction, 0, cfg, pos=-2)
         loss_increases = []
@@ -971,17 +972,14 @@ def get_top_direction_ablation_df(activating_test_prompts: Bool[Tensor, "n_test_
             loss_increases.append(loss_increase)
             loss_increases_encoded_ablation.append(encoded_ablated_loss - original_loss)
         loss_increase = np.mean(loss_increases)
+        global_loss_increases.append(loss_increases)
         loss_increase_encoded_ablation = np.mean(loss_increases_encoded_ablation)
         # Summary statistic on subset of prompts
         mean_activation =  mean_active_acts[direction].item()
         percentage_activation = num_active_acts[direction].item() / all_acts.shape[0]
         data.append([direction.item(), loss_increase, loss_increase_encoded_ablation, mean_activation, percentage_activation])
     df = pd.DataFrame(data, columns=["Direction", "Loss increase", "Loss increase (encoded)", "Mean activation", "Percentage activation"])
-    df = df.sort_values("Loss increase", ascending=False)
-    top_directions = df["Direction"].tolist()
-    directions = top_directions[:3]
-    print(f"The top 3 directions are {directions}")
-    return df
+    return df, global_loss_increases
 
 def get_mean_component_wise_mlp(prompts, model, encoder_cfg):
     mlp_wise_decompositions = []
