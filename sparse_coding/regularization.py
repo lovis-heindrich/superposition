@@ -58,5 +58,7 @@ def hoyer_d(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:
 @regularization
 def sqrt(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:
     act_reg_loss = acts.abs() + 1e-9
-    act_reg_loss[(act_reg_loss < 1)] **= 0.5
+    mask = act_reg_loss < 1
+    result = act_reg_loss * ~mask 
+    result += (act_reg_loss * mask) ** 0.5
     return reg_coeff * act_reg_loss.sum()
