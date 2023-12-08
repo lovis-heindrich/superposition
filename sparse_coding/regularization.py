@@ -23,10 +23,6 @@ def hoyer_square(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:
     l1_squared = acts.abs().sum(-1) ** 2
     l2_squared = (acts ** 2).sum(-1) + 1e-9
     squared = (l1_squared  / l2_squared).sum()
-    # l1 = acts.norm(p=1, dim=-1)
-    # l2 = acts.norm(p=2, dim=-1)
-    # squared = ((l1 / l2)**2).sum()
-    #print(squared, squared_old)
     return squared * reg_coeff
 
 @regularization
@@ -61,4 +57,17 @@ def sqrt(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:
     mask = act_reg_loss < 1
     result = act_reg_loss * ~mask 
     result += (act_reg_loss * mask) ** 0.5
-    return reg_coeff * act_reg_loss.sum()
+    return reg_coeff * result.sum()
+
+# Just for reference
+def hoyer_sqrt_reg(acts: torch.Tensor, hoyer_coeff: float, l1_coeff: float):
+    # Hoyer squared loss
+    l1_squared = acts.abs().sum(-1) ** 2
+    l2_squared = (acts ** 2).sum(-1) + 1e-9
+    hoyer_squared = (l1_squared  / l2_squared).sum()
+    # L1 loss with sqrt for activations < 1
+    act_reg_loss = acts.abs() + 1e-9
+    mask = act_reg_loss < 1
+    l1_sqrt = act_reg_loss * ~mask 
+    l1_sqrt += (act_reg_loss * mask) ** 0.5
+    return hoyer_coeff * hoyer_squared + l1_coeff * l1_sqrt.sum()
