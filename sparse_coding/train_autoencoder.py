@@ -474,14 +474,14 @@ DEFAULT_CONFIG = {
     "expansion_factor": 4,
     "seed": 47,
     "lr": 1e-4,
-    "l1_coeff": (0.0001, 0.00015), #,  # Used for all regularization types to maintain backwards compatibility
+    "l1_coeff": 0.0002,#(0.0001, 0.00015), #,  # Used for all regularization types to maintain backwards compatibility
     "l1_target": None,
     "wd": 1e-2,
     "beta1": 0.9,
     "beta2": 0.99,
     "num_eval_prompts": 150,  # Used for periodic evaluation logs
     "save_checkpoint_models": False,
-    "reg": "combined_hoyer_sqrt", # l1 | sqrt | hoyer | hoyer_d | hoyer_d_scaled_l1 | combined_hoyer_l1 | combined_hoyer_sqrt
+    "reg": "sqrt", # l1 | sqrt | hoyer | hoyer_d | hoyer_d_scaled_l1 | combined_hoyer_l1 | combined_hoyer_sqrt
     "finetune_encoder": None,
     "dead_direction_frequency": 1e-5
 }

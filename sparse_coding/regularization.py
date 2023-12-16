@@ -56,7 +56,7 @@ def sqrt(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:
     act_reg_loss = acts.abs() + 1e-9
     mask = act_reg_loss < 1
     result = act_reg_loss * ~mask 
-    result += (act_reg_loss * mask) ** 0.5
+    result += (act_reg_loss.sqrt() * mask)
     return reg_coeff * result.sum()
 
 # Just for reference
