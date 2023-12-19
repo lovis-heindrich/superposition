@@ -60,7 +60,10 @@ def get_mlp_baseline_losses(prompts, model, hook_name: str, disable_tqdm=False, 
     zero_abl_losses = []
 
     for prompt in tqdm(prompts, disable=disable_tqdm):
-        tokens = model.to_tokens(prompt, prepend_bos=prepend_bos)
+        if isinstance(prompt, torch.Tensor):
+            tokens = prompt
+        else:
+            tokens = model.to_tokens(prompt, prepend_bos=prepend_bos)
         loss = model(tokens, return_type="loss", loss_per_token=False).item()
         with model.hooks(fwd_hooks=zero_ablate_hook):
             zero_abl_loss = model(tokens, return_type="loss", loss_per_token=False).item()
