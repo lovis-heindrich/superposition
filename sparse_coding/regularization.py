@@ -16,10 +16,14 @@ def hoyer_d_scaled_l1(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:
 
 @regularization
 def l1(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:
+    if isinstance(reg_coeff, list) or isinstance(reg_coeff, tuple):
+        reg_coeff = reg_coeff[0]
     return reg_coeff * acts.abs().sum()
 
 @regularization
-def hoyer_square(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:
+def hoyer_square(acts: torch.Tensor, reg_coeff: float | list[float]) -> torch.Tensor:
+    if isinstance(reg_coeff, list) or isinstance(reg_coeff, tuple):
+        reg_coeff = reg_coeff[0]
     l1_squared = acts.abs().sum(-1) ** 2
     l2_squared = (acts ** 2).sum(-1) + 1e-9
     squared = (l1_squared  / l2_squared).sum()
@@ -52,7 +56,10 @@ def hoyer_d(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:
 
 
 @regularization
-def sqrt(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:
+def sqrt(acts: torch.Tensor, reg_coeff: float | list[float]) -> torch.Tensor:
+    if isinstance(reg_coeff, list) or isinstance(reg_coeff, tuple):
+        reg_coeff = reg_coeff[0]
+
     act_reg_loss = acts.abs() + 1e-9
     mask = act_reg_loss < 1
     result = act_reg_loss * ~mask 

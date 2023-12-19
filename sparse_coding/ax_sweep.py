@@ -1,17 +1,16 @@
 import time
 from ax.service.ax_client import AxClient, ObjectiveProperties
-from ax import ComparisonOp, Metric, OutcomeConstraint
-from sparse_coding.train_autoencoder import run_trial
+from train_autoencoder import run_trial
 
 def ax_sweep():
-    ax_client = AxClient()
+    ax_client = AxClient(random_seed=42)
     ax_client.create_experiment(
         name="sae_regularization",
         parameters=[
             {
                 "name": "reg",
-                "type": "string",
-                "values": ["l1", "sqrt", "combined_hoyer_sqrt"]
+                "type": "choice",
+                "values": ["l1", "sqrt", "combined_hoyer_sqrt", "hoyer_square"]
             },
             {
                 "name": "l1_coeff",
@@ -23,12 +22,14 @@ def ax_sweep():
                 "type": "range",
                 "bounds": [0.00001, 0.001],
             },
+            {
+                "name": "cfg_file",
+                "type": "fixed",
+                "value": "config/pythia-70m-base.json",
+            }
         ],
         objectives={"reconstruction_loss": ObjectiveProperties(minimize=True)},
-        outcome_constraints=[
-            OutcomeConstraint(metric=Metric(name="l0"), op = ComparisonOp.GEQ, bound=29),
-            OutcomeConstraint(metric=Metric(name="l0"), op = ComparisonOp.LEQ, bound=31)
-        ],
+        outcome_constraints=["l0 >= 29.9", "l0 <= 31.1"],
     )
 
     def evaluate(parameters):

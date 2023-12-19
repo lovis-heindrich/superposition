@@ -544,13 +544,13 @@ def get_autoencoder(cfg: AutoEncoderConfig, device: str, seed: int):
     return encoder
 
 
-def get_dataset_dispatch(model_name: str) -> tuple[Dataset, Dataset]:
-    if "tiny-stories" in model_name:
+def get_dataset_dispatch(cfg) -> tuple[Dataset, Dataset]:
+    if "tiny-stories" in cfg['model']:
         prompt_data = load_tinystories_tokens(cfg["data_path"], exclude_bos=True)
         eval_prompts = load_tinystories_validation_prompts(cfg["data_path"])[
             : cfg["num_eval_prompts"]
         ]
-    elif "pythia" in model_name:
+    elif "pythia" in cfg['model']:
         prompt_data = load_dataset("NeelNanda/pile-tokenized-2b", split='train')
         prompt_data.set_format(type="torch", columns=["tokens"])
         prompt_data = prompt_data["tokens"]
@@ -570,6 +570,9 @@ def run_trial(parameters: dict):
     if cfg["cfg_file"]:
         with open(cfg["cfg_file"], "r") as f:
             cfg.update(json.load(f))
+    # Allow experiment to set coefficient values separately
+    if cfg['reg_coeff_2']:
+        cfg['l1_coeff'] = [cfg['l1_coeff'], cfg['reg_coeff_2']]
 
     # Derive config values
     cfg["model_batch_size"] = cfg["batch_size"] // cfg["seq_len"]
@@ -582,7 +585,7 @@ def run_trial(parameters: dict):
         cfg["buffer_batches"] % cfg["model_batch_size"] == 0
     ), "Buffer batches must be multiple of model batch size"
 
-    prompt_data, eval_prompts = get_dataset_dispatch(cfg['model'])
+    prompt_data, eval_prompts = get_dataset_dispatch(cfg)
     
     SEED = cfg["seed"]
     np.random.seed(SEED)
@@ -608,7 +611,7 @@ def run_trial(parameters: dict):
 if __name__ == "__main__":
     torch.cuda.empty_cache()
     cfg = get_config()
-    prompt_data, eval_prompts = get_dataset_dispatch(cfg['model'])
+    prompt_data, eval_prompts = get_dataset_dispatch(cfg)
     
     SEED = cfg["seed"]
     # GENERATOR = torch.manual_seed(SEED)
