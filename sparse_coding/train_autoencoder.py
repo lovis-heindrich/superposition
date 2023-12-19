@@ -457,6 +457,8 @@ def main(
     if cfg["use_wandb"]:
         wandb.finish()
 
+    return reconstruction_loss, active_directions
+
 
 DEFAULT_CONFIG = {
     "cfg_file": '',
@@ -558,6 +560,49 @@ def get_dataset_dispatch(model_name: str) -> tuple[Dataset, Dataset]:
     else:
         raise ValueError(f"Model without registered training data: {cfg['model']}")
     return prompt_data, eval_prompts
+
+
+def run_trial(parameters: dict):
+    """Accepts parameters instead of command line arguments"""
+    cfg = DEFAULT_CONFIG.copy()
+    cfg.update(parameters)
+    # Accept alternative config values from file specified in command line
+    if cfg["cfg_file"]:
+        with open(cfg["cfg_file"], "r") as f:
+            cfg.update(json.load(f))
+
+    # Derive config values
+    cfg["model_batch_size"] = cfg["batch_size"] // cfg["seq_len"]
+    cfg["buffer_size"] = cfg["batch_size"] * cfg["buffer_mult"]
+    cfg["buffer_batches"] = (
+        cfg["buffer_size"] // cfg["seq_len"]
+    )
+    cfg["num_eval_batches"] = cfg["num_eval_tokens"] // cfg["batch_size"]
+    assert (
+        cfg["buffer_batches"] % cfg["model_batch_size"] == 0
+    ), "Buffer batches must be multiple of model batch size"
+
+    prompt_data, eval_prompts = get_dataset_dispatch(cfg['model'])
+    
+    SEED = cfg["seed"]
+    np.random.seed(SEED)
+    random.seed(SEED)
+    torch.manual_seed(SEED)
+    torch.set_grad_enabled(True)
+
+    device = get_device()
+    model = HookedTransformer.from_pretrained(
+        cfg["model"],
+        center_unembed=True,
+        center_writing_weights=True,
+        fold_ln=True,
+        device=device,
+    )
+
+    cfg["d_in"] = act_name_to_d_in(model, cfg['act'])
+
+    encoder = get_autoencoder(cfg, device, SEED)
+    return main(encoder, model, cfg, prompt_data, eval_prompts, device)
 
 
 if __name__ == "__main__":
