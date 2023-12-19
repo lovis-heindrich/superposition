@@ -1,0 +1,15 @@
+{
+    "data_path": "/workspace/data/pile",
+    "save_path": "/workspace",
+    "num_eval_tokens": 800000, 
+    "num_training_tokens": 1e9,
+    "batch_size": 8128,
+    "model": "pythia-70m",
+    "layer": 5,
+    "act": "mlp.hook_post",
+    "expansion_factor": 4,
+    "lr": 1e-4,
+    "l1_coeff": [0.000066666, 0.0001],
+    "reg": "combined_hoyer_sqrt",
+    "dead_direction_frequency": 1e-5
+}
