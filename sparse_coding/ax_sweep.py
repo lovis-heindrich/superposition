@@ -1,3 +1,7 @@
+# df = pd.read_csv('/workspace/ax_sweep_1703031910.8590996')
+# df
+# px.scatter(df, x="l0", y="reconstruction_loss", color="reg", width=780)
+
 import time
 from ax.service.ax_client import AxClient, ObjectiveProperties
 from train_autoencoder import run_trial

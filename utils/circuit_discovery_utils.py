@@ -147,3 +147,13 @@ def eval_direction_tokens_global(max_activations, prompts, model, encoder, cfg, 
             if len(valid_directions) > 0:
                 token_wise_activations[valid_directions, tokens[position]] += 1
     return token_wise_activations
+
+
+def final_token_indices(model: HookedTransformer, tokens: torch.tensor):
+    bos = model.tokenizer.bos_token_id
+    mask = tokens != bos
+    cumulative_mask = mask.cumsum(dim=1)
+    return cumulative_mask.argmax(dim=1)
+
+    # Select elements from each row up to the last non-bos index
+    # return tokens[:, max_indices + 1 - neg_pos]
