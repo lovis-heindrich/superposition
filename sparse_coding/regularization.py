@@ -21,13 +21,16 @@ def l1(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:
     return reg_coeff * acts.abs().sum()
 
 @regularization
-def hoyer_square(acts: torch.Tensor, reg_coeff: float | list[float]) -> torch.Tensor:
-    if isinstance(reg_coeff, list) or isinstance(reg_coeff, tuple):
-        reg_coeff = reg_coeff[0]
-    l1_squared = acts.abs().sum(-1) ** 2
-    l2_squared = (acts ** 2).sum(-1) + 1e-9
-    squared = (l1_squared  / l2_squared).sum()
-    return squared * reg_coeff
+def hoyer_square(acts: torch.Tensor, scale: float, dim: int = -1) -> torch.Tensor:
+    """Hoyer-Square sparsity measure."""
+    if isinstance(scale, list) or isinstance(scale, tuple):
+        scale = scale[0]
+
+    eps = torch.finfo(acts.dtype).eps
+
+    numer = acts.norm(p=1, dim=dim)
+    denom = acts.norm(p=2, dim=dim)
+    return numer.div(denom + eps).square().sum() * scale
 
 @regularization
 def combined_hoyer_l1(acts: torch.Tensor, reg_coeffs: list[float]) -> list[torch.Tensor]:
