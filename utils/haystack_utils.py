@@ -1967,9 +1967,8 @@ def print_tokenized_word(prompt: str, model: HookedTransformer):
 
 
 def get_context_effect(prompt: str | list[str], model: HookedTransformer, context_ablation_hooks: list, context_activation_hooks: list,
-                      downstream_components=[], pos=None):  
+                      downstream_components=[], pos=None, return_type="loss"):  
     
-    return_type = "loss"
     original_metric = model(prompt, return_type=return_type, loss_per_token=True)
     # 1. Activated loss: activate context
     with model.hooks(fwd_hooks=context_activation_hooks):
