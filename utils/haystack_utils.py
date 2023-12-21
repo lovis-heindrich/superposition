@@ -1967,16 +1967,18 @@ def print_tokenized_word(prompt: str, model: HookedTransformer):
 
 
 def get_context_effect(prompt: str | list[str], model: HookedTransformer, context_ablation_hooks: list, context_activation_hooks: list,
-                      downstream_components=[], pos=None, return_type="loss"):  
+                      downstream_components=[], pos=None, return_type="loss", prepend_bos=True):  
     
-    original_metric = model(prompt, return_type=return_type, loss_per_token=True)
+    tokens = model.to_tokens(prompt, prepend_bos=prepend_bos)
+
+    original_metric = model(tokens, return_type=return_type, loss_per_token=True)
     # 1. Activated loss: activate context
     with model.hooks(fwd_hooks=context_activation_hooks):
-        activated_metric, activated_cache = model.run_with_cache(prompt, return_type=return_type, loss_per_token=True)
+        activated_metric, activated_cache = model.run_with_cache(tokens, return_type=return_type, loss_per_token=True)
 
     # 2. Total effect: deactivate context
     with model.hooks(fwd_hooks=context_ablation_hooks):
-        ablated_metric, ablated_cache = model.run_with_cache(prompt, return_type=return_type, loss_per_token=True)
+        ablated_metric, ablated_cache = model.run_with_cache(tokens, return_type=return_type, loss_per_token=True)
 
     # 3. Direct effect: activate context, deactivate later components
     def deactivate_components_hook(value, hook: HookPoint):
@@ -1984,7 +1986,7 @@ def get_context_effect(prompt: str | list[str], model: HookedTransformer, contex
         return value
     deactivate_components_hooks = [(freeze_act_name, deactivate_components_hook) for freeze_act_name in downstream_components]
     with model.hooks(fwd_hooks=deactivate_components_hooks+context_activation_hooks):
-        direct_effect_metric = model(prompt, return_type=return_type, loss_per_token=True)
+        direct_effect_metric = model(tokens, return_type=return_type, loss_per_token=True)
 
     # 4. Indirect effect: deactivate context, activate later components
     def activate_components_hook(value, hook: HookPoint):
@@ -1992,7 +1994,7 @@ def get_context_effect(prompt: str | list[str], model: HookedTransformer, contex
         return value         
     activate_components_hooks = [(freeze_act_name, activate_components_hook) for freeze_act_name in downstream_components]
     with model.hooks(fwd_hooks=activate_components_hooks+context_ablation_hooks):
-        indirect_effect_metric = model(prompt, return_type=return_type, loss_per_token=True)
+        indirect_effect_metric = model(tokens, return_type=return_type, loss_per_token=True)
 
     if pos is None:
         return original_metric, activated_metric, ablated_metric, direct_effect_metric, indirect_effect_metric
