@@ -47,9 +47,7 @@ class AutoEncoderConfig:
     def encoder_hook_point(self) -> str:
         return f"blocks.{self.layer}.{self.act_name}"
     
-def get_mlp_baseline_losses(prompts, model, hook_name: str, disable_tqdm=False, prepend_bos=False):
-    
-
+def get_component_baseline_losses(prompts, model, hook_name: str, disable_tqdm=False, prepend_bos=False):
     def zero_ablation_hook(value, hook):
         value[:, :] = 0
         return value

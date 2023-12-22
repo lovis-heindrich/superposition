@@ -29,7 +29,7 @@ from utils.autoencoder_utils import (
     load_encoder,
     AutoEncoderConfig,
     act_name_to_d_in,
-    get_mlp_baseline_losses
+    get_component_baseline_losses
 )
 from utils.haystack_utils import get_device
 from autoencoder import AutoEncoder
@@ -183,7 +183,7 @@ def get_entropy(activations: Float[Tensor, "batch d_hidden"]) -> float:
     return torch.mean(entropy).item()
 
 
-def get_num_similar_dec_features(W_dec: Float[Tensor, "d_hidden d_mlp"]):
+def get_num_similar_dec_features(W_dec: Float[Tensor, "d_hidden d_component"]):
     normalized_W_dec = F.normalize(W_dec, dim=1)
     cosine_sims = torch.tril(normalized_W_dec @ normalized_W_dec.T, diagonal=-1).flatten()
     return cosine_sims
@@ -205,7 +205,7 @@ def main(
     )
 
     hook_name = f"blocks.{cfg['layer']}.{cfg['act']}"
-    baseline_loss, baseline_zero_ablation_loss = get_mlp_baseline_losses(eval_prompts, model, hook_name, disable_tqdm=True, prepend_bos=False)
+    baseline_loss, baseline_zero_ablation_loss = get_component_baseline_losses(eval_prompts, model, hook_name, disable_tqdm=True, prepend_bos=False)
 
     num_tokens = torch.numel(prompt_data)
     num_eval_tokens = cfg["num_eval_batches"] * cfg["batch_size"]
