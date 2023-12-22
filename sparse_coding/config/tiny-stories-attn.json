@@ -8,9 +8,9 @@
     "layer": 1,
     "act": "attn.hook_result",
     "head_idx": 13,
-    "expansion_factor": 4,
+    "expansion_factor": 1,
     "lr": 1e-4,
-    "l1_coeff": [0.000009, 0.00001],
+    "l1_coeff": [0.0001, 0.00015],
     "tried": [[0.0001, 0.00015], [0.00005, 0.000075], [0.0000125, 0.00001875], [0.000009, 0.00001]],
     "reg": "combined_hoyer_sqrt",
     "dead_direction_frequency": 1e-5

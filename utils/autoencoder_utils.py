@@ -41,15 +41,19 @@ class AutoEncoderConfig:
     l1_coeff: float
     d_in: int
     run_name: str | None = None
-    reg: str = "l1"
+    reg: str = "l1",
+    head_idx: int | None = None,
 
     @property
     def encoder_hook_point(self) -> str:
         return f"blocks.{self.layer}.{self.act_name}"
     
-def get_component_baseline_losses(prompts, model, hook_name: str, disable_tqdm=False, prepend_bos=False):
+def get_component_baseline_losses(prompts, model, hook_name: str, head_idx: int | None=None, disable_tqdm=False, prepend_bos=False):
     def zero_ablation_hook(value, hook):
-        value[:, :] = 0
+        if head_idx:
+            value[:, :, head_idx] = 0
+        else:    
+            value[:, :] = 0
         return value
 
     zero_ablate_hook = [(hook_name, zero_ablation_hook)]
@@ -74,12 +78,17 @@ def get_loss_recovered(prompts, model, encoder, cfg: AutoEncoderConfig, disable_
     hook_name = f"blocks.{cfg.layer}.{cfg.act_name}"
 
     def zero_ablation_hook(value, hook):
-        value[:, :] = 0
+        if cfg.head_idx:
+            value[:, :, cfg.head_idx] = 0
+        else:
+            value[:, :] = 0
         return value
 
     def encode_activations_hook(value, hook):
-        _, x_reconstruct, _, _, _ = encoder(value.squeeze(0))
-        return x_reconstruct.unsqueeze(0)
+        which = np.s_[0, :, cfg.head_idx] if cfg.head_idx else np.s_[0]
+        _, x_reconstruct, _, _, _ = encoder(value[which])
+        value[which] = x_reconstruct
+        return value
 
     zero_ablate_hook = [(hook_name, zero_ablation_hook)]
     encode_mlp_hook = [(hook_name, encode_activations_hook)]
@@ -293,7 +302,7 @@ def load_encoder(save_name, model_name, model: HookedTransformer, save_path=".")
         cfg["reg"] = "l1"
     
     cfg = AutoEncoderConfig(
-        cfg["layer"], cfg["act"], cfg["expansion_factor"], cfg["l1_coeff"], d_in, reg=cfg["reg"]
+        cfg["layer"], cfg["act"], cfg["expansion_factor"], cfg["l1_coeff"], d_in, reg=cfg["reg"], head_idx=cfg['head_idx'] if 'head_idx' in cfg else None
     )
 
     d_hidden = cfg.d_in * cfg.expansion_factor
@@ -406,7 +415,12 @@ def train_autoencoder_evaluate_autoencoder_reconstruction(autoencoder: AutoEncod
     reconstruct_hooks = [(encoded_hook_name, encode_activations_hook)]
 
     def zero_ablate_hook(value, hook):
-        value[:] = 0
+        if len(value.shape) == 4:
+            which = np.s_[:, :, cfg['head_idx']]
+        else:
+            which = np.s_[:]
+
+        value[which] = 0
         return value
     zero_ablate_hooks = [(encoded_hook_name, zero_ablate_hook)]
     
