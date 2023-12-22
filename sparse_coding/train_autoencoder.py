@@ -209,7 +209,7 @@ def main(
 
     hook_name = f"blocks.{cfg['layer']}.{cfg['act']}"
     baseline_loss, baseline_zero_ablation_loss = get_component_baseline_losses(eval_prompts, model, hook_name, disable_tqdm=True, prepend_bos=False)
-
+    
     num_tokens = torch.numel(prompt_data)
     num_eval_tokens = cfg["num_eval_batches"] * cfg["batch_size"]
 
@@ -363,8 +363,10 @@ def main(
                     show_tqdm=False,
                     prepend_bos=False
                 )
+                
                 loss_recovered = ((baseline_zero_ablation_loss - reconstruction_loss)/(baseline_zero_ablation_loss - baseline_loss))
-
+                #loss_recovered_mean = ((baseline_mean_ablation_loss - reconstruction_loss)/(baseline_mean_ablation_loss - baseline_loss))
+                #print(baseline_zero_ablation_loss, baseline_mean_ablation_loss, reconstruction_loss, baseline_loss, loss_recovered, loss_recovered_mean)
                 # b_mean, b_variance, b_skew, b_kurt = get_moments(encoder.b_enc)
                 # (
                 #     feature_cosine_sim_mean,

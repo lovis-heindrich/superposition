@@ -49,8 +49,28 @@ class AutoEncoderConfig:
         return f"blocks.{self.layer}.{self.act_name}"
     
 def get_component_baseline_losses(prompts, model, hook_name: str, head_idx: int | None=None, disable_tqdm=False, prepend_bos=False):
+    # all_acts = []
+    # for prompt in prompts:
+    #     _, cache = model.run_with_cache(prompt, names_filter=hook_name, prepend_bos=prepend_bos)
+        
+    #     acts = cache[hook_name].squeeze(0)
+    #     if head_idx is not None:
+    #         acts = acts[:, head_idx]
+    #     all_acts.append(acts.mean(0))
+    # mean_act = torch.stack(all_acts).mean(0)
+
+    # def mean_ablation_hook(value, hook):
+    #     if head_idx is not None:
+    #         value[:, :, head_idx] = mean_act
+    #     else:
+    #         value[:, :] = mean_act
+    #     return value
+    
+    # mean_ablate_hook = [(hook_name, mean_ablation_hook)]
+    # mean_abl_losses = []
+
     def zero_ablation_hook(value, hook):
-        if head_idx:
+        if head_idx is not None:
             value[:, :, head_idx] = 0
         else:    
             value[:, :] = 0
@@ -60,7 +80,6 @@ def get_component_baseline_losses(prompts, model, hook_name: str, head_idx: int 
 
     losses = []
     zero_abl_losses = []
-
     for prompt in tqdm(prompts, disable=disable_tqdm):
         if isinstance(prompt, torch.Tensor):
             tokens = prompt
@@ -69,6 +88,9 @@ def get_component_baseline_losses(prompts, model, hook_name: str, head_idx: int 
         loss = model(tokens, return_type="loss", loss_per_token=False).item()
         with model.hooks(fwd_hooks=zero_ablate_hook):
             zero_abl_loss = model(tokens, return_type="loss", loss_per_token=False).item()
+        # with model.hooks(fwd_hooks=mean_ablate_hook):
+        #     mean_abl_loss = model(tokens, return_type="loss", loss_per_token=False).item()
+        # mean_abl_losses.append(mean_abl_loss)
         losses.append(loss)
         zero_abl_losses.append(zero_abl_loss)
     
@@ -402,16 +424,15 @@ def train_autoencoder_evaluate_autoencoder_reconstruction(autoencoder: AutoEncod
     def encode_activations_hook(value: Float[Tensor, "batch token [head] d_in"], hook):
         nonlocal act_nonzero_sums
         nonlocal act_nonzero_counts
-
         if len(value.shape) == 4:
             which = np.s_[0, :, cfg['head_idx']]
         else:
             which = np.s_[0]
-            
+        
         _, x_reconstruct, acts, _, _ = autoencoder(value[which])
         act_nonzero_sums += acts.sum(0)
         act_nonzero_counts += (acts > 0).sum(0)
-        
+
         value[which] = x_reconstruct
         return value
     
