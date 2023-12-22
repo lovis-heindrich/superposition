@@ -388,8 +388,6 @@ def train_autoencoder_evaluate_autoencoder_reconstruction(autoencoder: AutoEncod
     act_nonzero_counts = torch.zeros(autoencoder.d_hidden).cuda()
 
     def encode_activations_hook(value: Float[Tensor, "batch token [head] d_in"], hook):
-        print(value.shape)
-        print(model.cfg.d_head)
         nonlocal act_nonzero_sums
         nonlocal act_nonzero_counts
 
