@@ -29,9 +29,9 @@ class AutoEncoder(nn.Module):
         x_cent = x - self.b_dec
         acts = F.relu(x_cent @ self.W_enc + self.b_enc)
         x_reconstruct = acts @ self.W_dec + self.b_dec
-        mse_loss = (x_reconstruct - x).pow(2).sum(-1).mean(0)
+        loss = (x_reconstruct - x).pow(2).sum(-1).mean(0)
         reg_losses = REGULARIZATION_FNS[self.reg](acts, self.reg_coeff)
-        loss = mse_loss
+        mse_loss = loss.clone()
         if isinstance(reg_losses, list) or isinstance(reg_losses, tuple):
             for reg_loss in reg_losses:
                 loss += reg_loss
