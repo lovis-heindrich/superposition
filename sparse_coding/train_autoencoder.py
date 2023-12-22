@@ -100,7 +100,10 @@ class Buffer:
                 ].to(torch.long)
                 with torch.no_grad():
                     def acts_hook(value, hook):
-                        hook.ctx["activation"] = value
+                        if "head_idx" in cfg:
+                            hook.ctx["activation"] = value[:, :, cfg["head_idx"]].clone()
+                        else:
+                            hook.ctx["activation"] = value
                     acts_hooks = [(self.hook_name, acts_hook)]
                     with self.model.hooks(acts_hooks):
                         self.model(tokens)
@@ -352,6 +355,7 @@ def main(
             with torch.no_grad():
                 reconstruction_loss, fig = train_autoencoder_evaluate_autoencoder_reconstruction(
                     encoder,
+                    cfg,
                     f'blocks.{cfg["layer"]}.{cfg["act"]}',
                     eval_prompts,
                     model,
@@ -601,6 +605,7 @@ def run_trial(parameters: dict):
         fold_ln=True,
         device=device,
     )
+    model.set_use_attn_result(True)
 
     cfg["d_in"] = act_name_to_d_in(model, cfg['act'])
 
@@ -628,6 +633,7 @@ if __name__ == "__main__":
         fold_ln=True,
         device=device,
     )
+    model.set_use_attn_result(True)
 
     cfg["d_in"] = act_name_to_d_in(model, cfg['act'])
 

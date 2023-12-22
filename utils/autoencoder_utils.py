@@ -36,10 +36,10 @@ def get_device():
 @dataclass
 class AutoEncoderConfig:
     layer: int
-    act_name: Literal["mlp.hook_post", "hook_mlp_out"]
+    act_name: Literal["mlp.hook_post", "hook_mlp_out", "attn.hook_result"]
     expansion_factor: int
     l1_coeff: float
-    d_in: int | None # TODO(LQ 23/11/09) remove None 
+    d_in: int
     run_name: str | None = None
     reg: str = "l1"
 
@@ -273,6 +273,8 @@ def act_name_to_d_in(model: HookedTransformer, act_name: str):
         return model.cfg.d_mlp
     elif act_name == "hook_mlp_out":
         return model.cfg.d_model
+    elif act_name == "attn.hook_result":
+        return model.cfg.d_model
     else:
         raise ValueError("Act name not recognised: ", act_name)
 
@@ -380,21 +382,29 @@ def evaluate_autoencoder_reconstruction(autoencoder: AutoEncoder, encoded_hook_n
     return np.mean(original_losses), np.mean(reconstruct_losses), np.mean(zero_ablation_losses)
 
 @torch.no_grad()
-def train_autoencoder_evaluate_autoencoder_reconstruction(autoencoder: AutoEncoder, encoded_hook_name: str, data: list[str], model: HookedTransformer, reconstruction_loss_only: bool = False, show_tqdm=True, prepend_bos=True):
+def train_autoencoder_evaluate_autoencoder_reconstruction(autoencoder: AutoEncoder, cfg: AutoEncoderConfig, encoded_hook_name: str, data: list[str], model: HookedTransformer, reconstruction_loss_only: bool = False, show_tqdm=True, prepend_bos=True):
     '''Also grabs histogram of acts > 0'''
     act_nonzero_sums = torch.zeros(autoencoder.d_hidden).cuda()
     act_nonzero_counts = torch.zeros(autoencoder.d_hidden).cuda()
 
-    def encode_activations_hook(value, hook):
+    def encode_activations_hook(value: Float[Tensor, "batch token [head] d_in"], hook):
+        print(value.shape)
+        print(model.cfg.d_head)
         nonlocal act_nonzero_sums
         nonlocal act_nonzero_counts
 
-        value = value.squeeze(0)
-        _, x_reconstruct, acts, _, _ = autoencoder(value)
+        if len(value.shape) == 4:
+            which = np.s_[0, :, cfg['head_idx']]
+        else:
+            which = np.s_[0]
+            
+        _, x_reconstruct, acts, _, _ = autoencoder(value[which])
         act_nonzero_sums += acts.sum(0)
         act_nonzero_counts += (acts > 0).sum(0)
-
-        return x_reconstruct.unsqueeze(0)
+        
+        value[which] = x_reconstruct
+        return value
+    
     reconstruct_hooks = [(encoded_hook_name, encode_activations_hook)]
 
     def zero_ablate_hook(value, hook):
