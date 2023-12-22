@@ -231,6 +231,8 @@ def eval_direction_tokens_global(max_activations, prompts, model, encoder, cfg, 
 def get_acts(prompt: str | Tensor, model: HookedTransformer, encoder: AutoEncoder, cfg: AutoEncoderConfig):
     _, cache = model.run_with_cache(prompt, names_filter=cfg.encoder_hook_point)
     acts = cache[cfg.encoder_hook_point].squeeze(0)
+    if cfg.act_name == 'attn.hook_result':
+        acts = acts[:, cfg.head_idx, :]
     _, _, mid_acts, _, _ = encoder(acts)
     return mid_acts
 
@@ -292,6 +294,7 @@ def load_encoder(save_name, model_name, model: HookedTransformer, save_path=".")
     path = f"{save_path}/{model_name}/{save_name}"
     with open(f"{path}.json", "r") as f:
         cfg = json.load(f)
+        print(cfg)
     
     if "d_in" in cfg:
         d_in = cfg["d_in"]
