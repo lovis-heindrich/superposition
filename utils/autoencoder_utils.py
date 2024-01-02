@@ -973,12 +973,15 @@ def eval_encoder_reconstruction_single_position(prompts, encoder: AutoEncoder, m
     return original_loss, ablated_loss, encoded_loss
 
 def get_top_direction_ablation_df(activating_test_prompts: Bool[Tensor, "n_test_prompts d_enc"], prompts: list[str], model, encoder: AutoEncoder, cfg: AutoEncoderConfig, max_activations: Float[Tensor, "n_data d_enc"]):
+    """"""
     assert activating_test_prompts.shape[0] == len(prompts)
 
     all_acts = []
-    for prompt in prompts[:1000]:
-        acts = get_acts(prompt, model, encoder, cfg)[-2]
-        all_acts.append(acts)
+    for i in range(0, 1000, 32):
+    # for prompt in prompts[:1000]:
+        tokens = model.to_tokens(prompts[i:i + 32], padding_side='left')
+        acts = get_acts(tokens, model, encoder, cfg)[: -2].tolist()
+        all_acts.extend(acts)
 
     all_acts = torch.stack(all_acts)
 
