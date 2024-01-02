@@ -156,4 +156,4 @@ def final_token_indices(model: HookedTransformer, tokens: torch.tensor):
     return cumulative_mask.argmax(dim=1)
 
     # Select elements from each row up to the last non-bos index
-    # return tokens[:, max_indices + 1 - neg_pos]
+    # return tokens[:, max_indices + 1 - neg_pos]    
