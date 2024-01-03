@@ -1341,7 +1341,14 @@ def get_patched_cache(prompt: str | list[str], model: HookedTransformer, context
         _, only_activated_cache = model.run_with_cache(prompt)
     return only_activated_cache
 
-def clean_print_strings_as_html(strings: list[str], color_values: list[float], max_value: float=None, additional_measures: list[list[float]] | None = None, additional_measure_names: list[str] | None = None):
+def clean_print_strings_as_html(
+        strings: list[str], 
+        color_values: list[float], 
+        max_value: float=None, 
+        additional_measures: list[list[float]] | None = None, 
+        additional_measure_names: list[str] | None = None,
+        pretty_print=False
+    ):
     """ Magic GPT function that prints a string as HTML and colors it according to a list of color values. Color values are normalized to the max value preserving the sign.
     """
 
@@ -1379,11 +1386,14 @@ def clean_print_strings_as_html(strings: list[str], color_values: list[float], m
         text_color = "black" if luminance > 0.5 else "white"
 
         #visible_string = re.sub(r'\s+', '&nbsp;', strings[i])
-        visible_string = re.sub(r'\n', '¶', strings[i])
-        visible_string = re.sub(r'\s+', '·', visible_string)
+        if pretty_print:
+            visible_string = strings[i]
+        else:
+            visible_string = re.sub(r'\n', '¶', strings[i])
+            visible_string = re.sub(r'\s+', '·', visible_string)
         # visible_string = re.sub(r"[\n\t\s\r]*", "", visible_string)
 
-        html += f'<span style="background-color: rgb({red}, {green}, {blue}); color: {text_color}; padding: 2px;" '
+        html += f'<span style="background-color: rgb({red}, {green}, {blue}); color: {text_color}; line-height: 1.4; padding: 2px;" '
         html += f'title="Difference: {color_values[i]:.4f}' 
         if additional_measure_names is not None:
             for j in range(len(additional_measure_names)):
@@ -1402,7 +1412,7 @@ def color_print_strings(strings: list[str], color_values: list[float], max_value
         if min_value is None:
             min_value = min(values)
         min_value = abs(min_value)
-        normalized = [value / max_value if value > 0 else value / min_value for value in values]
+        normalized = [value / (max_value if value > 0 else min_value) for value in values if value != 0]
         return normalized
         
     # Normalize color values
