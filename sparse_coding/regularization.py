@@ -42,11 +42,11 @@ def combined_hoyer_l1(acts: torch.Tensor, reg_coeffs: list[float]) -> list[torch
 
 @regularization
 def combined_hoyer_sqrt(acts: torch.Tensor, reg_coeffs: list[float]) -> list[torch.Tensor]:
-    l1_coeff = reg_coeffs[0]
+    sqrt_coeff = reg_coeffs[0]
     hoyer_coeff = reg_coeffs[1]
-    l1_loss = sqrt(acts, l1_coeff)
+    sqrt_loss = sqrt(acts, sqrt_coeff)
     hoyer_loss = hoyer_square(acts, hoyer_coeff)
-    return [l1_loss, hoyer_loss]
+    return [sqrt_loss, hoyer_loss]
 
 @regularization
 def hoyer_d(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:
