@@ -63,7 +63,8 @@ def sqrt(acts: torch.Tensor, reg_coeff: float | list[float]) -> torch.Tensor:
     if isinstance(reg_coeff, list) or isinstance(reg_coeff, tuple):
         reg_coeff = reg_coeff[0]
 
-    act_reg_loss = acts.abs() + 1e-9
+    eps = torch.finfo(acts.dtype).eps
+    act_reg_loss = acts.abs() + eps
     mask = act_reg_loss < 1
     result = act_reg_loss * ~mask 
     result += (act_reg_loss.sqrt() * mask)
