@@ -1352,31 +1352,29 @@ def clean_print_strings_as_html(
     """ Magic GPT function that prints a string as HTML and colors it according to a list of color values. 
         Color values are normalized to the max value preserving the sign.
     """ 
-    ORANGE = np.array([247, 121, 54])
-    BLUE = np.array([0, 0, 255])
     WHITE = np.array([255, 255, 255])
-    
-    def get_shade(values: list[int], i: int, max_color=ORANGE):
+    ORANGE = np.array([252, 99, 23])
+    BLUE = np.array([0, 0, 255])
+
+    def get_shade(val: float, min_val: float, max_val: float, max_color=ORANGE):
         """Default max color is orange"""
         gradient = np.linspace(WHITE, max_color, 20).astype(int)
-        min_val, max_val = min(values), max(values)
-        if max_value:
-            max_val = max_value
-        fraction = (values[i] - min_val) / (max_val - min_val) if max_val != min_val else 1
+        fraction = (val - min_val) / (max_val - min_val) if max_val != min_val else 1
         position = int(fraction * 19)
         color = gradient[position]
         return color[0], color[1], color[2]
 
+    min_val = min(color_values)
+    max_val = max_value or max(color_values)
+    
     html = "<div style='white-space: normal; overflow-wrap: break-word;'>"
 
     for i in range(len(strings)):
         max_color = BLUE if color_values[i] < 0 else ORANGE
-        red, green, blue = get_shade(color_values, i, max_color=max_color)
+        red, green, blue = get_shade(color_values[i], min_val, max_val, max_color=max_color)
         
-        # Calculate luminance to determine if text should be black
+        # Calculate luminance to determine if text should be black or white
         luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255
-        
-        # Determine text color based on background luminance
         text_color = "black" if luminance > 0.5 else "white"
 
         #visible_string = re.sub(r'\s+', '&nbsp;', strings[i])
