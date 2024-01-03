@@ -1360,6 +1360,8 @@ def clean_print_strings_as_html(
         """Default max color is orange"""
         gradient = np.linspace(WHITE, max_color, 20).astype(int)
         min_val, max_val = min(values), max(values)
+        if max_value:
+            max_val = max_value
         fraction = (values[i] - min_val) / (max_val - min_val) if max_val != min_val else 1
         position = int(fraction * 19)
         color = gradient[position]
