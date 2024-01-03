@@ -1349,35 +1349,27 @@ def clean_print_strings_as_html(
         additional_measure_names: list[str] | None = None,
         pretty_print=False
     ):
-    """ Magic GPT function that prints a string as HTML and colors it according to a list of color values. Color values are normalized to the max value preserving the sign.
-    """
-
-    def normalize(values, max_value=None, min_value=None):
-        if max_value is None:
-            max_value = max(values)
-        if min_value is None:
-            min_value = min(values)
-        min_value = abs(min_value)
-        normalized = [value / max_value if value > 0 else value / min_value for value in values]
-        return normalized
-        
-    # Normalize color values
-    normalized_values = normalize(color_values, max_value, max_value)
+    """ Magic GPT function that prints a string as HTML and colors it according to a list of color values. 
+        Color values are normalized to the max value preserving the sign.
+    """ 
+    ORANGE = np.array([247, 121, 54])
+    BLUE = np.array([0, 0, 255])
+    WHITE = np.array([255, 255, 255])
+    
+    def get_shade(values: list[int], i: int, max_color=ORANGE):
+        """Default max color is orange"""
+        gradient = np.linspace(WHITE, max_color, 20).astype(int)
+        min_val, max_val = min(values), max(values)
+        fraction = (values[i] - min_val) / (max_val - min_val) if max_val != min_val else 1
+        position = int(fraction * 19)
+        color = gradient[position]
+        return color[0], color[1], color[2]
 
     html = "<div style='white-space: normal; overflow-wrap: break-word;'>"
 
     for i in range(len(strings)):
-        color = color_values[i]
-        normalized_color = normalized_values[i]
-        
-        if color < 0:
-            red = int(max(0, min(255, (1 + normalized_color) * 255)))
-            green = int(max(0, min(255, (1 + normalized_color) * 255)))
-            blue = 255
-        else:
-            red = 255
-            green = int(max(0, min(255, (1 - normalized_color) * 255)))
-            blue = int(max(0, min(255, (1 - normalized_color) * 255)))
+        max_color = BLUE if color_values[i] < 0 else ORANGE
+        red, green, blue = get_shade(color_values, i, max_color=max_color)
         
         # Calculate luminance to determine if text should be black
         luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255
