@@ -59,6 +59,7 @@ def hoyer_d(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:
 
 @regularization
 def sqrt(acts: torch.Tensor, scale: float | list[float]) -> torch.Tensor:
+    '''Square root penalty in [0, 1] and L1 elsewhere'''
     if isinstance(scale, list) or isinstance(scale, tuple):
         scale = scale[0]
 
