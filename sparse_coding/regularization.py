@@ -57,18 +57,15 @@ def hoyer_d(acts: torch.Tensor, reg_coeff: float) -> torch.Tensor:
     hoyer_square_normalized = hoyer_square / acts.shape[-1]
     return hoyer_square_normalized * reg_coeff
 
-
 @regularization
-def sqrt(acts: torch.Tensor, reg_coeff: float | list[float]) -> torch.Tensor:
-    if isinstance(reg_coeff, list) or isinstance(reg_coeff, tuple):
-        reg_coeff = reg_coeff[0]
+def sqrt(acts: torch.Tensor, scale: float | list[float]) -> torch.Tensor:
+    if isinstance(scale, list) or isinstance(scale, tuple):
+        scale = scale[0]
 
-    eps = torch.finfo(acts.dtype).eps
-    act_reg_loss = acts.abs() + eps
-    mask = act_reg_loss < 1
-    result = act_reg_loss * ~mask 
-    result += (act_reg_loss.sqrt() * mask)
-    return reg_coeff * result.sum()
+    l1 = acts.abs()
+    mask = l1 < 1
+    loss = (l1.sqrt() * mask) + (l1 * ~mask)
+    return loss.sum() * scale
 
 # Just for reference
 def hoyer_sqrt_reg(acts: torch.Tensor, hoyer_coeff: float, l1_coeff: float):
