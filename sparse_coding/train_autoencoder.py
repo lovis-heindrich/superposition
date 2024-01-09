@@ -482,7 +482,7 @@ DEFAULT_CONFIG = {
     "expansion_factor": 4,
     "seed": 47,
     "lr": 1e-4,
-    "l1_coeff": (0.00008, 0.00015),#(0.00011, 0.000165), #,  # Used for all regularization types to maintain backwards compatibility
+    "l1_coeff": (0.00017, 0.00015), # layer 1 sqrt, l0 of 30: 0.00017 #(0.00011, 0.000165), #,  # Used for all regularization types to maintain backwards compatibility
     "l1_target": None,
     "wd": 1e-2,
     "beta1": 0.9,
