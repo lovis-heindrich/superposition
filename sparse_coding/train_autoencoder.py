@@ -557,7 +557,7 @@ def get_dataset_dispatch(cfg) -> tuple[Dataset, Dataset]:
             : cfg["num_eval_prompts"]
         ]
     elif "pythia" in cfg['model']:
-        prompt_data = load_dataset("NeelNanda/pile-tokenized-2b", split='train')
+        prompt_data = load_dataset("NeelNanda/pile-tokenized-2b", split='train', cache_dir=cfg["data_path"])
         prompt_data.set_format(type="torch", columns=["tokens"])
         prompt_data = prompt_data["tokens"]
         
