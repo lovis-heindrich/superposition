@@ -24,6 +24,14 @@ def sqrt(acts: torch.Tensor, scale: float | list[float]) -> torch.Tensor:
     return loss.sum() * scale
 
 @regularization
+def pure_sqrt(acts: torch.Tensor, scale: float | list[float]) -> torch.Tensor:
+    '''Square root penalty'''
+    if isinstance(scale, list) or isinstance(scale, tuple):
+        scale = scale[0]
+
+    return acts.abs().sqrt().sum() * scale
+
+@regularization
 def hoyer_square(acts: torch.Tensor, scale: float, dim: int = -1) -> torch.Tensor:
     """Hoyer-Square sparsity measure."""
     if isinstance(scale, list) or isinstance(scale, tuple):
