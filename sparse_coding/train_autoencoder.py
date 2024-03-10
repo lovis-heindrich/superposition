@@ -468,7 +468,7 @@ def main(
 
 DEFAULT_CONFIG = {
     "cfg_file": '',
-    "data_path": "/workspace/data/pile",
+    "data_path": "/workspace/data/tinystories",
     "save_path": "/workspace",
     "use_wandb": True,
     "num_eval_tokens": 800000,  # Tokens used to resample dead directions
@@ -476,21 +476,21 @@ DEFAULT_CONFIG = {
     "batch_size": 5080,  # Batch shape is batch_size, d_in
     "buffer_mult": 256,  # Buffer size is batch_size*buffer_mult, d_in
     "seq_len": 127,
-    "model": "pythia-70m",
-    "layer": 0,
+    "model": "tiny-stories-2L-33M",
+    "layer": 1,
     "act": "mlp.hook_post",
     "expansion_factor": 4,
-    "seed": 48,
+    "seed": 49,
     "lr": 1e-4,
     # L1: 0.00017, 0.0001
-    "l1_coeff": (0.00017, 0.00015), # layer 1 sqrt, l0 of 30: 0.00017 #(0.00011, 0.000165), #,  # Used for all regularization types to maintain backwards compatibility
+    "l1_coeff": (0.000155, 0.000155 * 1.5), # layer 1 sqrt, l0 of 30: 0.00017 #(0.00011, 0.000165), #,  # Used for all regularization types to maintain backwards compatibility
     "l1_target": None,
     "wd": 1e-2,
     "beta1": 0.9,
     "beta2": 0.99,
     "num_eval_prompts": 150,  # Used for periodic evaluation logs
     "save_checkpoint_models": False,
-    "reg": "l1", # l1 | sqrt | hoyer_square | hoyer_d | hoyer_d_scaled_l1 | combined_hoyer_l1 | combined_hoyer_sqrt
+    "reg": "combined_hoyer_pure_sqrt", # l1 | sqrt | hoyer_square | hoyer_d | hoyer_d_scaled_l1 | combined_hoyer_l1 | combined_hoyer_sqrt
     "finetune_encoder": None,
     "dead_direction_frequency": 1e-5
 }
