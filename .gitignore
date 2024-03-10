@@ -17,6 +17,7 @@ wmt_europarl.pkl
 *.parquet
 *.json
 *.arrow
+*.safetensors
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
